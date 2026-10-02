@@ -1,0 +1,26 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --ui-zoom: 1;
+  /* Высота окна в CSS-пикселях с учётом масштаба интерфейса (zoom на <html>). */
+  --screen-h: calc(100vh / var(--ui-zoom));
+}
+
+/* Тонкая полоса в цветах темы: стандартная полоса Windows белая и выбивается из фона. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) transparent;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.45;
+}

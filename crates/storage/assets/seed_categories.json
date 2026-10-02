@@ -1,0 +1,87 @@
+[
+  {
+    "name": "Продукты",
+    "kind": "mandatory",
+    "sort_order": 0
+  },
+  {
+    "name": "Жильё и связь",
+    "kind": "mandatory",
+    "sort_order": 1
+  },
+  {
+    "name": "Транспорт",
+    "kind": "mandatory",
+    "sort_order": 2
+  },
+  {
+    "name": "Здоровье",
+    "kind": "mandatory",
+    "sort_order": 3
+  },
+  {
+    "name": "Кредиты и долги",
+    "kind": "mandatory",
+    "sort_order": 4
+  },
+  {
+    "name": "Кафе и доставка",
+    "kind": "wants",
+    "sort_order": 5
+  },
+  {
+    "name": "Одежда",
+    "kind": "wants",
+    "sort_order": 6
+  },
+  {
+    "name": "Красота",
+    "kind": "wants",
+    "sort_order": 7
+  },
+  {
+    "name": "Спорт",
+    "kind": "wants",
+    "sort_order": 8
+  },
+  {
+    "name": "Хобби и игры",
+    "kind": "wants",
+    "sort_order": 9
+  },
+  {
+    "name": "Дом и техника",
+    "kind": "wants",
+    "sort_order": 10
+  },
+  {
+    "name": "Подписки",
+    "kind": "wants",
+    "sort_order": 11
+  },
+  {
+    "name": "Маркетплейсы",
+    "kind": "wants",
+    "sort_order": 12
+  },
+  {
+    "name": "Подарки и праздники",
+    "kind": "wants",
+    "sort_order": 13
+  },
+  {
+    "name": "Прочее",
+    "kind": "wants",
+    "sort_order": 14
+  },
+  {
+    "name": "Займы другим",
+    "kind": "loans",
+    "sort_order": 15
+  },
+  {
+    "name": "Сбережения",
+    "kind": "savings",
+    "sort_order": 16
+  }
+]

@@ -1,0 +1,9 @@
+---
+source: crates/core/tests/analytics_standard.rs
+expression: text(&c)
+---
+unit: Percent
+categories: Маркетплейсы | Подарки и праздники | Красота | Одежда | Кафе и доставка | Транспорт | Хобби и игры | Спорт | Жильё и связь | Кредиты и долги | Подписки | Продукты | Прочее | Здоровье | Дом и техника | Займы другим
+tokens: category:13 | category:14 | category:8 | category:7 | category:6 | category:3 | category:10 | category:9 | category:2 | category:5 | category:12 | category:1 | category:15 | category:4 | category:11 | category:16
+Факт, % от лимита [metric.limit_usage]: 202.00 162.00 141.25 129.20 110.94 108.76 104.80 100.00 97.94 93.90 91.42 84.20 67.80 44.86 0.00 0.00
+ref Лимит: 100.00..None

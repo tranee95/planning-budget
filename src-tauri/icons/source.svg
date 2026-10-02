@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Знак приложения: пропорции компонента Logo (ui/src/lib/components/Logo.svelte), размер 1024. -->
+  <rect width="1024" height="1024" rx="307" fill="#17181B"/>
+  <rect x="248" y="573" width="128" height="215" rx="12" fill="#F4F3EF"/>
+  <rect x="448" y="348" width="128" height="440" rx="12" fill="#F4F3EF"/>
+  <rect x="648" y="481" width="128" height="307" rx="12" fill="#3445D0"/>
+</svg>

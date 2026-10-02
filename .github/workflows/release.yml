@@ -1,0 +1,53 @@
+name: release
+
+# Релиз по тегу vX.Y.Z: проверка версии, сборка установщиков под три ОС и публикация на странице релизов.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag matches the package version
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          cargo_version="$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"([^"]+)".*/\1/')"
+          conf_version="$(grep -m1 '"version"' src-tauri/tauri.conf.json | sed -E 's/.*: "([^"]+)".*/\1/')"
+          echo "tag=$tag cargo=$cargo_version tauri=$conf_version"
+          [ "$tag" = "$cargo_version" ] && [ "$tag" = "$conf_version" ]
+
+  publish:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libssl-dev librsvg2-dev
+      - run: pnpm install --frozen-lockfile
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Private Budget ${{ github.ref_name }}
+          releaseBody: "Установщики для Windows, macOS и Linux приложены ниже. Установщики не подписаны: система покажет предупреждение о неизвестном издателе."
+          releaseDraft: false
+          prerelease: false

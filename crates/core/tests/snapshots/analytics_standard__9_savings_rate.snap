@@ -1,0 +1,9 @@
+---
+source: crates/core/tests/analytics_standard.rs
+expression: text(&c)
+---
+unit: Percent
+categories: Январь | Февраль | Март | Апрель | Май | Июнь | Июль | Август | Сентябрь
+tokens: month:2026-01 | month:2026-02 | month:2026-03 | month:2026-04 | month:2026-05 | month:2026-06 | month:2026-07 | month:2026-08 | month:2026-09
+Норма сбережений [metric.savings_rate]: 9.54 9.19 10.99 10.92 8.62 15.61 11.26 9.70 13.04
+ref Коридор сбережений: 13.00..Some(15.0)

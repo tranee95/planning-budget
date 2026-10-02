@@ -1,0 +1,193 @@
+/* Private Budget — дизайн-токены. */
+:root {
+  color-scheme: light;
+  --bg: #f4f3ef;
+  --surface: #ffffff;
+  --surface-2: #f9f8f5;
+  --ink: #17181b;
+  --ink-2: #3b3e44;
+  --muted: #62666e;
+  --faint: #8d9098;
+  --line: #e6e4de;
+  --line-2: #efede8;
+  --accent: #3445d0;
+  --accent-ink: #ffffff;
+  --accent-soft: #eceefc;
+  --paid: #186e3e;
+  --paid-bg: #e1f2e7;
+  --paid-bar: #3aa567;
+  --debt: #8f5e00;
+  --debt-bg: #fbefcf;
+  --debt-bar: #e9b640;
+  --unpl: #b8312a;
+  --unpl-bg: #fbe3e0;
+  --unpl-bar: #dd5249;
+  --plan: #5e636b;
+  --plan-bg: #efeeea;
+  --plan-bar: #c9cbcf;
+  --shadow: 0 1px 2px rgba(20, 20, 25, 0.04), 0 8px 24px rgba(20, 20, 25, 0.05);
+  --scrim: rgba(23, 24, 27, 0.28);
+  --kind-mandatory: #5b7fd6;
+  --kind-wants: #d9893a;
+  --kind-savings: #3aa567;
+  --kind-loans: #8c6bd1;
+
+  /* типографика */
+  --font-sans: 'Onest Variable', 'Onest', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --fs-11: 11px;
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-14: 14px;
+  --fs-15: 15px;
+  --fs-17: 17px;
+  --fs-22: 22px;
+  --fs-26: 26px;
+  --fs-44: 44px;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 650;
+  --lh-tight: 1.2;
+  --lh-body: 1.5;
+  --tracking-tight: -0.02em;
+
+  /* пространство (4-pt) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+
+  /* радиусы */
+  --r-xs: 6px;
+  --r-sm: 8px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --r-xl: 20px;
+  --r-full: 999px;
+
+  /* размеры */
+  --h-control-sm: 32px;
+  --h-control: 40px;
+  --h-control-lg: 48px;
+  --sidebar-w: 232px;
+  --topbar-h: 76px;
+  --content-max: 1400px;
+
+  /* движение */
+  --dur-instant: 80ms;
+  --dur-fast: 140ms;
+  --dur-base: 240ms;
+  --dur-pop: 340ms;
+  --dur-slow: 380ms;
+  --dur-rise: 460ms;
+  --dur-chart: 800ms;
+  --dur-progress: 800ms;
+  --dur-shake: 300ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.2, 0.9, 0.25, 1.1);
+  --stagger: 36ms;
+
+  /* слои */
+  --z-sheet: 40;
+  --z-modal: 50;
+  --z-palette: 60;
+  --z-toast: 70;
+  --z-tooltip: 80;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0e0f11;
+  --surface: #16171a;
+  --surface-2: #1b1c20;
+  --ink: #eeeef0;
+  --ink-2: #cfd0d5;
+  --muted: #9ea1a8;
+  --faint: #72757c;
+  --line: #2a2b30;
+  --line-2: #222327;
+  --accent: #8491ff;
+  --accent-ink: #0e0f11;
+  --accent-soft: #20244a;
+  --paid: #6fd69a;
+  --paid-bg: #14301f;
+  --paid-bar: #3fb36f;
+  --debt: #f2c766;
+  --debt-bg: #352a0e;
+  --debt-bar: #d9a531;
+  --unpl: #ff8a80;
+  --unpl-bg: #3a1714;
+  --unpl-bar: #e0574d;
+  --plan: #a9acb3;
+  --plan-bg: #24252a;
+  --plan-bar: #4a4c53;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+  --scrim: rgba(0, 0, 0, 0.55);
+  --kind-mandatory: #7c9ae8;
+  --kind-wants: #e8a25c;
+  --kind-savings: #4fc080;
+  --kind-loans: #a58be0;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0e0f11;
+    --surface: #16171a;
+    --surface-2: #1b1c20;
+    --ink: #eeeef0;
+    --ink-2: #cfd0d5;
+    --muted: #9ea1a8;
+    --faint: #72757c;
+    --line: #2a2b30;
+    --line-2: #222327;
+    --accent: #8491ff;
+    --accent-ink: #0e0f11;
+    --accent-soft: #20244a;
+    --paid: #6fd69a;
+    --paid-bg: #14301f;
+    --paid-bar: #3fb36f;
+    --debt: #f2c766;
+    --debt-bg: #352a0e;
+    --debt-bar: #d9a531;
+    --unpl: #ff8a80;
+    --unpl-bg: #3a1714;
+    --unpl-bar: #e0574d;
+    --plan: #a9acb3;
+    --plan-bg: #24252a;
+    --plan-bar: #4a4c53;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+    --scrim: rgba(0, 0, 0, 0.55);
+    --kind-mandatory: #7c9ae8;
+    --kind-wants: #e8a25c;
+    --kind-savings: #4fc080;
+    --kind-loans: #a58be0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-pop: 0ms;
+    --dur-rise: 0ms;
+    --dur-slow: 0ms;
+    --dur-chart: 0ms;
+    --dur-progress: 0ms;
+    --dur-shake: 0ms;
+    --stagger: 0ms;
+  }
+}
+/* Настройка «Меньше анимаций» (ui-prefs: reducedMotion = on) выставляет data-motion="reduce" */
+:root[data-motion='reduce'] {
+  --dur-fast: 0ms;
+  --dur-base: 0ms;
+  --dur-pop: 0ms;
+  --dur-rise: 0ms;
+  --dur-slow: 0ms;
+  --dur-chart: 0ms;
+  --dur-progress: 0ms;
+  --dur-shake: 0ms;
+  --stagger: 0ms;
+}

@@ -1,0 +1,9 @@
+---
+source: crates/core/tests/analytics_standard.rs
+expression: text(&c)
+---
+unit: Rub
+categories: Обязательные | Желания | Сбережения | Займы
+tokens: kind.mandatory | kind.wants | kind.savings | kind.loans
+Траты [metric.spent]: 594424.00 314667.00 147459.45 15000.00
+totals: 594424.00 314667.00 147459.45 15000.00

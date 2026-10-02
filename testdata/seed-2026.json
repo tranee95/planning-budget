@@ -1,0 +1,2596 @@
+{
+ "version": 1,
+ "note": "Синтетические данные для тестов: выдуманы генератором. Суммы в копейках. Реальных данных нет.",
+ "settings": {
+  "savings.target_min_bp": 1300,
+  "savings.target_norm_bp": 1400,
+  "savings.target_max_bp": 1500,
+  "bonds.rate_bp": 1600,
+  "bonds.coupon_tax_bp": 1300,
+  "bonds.initial_balance": 0,
+  "bonds.initial_month": "2026-01",
+  "ui.weeks_per_month": 4,
+  "security.autolock_minutes": 5,
+  "currency": "RUB",
+  "locale": "ru-RU"
+ },
+ "categories": [
+  {
+   "name": "Продукты",
+   "kind": "mandatory",
+   "limit": 2000000,
+   "sort_order": 0,
+   "color": "#3AA567",
+   "note": null
+  },
+  {
+   "name": "Жильё и связь",
+   "kind": "mandatory",
+   "limit": 3400000,
+   "sort_order": 1,
+   "color": "#5B7FD6",
+   "note": null
+  },
+  {
+   "name": "Транспорт",
+   "kind": "mandatory",
+   "limit": 250000,
+   "sort_order": 2,
+   "color": "#8C6BD1",
+   "note": null
+  },
+  {
+   "name": "Здоровье",
+   "kind": "mandatory",
+   "limit": 350000,
+   "sort_order": 3,
+   "color": "#D9893A",
+   "note": null
+  },
+  {
+   "name": "Кредиты и долги",
+   "kind": "mandatory",
+   "limit": 1000000,
+   "sort_order": 4,
+   "color": "#DD5249",
+   "note": null
+  },
+  {
+   "name": "Кафе и доставка",
+   "kind": "wants",
+   "limit": 350000,
+   "sort_order": 5,
+   "color": "#C552A0",
+   "note": null
+  },
+  {
+   "name": "Одежда",
+   "kind": "wants",
+   "limit": 500000,
+   "sort_order": 6,
+   "color": "#4E8F6E",
+   "note": null
+  },
+  {
+   "name": "Красота",
+   "kind": "wants",
+   "limit": 400000,
+   "sort_order": 7,
+   "color": "#E0A73A",
+   "note": null
+  },
+  {
+   "name": "Спорт",
+   "kind": "wants",
+   "limit": 350000,
+   "sort_order": 8,
+   "color": "#6C7480",
+   "note": null
+  },
+  {
+   "name": "Хобби и игры",
+   "kind": "wants",
+   "limit": 250000,
+   "sort_order": 9,
+   "color": "#3445D0",
+   "note": null
+  },
+  {
+   "name": "Дом и техника",
+   "kind": "wants",
+   "limit": 500000,
+   "sort_order": 10,
+   "color": "#3AA567",
+   "note": null
+  },
+  {
+   "name": "Подписки",
+   "kind": "wants",
+   "limit": 120000,
+   "sort_order": 11,
+   "color": "#5B7FD6",
+   "note": null
+  },
+  {
+   "name": "Маркетплейсы",
+   "kind": "wants",
+   "limit": 400000,
+   "sort_order": 12,
+   "color": "#8C6BD1",
+   "note": null
+  },
+  {
+   "name": "Подарки и праздники",
+   "kind": "wants",
+   "limit": 200000,
+   "sort_order": 13,
+   "color": "#D9893A",
+   "note": null
+  },
+  {
+   "name": "Прочее",
+   "kind": "wants",
+   "limit": 100000,
+   "sort_order": 14,
+   "color": "#DD5249",
+   "note": null
+  },
+  {
+   "name": "Займы другим",
+   "kind": "loans",
+   "limit": 0,
+   "sort_order": 15,
+   "color": "#C552A0",
+   "note": null
+  },
+  {
+   "name": "Сбережения",
+   "kind": "savings",
+   "limit": null,
+   "sort_order": 16,
+   "color": "#4E8F6E",
+   "note": null
+  }
+ ],
+ "limits_valid_from": "2026-01",
+ "transactions": [
+  {
+   "month": "2026-01",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 325000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 309000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 136000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 162000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 333000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 377000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 189000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Продукты",
+   "title": "Рынок",
+   "amount": 68000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Жильё и связь",
+   "title": "Аренда",
+   "amount": 3200000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Жильё и связь",
+   "title": "Интернет",
+   "amount": 75000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Жильё и связь",
+   "title": "Мобильная связь",
+   "amount": 55000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Транспорт",
+   "title": "Проездной",
+   "amount": 120000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Транспорт",
+   "title": "Такси",
+   "amount": 80600,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Транспорт",
+   "title": "Такси",
+   "amount": 48100,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Здоровье",
+   "title": "Аптека",
+   "amount": 200000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Здоровье",
+   "title": "Приём врача",
+   "amount": 299000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Кредиты и долги",
+   "title": "Кредитная карта",
+   "amount": 973000,
+   "status": "debt"
+  },
+  {
+   "month": "2026-01",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 28600,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 44400,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 41700,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 30500,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 34900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Кафе и доставка",
+   "title": "Доставка еды",
+   "amount": 187000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Одежда",
+   "title": "Одежда",
+   "amount": 596000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Одежда",
+   "title": "Одежда",
+   "amount": 509000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Красота",
+   "title": "Салон",
+   "amount": 153000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Спорт",
+   "title": "Абонемент",
+   "amount": 350000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Дом и техника",
+   "title": "Товары для дома",
+   "amount": 231000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Подписки",
+   "title": "Видеосервис",
+   "amount": 59900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Подписки",
+   "title": "Музыка",
+   "amount": 29900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Подписки",
+   "title": "Облачное хранилище",
+   "amount": 19900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Маркетплейсы",
+   "title": "Заказ",
+   "amount": 312000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Маркетплейсы",
+   "title": "Заказ",
+   "amount": 340000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Маркетплейсы",
+   "title": "Заказ",
+   "amount": 292000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Прочее",
+   "title": "Разное",
+   "amount": 20000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Займы другим",
+   "title": "Займ знакомым",
+   "amount": 500000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-01",
+   "category": "Сбережения",
+   "title": "Инвестиции",
+   "amount": 1373908,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 447000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 392000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 163000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 199000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 343000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 397000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 152000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Продукты",
+   "title": "Рынок",
+   "amount": 173000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Продукты",
+   "title": "Рынок",
+   "amount": 66000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Жильё и связь",
+   "title": "Аренда",
+   "amount": 3200000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Жильё и связь",
+   "title": "Интернет",
+   "amount": 75000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Жильё и связь",
+   "title": "Мобильная связь",
+   "amount": 55000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Транспорт",
+   "title": "Проездной",
+   "amount": 120000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Здоровье",
+   "title": "Приём врача",
+   "amount": 235000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Кредиты и долги",
+   "title": "Кредитная карта",
+   "amount": 922000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 31300,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 43100,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Кафе и доставка",
+   "title": "Доставка еды",
+   "amount": 104000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Одежда",
+   "title": "Одежда",
+   "amount": 413000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Одежда",
+   "title": "Одежда",
+   "amount": 481000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Красота",
+   "title": "Салон",
+   "amount": 252000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Красота",
+   "title": "Салон",
+   "amount": 231000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Спорт",
+   "title": "Абонемент",
+   "amount": 350000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Хобби и игры",
+   "title": "Игры",
+   "amount": 81000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Подписки",
+   "title": "Видеосервис",
+   "amount": 59900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Подписки",
+   "title": "Музыка",
+   "amount": 29900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Подписки",
+   "title": "Облачное хранилище",
+   "amount": 19900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Маркетплейсы",
+   "title": "Заказ",
+   "amount": 332000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Маркетплейсы",
+   "title": "Заказ",
+   "amount": 318000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Маркетплейсы",
+   "title": "Заказ",
+   "amount": 269000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Подарки и праздники",
+   "title": "Подарок",
+   "amount": 324000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Прочее",
+   "title": "Разное",
+   "amount": 69100,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Прочее",
+   "title": "Разное",
+   "amount": 63100,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Займы другим",
+   "title": "Займ знакомым",
+   "amount": 500000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-02",
+   "category": "Сбережения",
+   "title": "Инвестиции",
+   "amount": 1277876,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 128000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 85000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 194000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 85000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 330000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 236000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Продукты",
+   "title": "Рынок",
+   "amount": 131000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Жильё и связь",
+   "title": "Аренда",
+   "amount": 3200000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Жильё и связь",
+   "title": "Интернет",
+   "amount": 75000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Жильё и связь",
+   "title": "Мобильная связь",
+   "amount": 55000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Транспорт",
+   "title": "Проездной",
+   "amount": 120000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Транспорт",
+   "title": "Такси",
+   "amount": 37700,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Транспорт",
+   "title": "Такси",
+   "amount": 72500,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Здоровье",
+   "title": "Аптека",
+   "amount": 142000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Здоровье",
+   "title": "Аптека",
+   "amount": 142000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Здоровье",
+   "title": "Аптека",
+   "amount": 145000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Здоровье",
+   "title": "Приём врача",
+   "amount": 378000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Кредиты и долги",
+   "title": "Кредитная карта",
+   "amount": 903000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 28400,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 31200,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 43700,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 36600,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Кафе и доставка",
+   "title": "Доставка еды",
+   "amount": 177000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Кафе и доставка",
+   "title": "Доставка еды",
+   "amount": 184000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Кафе и доставка",
+   "title": "Доставка еды",
+   "amount": 180000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Одежда",
+   "title": "Одежда",
+   "amount": 399000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Одежда",
+   "title": "Одежда",
+   "amount": 332000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Красота",
+   "title": "Салон",
+   "amount": 197000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Красота",
+   "title": "Салон",
+   "amount": 253000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Спорт",
+   "title": "Абонемент",
+   "amount": 350000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Хобби и игры",
+   "title": "Игры",
+   "amount": 177000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Хобби и игры",
+   "title": "Книги",
+   "amount": 79000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Хобби и игры",
+   "title": "Книги",
+   "amount": 86000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Дом и техника",
+   "title": "Товары для дома",
+   "amount": 311000,
+   "status": "unplanned"
+  },
+  {
+   "month": "2026-03",
+   "category": "Дом и техника",
+   "title": "Техника",
+   "amount": 866000,
+   "status": "unplanned"
+  },
+  {
+   "month": "2026-03",
+   "category": "Подписки",
+   "title": "Видеосервис",
+   "amount": 59900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Подписки",
+   "title": "Музыка",
+   "amount": 29900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Подписки",
+   "title": "Облачное хранилище",
+   "amount": 19900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Маркетплейсы",
+   "title": "Заказ",
+   "amount": 236000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Маркетплейсы",
+   "title": "Заказ",
+   "amount": 121000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Подарки и праздники",
+   "title": "Подарок",
+   "amount": 455000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Прочее",
+   "title": "Разное",
+   "amount": 60300,
+   "status": "paid"
+  },
+  {
+   "month": "2026-03",
+   "category": "Сбережения",
+   "title": "Инвестиции",
+   "amount": 1638222,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 151000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 312000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 213000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 104000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 113000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 280000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 269000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Продукты",
+   "title": "Рынок",
+   "amount": 91000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Жильё и связь",
+   "title": "Аренда",
+   "amount": 3200000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Жильё и связь",
+   "title": "Интернет",
+   "amount": 75000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Жильё и связь",
+   "title": "Мобильная связь",
+   "amount": 55000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Транспорт",
+   "title": "Проездной",
+   "amount": 120000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Кредиты и долги",
+   "title": "Кредитная карта",
+   "amount": 1084000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 35100,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 33700,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 26000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 42700,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Кафе и доставка",
+   "title": "Доставка еды",
+   "amount": 118000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Кафе и доставка",
+   "title": "Доставка еды",
+   "amount": 121000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Одежда",
+   "title": "Одежда",
+   "amount": 628000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Красота",
+   "title": "Салон",
+   "amount": 187000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Спорт",
+   "title": "Абонемент",
+   "amount": 350000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Хобби и игры",
+   "title": "Игры",
+   "amount": 54000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Хобби и игры",
+   "title": "Книги",
+   "amount": 119000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Дом и техника",
+   "title": "Техника",
+   "amount": 524000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Подписки",
+   "title": "Видеосервис",
+   "amount": 59900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Подписки",
+   "title": "Музыка",
+   "amount": 29900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Подписки",
+   "title": "Облачное хранилище",
+   "amount": 19900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Маркетплейсы",
+   "title": "Заказ",
+   "amount": 187000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Маркетплейсы",
+   "title": "Заказ",
+   "amount": 162000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Прочее",
+   "title": "Разное",
+   "amount": 45300,
+   "status": "paid"
+  },
+  {
+   "month": "2026-04",
+   "category": "Сбережения",
+   "title": "Инвестиции",
+   "amount": 1561013,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 161000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 115000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 352000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 399000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 122000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 429000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Продукты",
+   "title": "Рынок",
+   "amount": 68000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Продукты",
+   "title": "Рынок",
+   "amount": 107000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Жильё и связь",
+   "title": "Аренда",
+   "amount": 3200000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Жильё и связь",
+   "title": "Интернет",
+   "amount": 75000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Жильё и связь",
+   "title": "Мобильная связь",
+   "amount": 55000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Транспорт",
+   "title": "Проездной",
+   "amount": 120000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Транспорт",
+   "title": "Такси",
+   "amount": 52700,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Транспорт",
+   "title": "Такси",
+   "amount": 35000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Здоровье",
+   "title": "Аптека",
+   "amount": 227000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Здоровье",
+   "title": "Аптека",
+   "amount": 113000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Кредиты и долги",
+   "title": "Кредитная карта",
+   "amount": 903000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 39300,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 29200,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Кафе и доставка",
+   "title": "Доставка еды",
+   "amount": 170000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Кафе и доставка",
+   "title": "Доставка еды",
+   "amount": 181000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Кафе и доставка",
+   "title": "Доставка еды",
+   "amount": 158000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Красота",
+   "title": "Салон",
+   "amount": 344000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Красота",
+   "title": "Салон",
+   "amount": 194000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Спорт",
+   "title": "Абонемент",
+   "amount": 350000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Дом и техника",
+   "title": "Товары для дома",
+   "amount": 305000,
+   "status": "unplanned"
+  },
+  {
+   "month": "2026-05",
+   "category": "Дом и техника",
+   "title": "Товары для дома",
+   "amount": 147000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Подписки",
+   "title": "Видеосервис",
+   "amount": 59900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Подписки",
+   "title": "Музыка",
+   "amount": 29900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Подписки",
+   "title": "Облачное хранилище",
+   "amount": 19900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Маркетплейсы",
+   "title": "Заказ",
+   "amount": 245000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Подарки и праздники",
+   "title": "Подарок",
+   "amount": 472000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Прочее",
+   "title": "Разное",
+   "amount": 35000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-05",
+   "category": "Сбережения",
+   "title": "Инвестиции",
+   "amount": 1190130,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 152000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 411000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 123000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 117000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 409000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 353000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 231000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Продукты",
+   "title": "Рынок",
+   "amount": 158000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Жильё и связь",
+   "title": "Аренда",
+   "amount": 3200000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Жильё и связь",
+   "title": "Интернет",
+   "amount": 75000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Жильё и связь",
+   "title": "Мобильная связь",
+   "amount": 55000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Транспорт",
+   "title": "Проездной",
+   "amount": 120000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Транспорт",
+   "title": "Такси",
+   "amount": 42300,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Транспорт",
+   "title": "Такси",
+   "amount": 69200,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Кредиты и долги",
+   "title": "Кредитная карта",
+   "amount": 913000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 36800,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 38800,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 33400,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 42200,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 44400,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Кафе и доставка",
+   "title": "Доставка еды",
+   "amount": 115000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Одежда",
+   "title": "Одежда",
+   "amount": 563000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Красота",
+   "title": "Салон",
+   "amount": 341000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Красота",
+   "title": "Салон",
+   "amount": 295000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Спорт",
+   "title": "Абонемент",
+   "amount": 350000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Дом и техника",
+   "title": "Товары для дома",
+   "amount": 217000,
+   "status": "unplanned"
+  },
+  {
+   "month": "2026-06",
+   "category": "Дом и техника",
+   "title": "Товары для дома",
+   "amount": 330000,
+   "status": "unplanned"
+  },
+  {
+   "month": "2026-06",
+   "category": "Дом и техника",
+   "title": "Техника",
+   "amount": 529000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Подписки",
+   "title": "Видеосервис",
+   "amount": 59900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Подписки",
+   "title": "Музыка",
+   "amount": 29900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Подписки",
+   "title": "Облачное хранилище",
+   "amount": 19900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Маркетплейсы",
+   "title": "Заказ",
+   "amount": 133000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Маркетплейсы",
+   "title": "Заказ",
+   "amount": 82000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Маркетплейсы",
+   "title": "Заказ",
+   "amount": 186000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Займы другим",
+   "title": "Займ знакомым",
+   "amount": 500000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-06",
+   "category": "Сбережения",
+   "title": "Инвестиции",
+   "amount": 2497262,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 342000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 366000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 448000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 153000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 164000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 425000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 313000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Продукты",
+   "title": "Рынок",
+   "amount": 105000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Жильё и связь",
+   "title": "Аренда",
+   "amount": 3200000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Жильё и связь",
+   "title": "Интернет",
+   "amount": 75000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Жильё и связь",
+   "title": "Мобильная связь",
+   "amount": 55000,
+   "status": "debt"
+  },
+  {
+   "month": "2026-07",
+   "category": "Транспорт",
+   "title": "Проездной",
+   "amount": 120000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Здоровье",
+   "title": "Аптека",
+   "amount": 45000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Здоровье",
+   "title": "Аптека",
+   "amount": 247000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Кредиты и долги",
+   "title": "Кредитная карта",
+   "amount": 1091000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 37200,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 29800,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 26300,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Кафе и доставка",
+   "title": "Доставка еды",
+   "amount": 153000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Кафе и доставка",
+   "title": "Доставка еды",
+   "amount": 148000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Одежда",
+   "title": "Одежда",
+   "amount": 624000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Красота",
+   "title": "Салон",
+   "amount": 269000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Красота",
+   "title": "Салон",
+   "amount": 237000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Спорт",
+   "title": "Абонемент",
+   "amount": 350000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Хобби и игры",
+   "title": "Игры",
+   "amount": 105000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Хобби и игры",
+   "title": "Игры",
+   "amount": 213000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Хобби и игры",
+   "title": "Книги",
+   "amount": 144000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Хобби и игры",
+   "title": "Книги",
+   "amount": 69000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Дом и техника",
+   "title": "Товары для дома",
+   "amount": 142000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Дом и техника",
+   "title": "Товары для дома",
+   "amount": 336000,
+   "status": "unplanned"
+  },
+  {
+   "month": "2026-07",
+   "category": "Дом и техника",
+   "title": "Техника",
+   "amount": 447000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Подписки",
+   "title": "Видеосервис",
+   "amount": 59900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Подписки",
+   "title": "Музыка",
+   "amount": 29900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Подписки",
+   "title": "Облачное хранилище",
+   "amount": 19900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Маркетплейсы",
+   "title": "Заказ",
+   "amount": 79000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Подарки и праздники",
+   "title": "Подарок",
+   "amount": 303000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Прочее",
+   "title": "Разное",
+   "amount": 49700,
+   "status": "paid"
+  },
+  {
+   "month": "2026-07",
+   "category": "Сбережения",
+   "title": "Инвестиции",
+   "amount": 1666919,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 320000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 372000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 158000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 345000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 83000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 136000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Продукты",
+   "title": "Рынок",
+   "amount": 69000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Продукты",
+   "title": "Рынок",
+   "amount": 105000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Жильё и связь",
+   "title": "Аренда",
+   "amount": 3200000,
+   "status": "debt"
+  },
+  {
+   "month": "2026-08",
+   "category": "Жильё и связь",
+   "title": "Интернет",
+   "amount": 75000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Жильё и связь",
+   "title": "Мобильная связь",
+   "amount": 55000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Транспорт",
+   "title": "Проездной",
+   "amount": 120000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Транспорт",
+   "title": "Такси",
+   "amount": 85100,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Транспорт",
+   "title": "Такси",
+   "amount": 84700,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Транспорт",
+   "title": "Такси",
+   "amount": 78600,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Здоровье",
+   "title": "Приём врача",
+   "amount": 206000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Кредиты и долги",
+   "title": "Кредитная карта",
+   "amount": 1042000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 35600,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 35700,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 43200,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 35000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Кафе и доставка",
+   "title": "Доставка еды",
+   "amount": 158000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Одежда",
+   "title": "Одежда",
+   "amount": 574000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Красота",
+   "title": "Салон",
+   "amount": 263000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Спорт",
+   "title": "Абонемент",
+   "amount": 350000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Хобби и игры",
+   "title": "Игры",
+   "amount": 279000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Хобби и игры",
+   "title": "Игры",
+   "amount": 148000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Дом и техника",
+   "title": "Товары для дома",
+   "amount": 269000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Дом и техника",
+   "title": "Товары для дома",
+   "amount": 271000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Дом и техника",
+   "title": "Техника",
+   "amount": 802000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Подписки",
+   "title": "Видеосервис",
+   "amount": 59900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Подписки",
+   "title": "Музыка",
+   "amount": 29900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Подписки",
+   "title": "Облачное хранилище",
+   "amount": 19900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Маркетплейсы",
+   "title": "Заказ",
+   "amount": 142000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Маркетплейсы",
+   "title": "Заказ",
+   "amount": 127000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-08",
+   "category": "Сбережения",
+   "title": "Инвестиции",
+   "amount": 1415664,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 225000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 266000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 85000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 224000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 105000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 369000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 106000,
+   "status": "planned"
+  },
+  {
+   "month": "2026-09",
+   "category": "Продукты",
+   "title": "Супермаркет",
+   "amount": 150000,
+   "status": "planned"
+  },
+  {
+   "month": "2026-09",
+   "category": "Продукты",
+   "title": "Рынок",
+   "amount": 154000,
+   "status": "planned"
+  },
+  {
+   "month": "2026-09",
+   "category": "Жильё и связь",
+   "title": "Аренда",
+   "amount": 3200000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Жильё и связь",
+   "title": "Интернет",
+   "amount": 75000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Жильё и связь",
+   "title": "Мобильная связь",
+   "amount": 55000,
+   "status": "planned"
+  },
+  {
+   "month": "2026-09",
+   "category": "Транспорт",
+   "title": "Проездной",
+   "amount": 120000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Транспорт",
+   "title": "Такси",
+   "amount": 54200,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Транспорт",
+   "title": "Такси",
+   "amount": 31700,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Транспорт",
+   "title": "Такси",
+   "amount": 66000,
+   "status": "planned"
+  },
+  {
+   "month": "2026-09",
+   "category": "Здоровье",
+   "title": "Аптека",
+   "amount": 157000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Кредиты и долги",
+   "title": "Кредитная карта",
+   "amount": 939000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 25300,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 33800,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 37200,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Кафе и доставка",
+   "title": "Кофе",
+   "amount": 36000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Кафе и доставка",
+   "title": "Доставка еды",
+   "amount": 135000,
+   "status": "planned"
+  },
+  {
+   "month": "2026-09",
+   "category": "Кафе и доставка",
+   "title": "Доставка еды",
+   "amount": 121000,
+   "status": "planned"
+  },
+  {
+   "month": "2026-09",
+   "category": "Одежда",
+   "title": "Одежда",
+   "amount": 646000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Красота",
+   "title": "Салон",
+   "amount": 322000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Красота",
+   "title": "Салон",
+   "amount": 243000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Спорт",
+   "title": "Абонемент",
+   "amount": 350000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Хобби и игры",
+   "title": "Книги",
+   "amount": 147000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Хобби и игры",
+   "title": "Книги",
+   "amount": 115000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Подписки",
+   "title": "Видеосервис",
+   "amount": 59900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Подписки",
+   "title": "Музыка",
+   "amount": 29900,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Подписки",
+   "title": "Облачное хранилище",
+   "amount": 19900,
+   "status": "planned"
+  },
+  {
+   "month": "2026-09",
+   "category": "Маркетплейсы",
+   "title": "Заказ",
+   "amount": 265000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Маркетплейсы",
+   "title": "Заказ",
+   "amount": 330000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Маркетплейсы",
+   "title": "Заказ",
+   "amount": 213000,
+   "status": "planned"
+  },
+  {
+   "month": "2026-09",
+   "category": "Подарки и праздники",
+   "title": "Подарок",
+   "amount": 324000,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Прочее",
+   "title": "Разное",
+   "amount": 67800,
+   "status": "paid"
+  },
+  {
+   "month": "2026-09",
+   "category": "Сбережения",
+   "title": "Инвестиции",
+   "amount": 2124951,
+   "status": "planned"
+  }
+ ],
+ "incomes": [
+  {
+   "month": "2026-01",
+   "source": "Зарплата 05",
+   "amount": 10400000,
+   "status": "received"
+  },
+  {
+   "month": "2026-01",
+   "source": "Зарплата 20",
+   "amount": 4000000,
+   "status": "received"
+  },
+  {
+   "month": "2026-02",
+   "source": "Зарплата 05",
+   "amount": 9900000,
+   "status": "received"
+  },
+  {
+   "month": "2026-02",
+   "source": "Зарплата 20",
+   "amount": 4000000,
+   "status": "received"
+  },
+  {
+   "month": "2026-03",
+   "source": "Зарплата 05",
+   "amount": 9900000,
+   "status": "received"
+  },
+  {
+   "month": "2026-03",
+   "source": "Зарплата 20",
+   "amount": 4000000,
+   "status": "received"
+  },
+  {
+   "month": "2026-03",
+   "source": "Подработка",
+   "amount": 1000000,
+   "status": "received"
+  },
+  {
+   "month": "2026-04",
+   "source": "Зарплата 05",
+   "amount": 10300000,
+   "status": "received"
+  },
+  {
+   "month": "2026-04",
+   "source": "Зарплата 20",
+   "amount": 4000000,
+   "status": "received"
+  },
+  {
+   "month": "2026-05",
+   "source": "Зарплата 05",
+   "amount": 9800000,
+   "status": "received"
+  },
+  {
+   "month": "2026-05",
+   "source": "Зарплата 20",
+   "amount": 4000000,
+   "status": "received"
+  },
+  {
+   "month": "2026-06",
+   "source": "Зарплата 05",
+   "amount": 11200000,
+   "status": "received"
+  },
+  {
+   "month": "2026-06",
+   "source": "Зарплата 20",
+   "amount": 4000000,
+   "status": "received"
+  },
+  {
+   "month": "2026-06",
+   "source": "Подработка",
+   "amount": 800000,
+   "status": "received"
+  },
+  {
+   "month": "2026-07",
+   "source": "Зарплата 05",
+   "amount": 10800000,
+   "status": "received"
+  },
+  {
+   "month": "2026-07",
+   "source": "Зарплата 20",
+   "amount": 4000000,
+   "status": "received"
+  },
+  {
+   "month": "2026-08",
+   "source": "Зарплата 05",
+   "amount": 10600000,
+   "status": "received"
+  },
+  {
+   "month": "2026-08",
+   "source": "Зарплата 20",
+   "amount": 4000000,
+   "status": "received"
+  },
+  {
+   "month": "2026-09",
+   "source": "Зарплата 05",
+   "amount": 11200000,
+   "status": "received"
+  },
+  {
+   "month": "2026-09",
+   "source": "Зарплата 20",
+   "amount": 4000000,
+   "status": "expected"
+  },
+  {
+   "month": "2026-09",
+   "source": "Подработка",
+   "amount": 1100000,
+   "status": "received"
+  }
+ ]
+}
