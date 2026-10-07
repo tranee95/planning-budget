@@ -9,8 +9,8 @@
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
-use budget_core::analytics::{ChartData, Context, Placement, compute, standard_dashboard};
-use budget_core::{DataSet, YearMonth, load_seed};
+use planning_budget_core::analytics::{ChartData, Context, Placement, compute, standard_dashboard};
+use planning_budget_core::{DataSet, YearMonth, load_seed};
 use serde_json::Value;
 
 const SEED: &[u8] = include_bytes!(concat!(
@@ -104,7 +104,7 @@ fn standard_dashboard_specs_are_valid_and_fit_the_grid() {
         assert!(u16::from(c.x) + u16::from(c.w) <= 12, "{}", c.spec.title);
     }
     let json = serde_json::to_string(&charts[0].spec).unwrap();
-    let back: budget_core::analytics::ChartSpec = serde_json::from_str(&json).unwrap();
+    let back: planning_budget_core::analytics::ChartSpec = serde_json::from_str(&json).unwrap();
     assert_eq!(back, charts[0].spec);
 }
 

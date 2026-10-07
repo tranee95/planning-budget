@@ -22,7 +22,7 @@
             <span class="num amount">
               {formatMoney(row.fact)} <span class="of">/ {formatMoney(row.limit ?? 0)}</span>
             </span>
-            <span class="num pct {row.level ?? 'ok'}">{Math.round((row.usage ?? 0) * 100)}%</span>
+            <span class="num pct {row.level ?? 'ok'}">{row.usagePercent ?? 0}%</span>
           </div>
           <Progress value={row.usage ?? 0} label="{category.name}: использование лимита" />
         </li>

@@ -8,11 +8,11 @@ use std::process::ExitCode;
 /// (`STATUS_ENTRYPOINT_NOT_FOUND`), а основной бинарник получает его от `tauri-build`.
 fn cli_mode(flag: &str) -> Option<Result<(), String>> {
     match flag {
-        "--self-test" => {
-            Some(budget_app_lib::self_test::run().map_err(|e| format!("self-test failed: {e}")))
-        }
+        "--self-test" => Some(
+            planning_budget_app_lib::self_test::run().map_err(|e| format!("self-test failed: {e}")),
+        ),
         "--export-bindings" => Some(
-            budget_app_lib::export_bindings(&budget_app_lib::specta_builder())
+            planning_budget_app_lib::export_bindings(&planning_budget_app_lib::specta_builder())
                 .map_err(|e| format!("bindings export failed: {e}")),
         ),
         _ => None,
@@ -35,7 +35,7 @@ fn main() -> ExitCode {
             }
         };
     }
-    match budget_app_lib::run() {
+    match planning_budget_app_lib::run() {
         Ok(()) => ExitCode::SUCCESS,
         Err(_) => ExitCode::FAILURE,
     }

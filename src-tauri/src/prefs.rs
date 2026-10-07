@@ -25,9 +25,9 @@ struct OnDisk {
     reduced_motion: crate::dto::ReducedMotion,
     #[serde(default)]
     autolock_minutes: Option<u16>,
-    /// Нет ключа в существующем файле — установка старше подсказок: её владелец не новичок.
+    /// Нет ключа в существующем файле — установка старше знакомства: её владелец не новичок.
     #[serde(default)]
-    show_tips: Option<bool>,
+    intro_done: Option<bool>,
 }
 
 fn default_theme() -> crate::dto::Theme {
@@ -63,7 +63,7 @@ pub fn load(path: &Path) -> Prefs {
             ui_scale: d.ui_scale,
             reduced_motion: d.reduced_motion,
             autolock_minutes: d.autolock_minutes,
-            show_tips: d.show_tips.unwrap_or(false),
+            intro_done: d.intro_done.unwrap_or(true),
         })
         .unwrap_or_default()
 }
@@ -93,8 +93,8 @@ pub fn update(path: &Path, patch: PrefsPatch) -> Result<Prefs, AppError> {
     if let Some(motion) = patch.reduced_motion {
         prefs.reduced_motion = motion;
     }
-    if let Some(tips) = patch.show_tips {
-        prefs.show_tips = tips;
+    if let Some(done) = patch.intro_done {
+        prefs.intro_done = done;
     }
     if let Some(scale) = patch.ui_scale {
         if !SCALE_RANGE.contains(&scale) {
@@ -158,18 +158,18 @@ mod tests {
         assert_eq!(prefs.ui_scale, 110);
         // Порог неизвестен, пока бэкенд его не запишет: экран входа не должен называть выдуманное число.
         assert_eq!(prefs.autolock_minutes, None);
-        // Существующий файл без ключа: установка старше подсказок, показывать их не нужно.
-        assert!(!prefs.show_tips);
+        // Существующий файл без ключа: установка старше знакомства, показывать его не нужно.
+        assert!(prefs.intro_done);
     }
 
     #[test]
-    fn fresh_install_shows_tips() {
+    fn fresh_install_shows_the_intro() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("ui-prefs.json");
-        assert!(load(&path).show_tips);
+        assert!(!load(&path).intro_done);
         let created = update(&path, PrefsPatch::default()).unwrap();
-        assert!(created.show_tips);
-        assert!(load(&path).show_tips);
+        assert!(!created.intro_done);
+        assert!(!load(&path).intro_done);
     }
 
     #[test]
@@ -201,15 +201,20 @@ mod tests {
     }
 
     #[test]
-    fn tips_switch_persists() {
+    fn intro_flag_persists_and_can_be_reset() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("ui-prefs.json");
         let patch = PrefsPatch {
-            show_tips: Some(false),
+            intro_done: Some(true),
             ..PrefsPatch::default()
         };
-        assert!(!update(&path, patch).unwrap().show_tips);
-        assert!(!load(&path).show_tips);
+        assert!(update(&path, patch).unwrap().intro_done);
+        assert!(load(&path).intro_done);
+        let reset = PrefsPatch {
+            intro_done: Some(false),
+            ..PrefsPatch::default()
+        };
+        assert!(!update(&path, reset).unwrap().intro_done);
     }
 
     #[test]
@@ -307,9 +312,9 @@ mod tests {
             keys,
             [
                 "autolockMinutes",
+                "introDone",
                 "locale",
                 "reducedMotion",
-                "showTips",
                 "theme",
                 "uiScale"
             ]

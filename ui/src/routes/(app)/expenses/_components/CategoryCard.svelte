@@ -11,10 +11,9 @@
   const vm = getExpensesVm();
   const limit = $derived(block.limit);
   const fact = $derived(limit?.fact ?? 0);
-  const planned = $derived(limit?.byStatus.planned ?? 0);
-  // Суммы и остаток считает Rust; здесь только перевод в шкалу 0…1 для полосы.
-  const paidShare = $derived(limit?.limit ? (fact - planned) / limit.limit : 0);
-  const plannedShare = $derived(limit?.limit ? planned / limit.limit : 0);
+  // Доли лимита для полосы приходят готовыми из Rust (шкала 0…1).
+  const paidShare = $derived(limit?.paidUsage ?? 0);
+  const plannedShare = $derived(limit?.plannedUsage ?? 0);
 </script>
 
 <article class="card" in:rise={{ delay: stagger(index) }}>

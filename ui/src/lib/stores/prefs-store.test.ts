@@ -13,7 +13,7 @@ const prefsApi = {
       uiScale: 100,
       reducedMotion: 'system',
       autolockMinutes: 5,
-      showTips: true
+      introDone: true
     })
   ),
   set: vi.fn(),

@@ -5,9 +5,9 @@
     reason = "тестовый файл: паника и есть провал теста"
 )]
 
-use budget_core::{BasisPoints, CategoryKind, Money, TxStatus, YearMonth};
-use budget_storage::{Db, NewCategory, NewTransaction, RecordSource, StorageError};
 use chrono::{DateTime, TimeZone, Utc};
+use planning_budget_core::{BasisPoints, CategoryKind, Money, TxStatus, YearMonth};
+use planning_budget_storage::{Db, NewCategory, NewTransaction, RecordSource, StorageError};
 use serde_json::json;
 use tempfile::TempDir;
 
@@ -73,7 +73,7 @@ fn corridor_bounds_must_stay_ordered_and_failure_rolls_back() {
     let err = db
         .settings_set_many(&[
             ("savings.target_min_bp", json!(1600)),
-            ("bonds.rate_bp", json!(1700)),
+            ("ui.weeks_per_month", json!(3)),
         ])
         .unwrap_err();
     assert!(matches!(
@@ -81,7 +81,7 @@ fn corridor_bounds_must_stay_ordered_and_failure_rolls_back() {
         StorageError::Invalid("settings.corridor_order")
     ));
     let s = db.settings().unwrap();
-    assert_eq!((s.savings_min.0, s.bonds_rate.0), (1300, 1600));
+    assert_eq!((s.savings_min.0, s.weeks_per_month), (1300, 4));
 
     db.settings_set_many(&[
         ("savings.target_min_bp", json!(1000)),

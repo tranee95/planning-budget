@@ -1,10 +1,13 @@
 //! Сиды при создании хранилища: категории, лимиты, настройки.
 
-use budget_core::analytics::standard_dashboard;
 use chrono::{DateTime, SecondsFormat, Utc};
+use planning_budget_core::analytics::standard_dashboard;
 use rusqlite::params;
 use serde::Deserialize;
 
+use crate::writes::{
+    NewCategory, insert_category, insert_limit, insert_rate, upsert_savings_params,
+};
 use crate::{Db, StorageError};
 
 /// Палитра категорий. Цвета сида назначаются по кругу
@@ -17,19 +20,19 @@ pub(crate) const PALETTE: [&str; 10] = [
 /// Процент плана у сидовой категории сбережений: равен `savings.target_norm_bp`.
 const DEFAULT_SAVINGS_RATE_BP: i64 = 1400;
 
+/// Ставка и налог накопления сидовой категории сбережений.
+const DEFAULT_ANNUAL_RATE_BP: i64 = 1600;
+const DEFAULT_COUPON_TAX_BP: i64 = 1300;
+
 const STANDARD_DASHBOARD_NAME: &str = "Мой бюджет";
 
 const CATEGORIES_JSON: &str = include_str!("../assets/seed_categories.json");
 
 /// Значения по умолчанию (JSON-значения).
-/// Месяц начала накопления облигаций (`bonds.initial_month`) не входит в таблицу: им служит месяц создания хранилища.
-const DEFAULT_SETTINGS: [(&str, &str); 12] = [
+const DEFAULT_SETTINGS: [(&str, &str); 9] = [
     ("savings.target_min_bp", "1300"),
     ("savings.target_norm_bp", "1400"),
     ("savings.target_max_bp", "1500"),
-    ("bonds.rate_bp", "1600"),
-    ("bonds.coupon_tax_bp", "1300"),
-    ("bonds.initial_balance", "0"),
     ("ui.weeks_per_month", "4"),
     ("security.autolock_minutes", "5"),
     ("security.lock_on_minimize", "false"),
@@ -66,35 +69,37 @@ impl Db {
         let tx = self.conn.transaction()?;
         let existing: i64 = tx.query_row("SELECT count(*) FROM categories", [], |r| r.get(0))?;
         if existing == 0 {
-            let mut insert_category = tx.prepare_cached(
-                "INSERT INTO categories (name, kind, color, sort_order, note, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
-            )?;
-            let mut insert_limit = tx.prepare_cached(
-                "INSERT INTO category_limits (category_id, valid_from, amount) VALUES (?1, ?2, ?3)",
-            )?;
-            let mut insert_rate = tx.prepare_cached(
-                "INSERT INTO savings_category_rates (category_id, valid_from, rate_bp) VALUES (?1, ?2, ?3)",
-            )?;
             for (idx, cat) in categories.iter().enumerate() {
                 let color = PALETTE
                     .get(idx % PALETTE.len())
                     .copied()
                     .unwrap_or("#6C7480");
-                insert_category.execute(params![
-                    cat.name,
-                    cat.kind,
-                    color,
-                    cat.sort_order,
-                    cat.note,
-                    stamp
-                ])?;
-                let id = tx.last_insert_rowid();
+                let id = insert_category(
+                    &tx,
+                    &NewCategory {
+                        id: None,
+                        name: &cat.name,
+                        kind: &cat.kind,
+                        color,
+                        sort_order: cat.sort_order,
+                        note: cat.note.as_deref(),
+                        archived_at: None,
+                        stamp: &stamp,
+                    },
+                )?;
                 if let Some(amount) = cat.limit {
-                    insert_limit.execute(params![id, month, amount])?;
+                    insert_limit(&tx, id, &month, amount)?;
                 }
                 if cat.kind == "savings" {
-                    insert_rate.execute(params![id, month, DEFAULT_SAVINGS_RATE_BP])?;
+                    insert_rate(&tx, id, &month, DEFAULT_SAVINGS_RATE_BP, None)?;
+                    upsert_savings_params(
+                        &tx,
+                        id,
+                        DEFAULT_ANNUAL_RATE_BP,
+                        DEFAULT_COUPON_TAX_BP,
+                        0,
+                        &month,
+                    )?;
                 }
             }
         }
@@ -129,7 +134,6 @@ impl Db {
             for (key, value) in DEFAULT_SETTINGS {
                 insert_setting.execute(params![key, value])?;
             }
-            insert_setting.execute(params!["bonds.initial_month", format!("\"{month}\"")])?;
         }
         tx.commit()?;
         Ok(())

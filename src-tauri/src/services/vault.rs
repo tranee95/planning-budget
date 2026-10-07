@@ -7,9 +7,9 @@
 use std::fs;
 use std::io::ErrorKind;
 
-use budget_storage::{Db, StorageError};
-use budget_vault::{Dek, KdfParams, VaultError, VaultStore};
 use chrono::{DateTime, Utc};
+use planning_budget_storage::{Db, StorageError};
+use planning_budget_vault::{Dek, KdfParams, VaultError, VaultStore};
 use secrecy::SecretString;
 use zeroize::Zeroizing;
 
@@ -54,7 +54,7 @@ pub fn create(
     }
     let params = match kdf {
         Some(params) => params,
-        None => budget_vault::calibrate().map_err(|e| vault_err(&store, now, e))?,
+        None => planning_budget_vault::calibrate().map_err(|e| vault_err(&store, now, e))?,
     };
     let created = store
         .create_with_params(password, params, now)

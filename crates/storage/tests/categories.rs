@@ -5,9 +5,9 @@
     reason = "тестовый файл: паника и есть провал теста"
 )]
 
-use budget_core::{BasisPoints, CategoryId, CategoryKind, Money, YearMonth};
-use budget_storage::{CategoryPatch, Db, NewCategory, StorageError};
 use chrono::{DateTime, TimeZone, Utc};
+use planning_budget_core::{BasisPoints, CategoryId, CategoryKind, Money, YearMonth};
+use planning_budget_storage::{CategoryPatch, Db, NewCategory, StorageError};
 use tempfile::TempDir;
 
 const KEY: [u8; 32] = [5; 32];

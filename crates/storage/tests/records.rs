@@ -5,11 +5,11 @@
     reason = "тестовый файл: паника и есть провал теста"
 )]
 
-use budget_core::{CategoryId, IncomeStatus, Money, TxStatus, YearMonth};
-use budget_storage::{
+use chrono::{DateTime, NaiveDate, TimeZone, Utc};
+use planning_budget_core::{CategoryId, IncomeStatus, Money, TxStatus, YearMonth};
+use planning_budget_storage::{
     Db, IncomePatch, NewIncome, NewTransaction, RecordSource, StorageError, TransactionPatch,
 };
-use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use tempfile::TempDir;
 
 const KEY: [u8; 32] = [5; 32];
@@ -327,7 +327,7 @@ fn incomes_follow_the_same_rules() {
         rub(60_000)
     );
     assert!(matches!(
-        db.income_delete(budget_core::IncomeId(9999), now()),
+        db.income_delete(planning_budget_core::IncomeId(9999), now()),
         Err(StorageError::NotFound)
     ));
 }

@@ -21,7 +21,7 @@
 </script>
 
 <svelte:head>
-  <title>Private Budget — категории</title>
+  <title>Planning Budget — категории</title>
 </svelte:head>
 
 <div class="screen">

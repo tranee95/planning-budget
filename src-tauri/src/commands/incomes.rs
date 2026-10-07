@@ -1,7 +1,7 @@
 //! Доходы.
 
-use budget_core::IncomeId;
 use chrono::Utc;
+use planning_budget_core::IncomeId;
 use tauri::{AppHandle, State};
 
 use crate::AppError;

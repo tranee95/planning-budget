@@ -24,7 +24,7 @@ const MONTH_NAMES: [&str; 12] = [
 /// Месяц года; порядок сравнения — хронологический.
 ///
 /// ```
-/// use budget_core::YearMonth;
+/// use planning_budget_core::YearMonth;
 /// let m = YearMonth::parse("2026-09").unwrap();
 /// assert_eq!(m.to_string(), "2026-09");
 /// assert_eq!(m.ru_name(), "Сентябрь 2026");

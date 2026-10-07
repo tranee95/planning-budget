@@ -1,8 +1,8 @@
 //! Dev-сид: заливка `testdata/seed-2026.json` в пустую базу. Данные фикстуры есть только
 //! в debug-сборке: в релизе команда отвечает ошибкой, а файл в бинарник не попадает.
 
-use budget_storage::Db;
 use chrono::{DateTime, Utc};
+use planning_budget_storage::Db;
 
 use crate::AppError;
 
@@ -14,7 +14,7 @@ pub fn load(db: &mut Db, now: DateTime<Utc>) -> Result<(), AppError> {
         env!("CARGO_MANIFEST_DIR"),
         "/../testdata/seed-2026.json"
     ));
-    let data = budget_core::load_seed(SEED)?;
+    let data = planning_budget_core::load_seed(SEED)?;
     db.load_dataset(&data, now)?;
     Ok(())
 }

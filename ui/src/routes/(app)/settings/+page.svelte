@@ -10,7 +10,7 @@
 </script>
 
 <svelte:head>
-  <title>Private Budget — настройки</title>
+  <title>Planning Budget — настройки</title>
 </svelte:head>
 
 <section class="card" aria-labelledby="appearance-title">

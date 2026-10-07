@@ -1,7 +1,7 @@
 //! Подсказки быстрого добавления по всей истории трат.
 
-use budget_core::query::Term;
-use budget_core::{CategoryId, YearMonth};
+use planning_budget_core::query::Term;
+use planning_budget_core::{CategoryId, YearMonth};
 use rusqlite::params;
 
 use crate::migrations::normalize;

@@ -11,19 +11,19 @@ members = [
 ]
 
 [workspace.package]
-version = "0.6.0"
+version = "0.6.1"
 edition = "2024"
 rust-version = "1.90"
 license = "MIT"
 publish = false
 
 [workspace.dependencies]
-budget-core = { path = "crates/core" }
-budget-vault = { path = "crates/vault" }
-budget-storage = { path = "crates/storage" }
-budget-import = { path = "crates/import" }
-budget-export = { path = "crates/export" }
-budget-broker = { path = "crates/broker" }
+planning-budget-core = { path = "crates/core" }
+planning-budget-vault = { path = "crates/vault" }
+planning-budget-storage = { path = "crates/storage" }
+planning-budget-import = { path = "crates/import" }
+planning-budget-export = { path = "crates/export" }
+planning-budget-broker = { path = "crates/broker" }
 
 [workspace.lints.rust]
 unsafe_code = "deny"

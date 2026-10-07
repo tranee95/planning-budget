@@ -1,7 +1,7 @@
 //! Категории: список, создание, правка, порядок, архив, удаление.
 
-use budget_core::{Category, CategoryId, CategoryKind, YearMonth};
 use chrono::{DateTime, Utc};
+use planning_budget_core::{Category, CategoryId, CategoryKind, YearMonth};
 use rusqlite::{OptionalExtension as _, Row, params};
 
 use crate::{Db, StorageError, stamp};
@@ -157,6 +157,17 @@ impl Db {
         )
         .map_err(|e| name_conflict(e.into()))?;
         let id = CategoryId(tx.last_insert_rowid());
+        if input.kind == CategoryKind::Savings {
+            // Новое накопление начинается без процентов с текущего месяца.
+            crate::writes::upsert_savings_params(
+                &tx,
+                id.0,
+                0,
+                0,
+                0,
+                &now.format("%Y-%m").to_string(),
+            )?;
+        }
         tx.commit()?;
         self.category(id)
     }
@@ -276,7 +287,7 @@ impl Db {
             )?;
             tx.execute(
                 "INSERT INTO savings_category_rates (category_id, valid_from, rate_bp) VALUES (?1, ?2, 0)
-                 ON CONFLICT (category_id, valid_from) DO UPDATE SET rate_bp = 0",
+                 ON CONFLICT (category_id, valid_from) DO UPDATE SET rate_bp = 0, plan_kind = 'percent', amount = NULL",
                 params![id.0, month.to_string()],
             )?;
         }
@@ -312,11 +323,13 @@ impl Db {
     /// проценты плана удаляются каскадом.
     ///
     /// # Errors
-    /// `NotFound`; `Conflict`, если на категорию ссылаются траты или правила импорта.
+    /// `NotFound`; `Conflict`, если на категорию ссылаются траты, правила импорта, долги или снимки накоплений плана.
     pub fn category_delete(&mut self, id: CategoryId) -> Result<(), StorageError> {
         let used: bool = self.conn.query_row(
             "SELECT EXISTS (SELECT 1 FROM transactions WHERE category_id = ?1)
-                 OR EXISTS (SELECT 1 FROM import_rules WHERE category_id = ?1)",
+                 OR EXISTS (SELECT 1 FROM import_rules WHERE category_id = ?1)
+                 OR EXISTS (SELECT 1 FROM debts WHERE category_id = ?1)
+                 OR EXISTS (SELECT 1 FROM month_plan_savings WHERE category_id = ?1)",
             [id.0],
             |r| r.get(0),
         )?;

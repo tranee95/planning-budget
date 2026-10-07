@@ -8,11 +8,11 @@
 
 use std::collections::BTreeMap;
 
-use budget_core::calc::{Corridor, Ledger, LimitLevel};
-use budget_core::{
+use planning_budget_core::calc::{Corridor, Ledger, LimitLevel};
+use planning_budget_core::{
     BasisPoints, Category, CategoryId, CategoryKind, CoreError, DataSet, Income, IncomeId,
-    IncomeStatus, LimitEntry, Money, SavingsRateEntry, Settings, Transaction, TxId, TxStatus,
-    YearMonth,
+    IncomeStatus, LimitEntry, Money, SavingsParams, SavingsRateEntry, Settings, Transaction, TxId,
+    TxStatus, YearMonth,
 };
 
 fn ym(s: &str) -> YearMonth {
@@ -41,10 +41,6 @@ fn base() -> DataSet {
             savings_min: BasisPoints(1300),
             savings_norm: BasisPoints(1400),
             savings_max: BasisPoints(1500),
-            bonds_rate: BasisPoints(1600),
-            bonds_coupon_tax: BasisPoints(1300),
-            bonds_initial_balance: Money::ZERO,
-            bonds_initial_month: ym("2026-01"),
             weeks_per_month: 4,
         },
         categories: vec![
@@ -67,10 +63,23 @@ fn base() -> DataSet {
             category_id: SAVE,
             valid_from: ym("2026-01"),
             rate: BasisPoints(1400),
+            fixed_amount: None,
         }],
         savings_overrides: BTreeMap::new(),
         transactions: Vec::new(),
         incomes: Vec::new(),
+        debts: Vec::new(),
+        debt_payments: Vec::new(),
+        locked_plans: BTreeMap::new(),
+        savings_params: BTreeMap::from([(
+            SAVE,
+            SavingsParams {
+                annual_rate: BasisPoints(1600),
+                tax: BasisPoints(1300),
+                initial_balance: Money::ZERO,
+                initial_month: ym("2026-01"),
+            },
+        )]),
     }
 }
 
@@ -94,6 +103,7 @@ fn spend(data: &mut DataSet, month: &str, category: CategoryId, amount: Money, s
         title: "Запись".to_owned(),
         amount,
         status,
+        planned_amount: None,
     });
 }
 
@@ -187,6 +197,7 @@ fn with_reserve(rate: i32) -> DataSet {
         category_id: RESERVE,
         valid_from: ym("2026-01"),
         rate: BasisPoints(rate),
+        fixed_amount: None,
     });
     data
 }
@@ -234,6 +245,7 @@ fn savings_rate_follows_history_and_is_zero_before_first_entry() {
         category_id: SAVE,
         valid_from: ym("2026-04"),
         rate: BasisPoints(1500),
+        fixed_amount: None,
     });
     for month in ["2025-12", "2026-03", "2026-04"] {
         income(&mut data, month, rub(10_000));
@@ -314,12 +326,16 @@ fn unknown_category_is_an_error() {
 }
 
 #[test]
-fn bonds_start_from_initial_month_with_initial_balance() {
+fn accumulation_starts_from_initial_month_with_initial_balance() {
     let mut data = base();
-    data.settings.bonds_initial_month = ym("2026-11");
-    data.settings.bonds_initial_balance = rub(100_000);
+    let params = data.savings_params.get_mut(&SAVE).unwrap();
+    params.initial_month = ym("2026-11");
+    params.initial_balance = rub(100_000);
     spend(&mut data, "2026-11", SAVE, rub(10_000), TxStatus::Paid);
-    let fact = Ledger::new(&data).unwrap().bonds_fact(2026).unwrap();
+    let fact = Ledger::new(&data)
+        .unwrap()
+        .accumulation_fact(SAVE, 2026)
+        .unwrap();
     assert_eq!(fact.months.len(), 2);
     assert_eq!(fact.months[0].month, ym("2026-11"));
     assert_eq!(fact.months[0].deposited, rub(110_000));
@@ -327,11 +343,15 @@ fn bonds_start_from_initial_month_with_initial_balance() {
 }
 
 #[test]
-fn bonds_before_initial_month_keep_initial_balance() {
+fn accumulation_before_initial_month_keeps_initial_balance() {
     let mut data = base();
-    data.settings.bonds_initial_month = ym("2027-03");
-    data.settings.bonds_initial_balance = rub(5);
-    let fact = Ledger::new(&data).unwrap().bonds_fact(2026).unwrap();
+    let params = data.savings_params.get_mut(&SAVE).unwrap();
+    params.initial_month = ym("2027-03");
+    params.initial_balance = rub(5);
+    let fact = Ledger::new(&data)
+        .unwrap()
+        .accumulation_fact(SAVE, 2026)
+        .unwrap();
     assert!(fact.months.is_empty());
     assert_eq!(fact.dec_balance, rub(5));
 }
@@ -344,13 +364,13 @@ fn zero_weeks_per_month_is_rejected() {
 }
 
 #[test]
-fn bonds_balance_carries_over_into_next_year() {
+fn accumulation_balance_carries_over_into_next_year() {
     let mut data = base();
     spend(&mut data, "2026-06", SAVE, rub(10_000), TxStatus::Paid);
     spend(&mut data, "2027-02", SAVE, rub(5000), TxStatus::Paid);
     let ledger = Ledger::new(&data).unwrap();
-    let dec_2026 = ledger.bonds_fact(2026).unwrap().dec_balance;
-    let next = ledger.bonds_fact(2027).unwrap();
+    let dec_2026 = ledger.accumulation_fact(SAVE, 2026).unwrap().dec_balance;
+    let next = ledger.accumulation_fact(SAVE, 2027).unwrap();
     assert_eq!(next.months.len(), 12);
     assert_eq!(next.months[0].month, ym("2027-01"));
     assert!(next.months[0].balance > dec_2026);
@@ -437,7 +457,10 @@ fn invalid_year_is_an_error_everywhere() {
         ledger.budget_balance(1969, ym("2026-02")).unwrap_err(),
         CoreError::Month
     );
-    assert_eq!(ledger.bonds_fact(1969).unwrap_err(), CoreError::Month);
+    assert_eq!(
+        ledger.accumulation_fact(SAVE, 1969).unwrap_err(),
+        CoreError::Month
+    );
 }
 
 #[test]
@@ -487,7 +510,7 @@ fn ledger_totals_do_not_depend_on_transaction_order() {
         env!("CARGO_MANIFEST_DIR"),
         "/../../testdata/seed-2026.json"
     ));
-    let sorted = budget_core::load_seed(SEED).unwrap();
+    let sorted = planning_budget_core::load_seed(SEED).unwrap();
     let mut shuffled = sorted.clone();
     // Перемешивание без зависимостей: шаг взаимно прост с длиной, обход даёт перестановку.
     let n = shuffled.transactions.len();
@@ -518,4 +541,140 @@ fn ledger_totals_do_not_depend_on_transaction_order() {
 
 fn gcd(a: usize, b: usize) -> usize {
     if b == 0 { a } else { gcd(b, a % b) }
+}
+
+#[test]
+fn status_shares_are_basis_points_of_the_total_and_zero_when_empty() {
+    let mut data = base();
+    spend(&mut data, "2026-02", FOOD, rub(300), TxStatus::Paid);
+    spend(&mut data, "2026-02", FOOD, rub(100), TxStatus::Planned);
+    let s = Ledger::new(&data)
+        .unwrap()
+        .month_summary(ym("2026-02"))
+        .unwrap();
+    let shares = s.by_status.shares_bp();
+    assert_eq!((shares.paid, shares.planned), (7_500, 2_500));
+    assert_eq!((shares.debt, shares.unplanned), (0, 0));
+
+    let empty = Ledger::new(&base())
+        .unwrap()
+        .month_summary(ym("2026-02"))
+        .unwrap();
+    assert_eq!(empty.by_status.shares_bp(), Default::default());
+}
+
+#[test]
+fn limit_row_reports_percent_split_between_paid_and_planned_and_over_count() {
+    let mut data = base();
+    // Лимит «Продуктов» в феврале — 1 000 ₽.
+    spend(&mut data, "2026-02", FOOD, rub(600), TxStatus::Paid);
+    spend(&mut data, "2026-02", FOOD, rub(500), TxStatus::Planned);
+    let limits = Ledger::new(&data)
+        .unwrap()
+        .month_limits(ym("2026-02"))
+        .unwrap();
+    let food = limits.rows.iter().find(|r| r.category_id == FOOD).unwrap();
+    assert_eq!(food.usage_percent, Some(110));
+    assert_eq!(food.level, Some(LimitLevel::Over));
+    assert!((food.paid_usage.unwrap() - 0.6).abs() < 1e-9);
+    assert!((food.planned_usage.unwrap() - 0.5).abs() < 1e-9);
+    assert_eq!(limits.over_count, 1);
+}
+
+#[test]
+fn zero_limit_has_full_percent_and_no_split() {
+    let mut data = base();
+    data.limits.push(LimitEntry {
+        category_id: FOOD,
+        valid_from: ym("2026-05"),
+        amount: Money::ZERO,
+    });
+    spend(&mut data, "2026-05", FOOD, rub(10), TxStatus::Paid);
+    let limits = Ledger::new(&data)
+        .unwrap()
+        .month_limits(ym("2026-05"))
+        .unwrap();
+    let food = limits.rows.iter().find(|r| r.category_id == FOOD).unwrap();
+    assert_eq!(food.usage_percent, Some(100));
+    assert_eq!((food.paid_usage, food.planned_usage), (None, None));
+}
+
+#[test]
+fn savings_rate_bp_matches_the_rate_and_is_absent_without_income() {
+    let mut data = base();
+    income(&mut data, "2026-02", rub(10_000));
+    spend(&mut data, "2026-02", SAVE, rub(1_234), TxStatus::Paid);
+    let ledger = Ledger::new(&data).unwrap();
+    assert_eq!(
+        ledger.month_summary(ym("2026-02")).unwrap().savings_rate_bp,
+        Some(1_234)
+    );
+    assert_eq!(
+        ledger.month_summary(ym("2026-03")).unwrap().savings_rate_bp,
+        None
+    );
+}
+
+#[test]
+fn expenses_delta_needs_two_months_of_data_and_a_positive_average() {
+    let mut data = base();
+    income(&mut data, "2026-01", rub(10_000));
+    spend(&mut data, "2026-01", FOOD, rub(1_000), TxStatus::Paid);
+    let one_month = Ledger::new(&data)
+        .unwrap()
+        .year_summary(2026, ym("2026-01"))
+        .unwrap();
+    assert_eq!(one_month.expenses_delta_percent(rub(1_200)), None);
+
+    income(&mut data, "2026-02", rub(10_000));
+    spend(&mut data, "2026-02", FOOD, rub(500), TxStatus::Paid);
+    let two_months = Ledger::new(&data)
+        .unwrap()
+        .year_summary(2026, ym("2026-02"))
+        .unwrap();
+    // Среднее за два месяца — 750 ₽: 600 ₽ ниже среднего на 20 %, 900 ₽ выше на 20 %.
+    assert_eq!(two_months.expenses_delta_percent(rub(600)), Some(-20));
+    assert_eq!(two_months.expenses_delta_percent(rub(900)), Some(20));
+
+    let no_expenses = Ledger::new(&base())
+        .unwrap()
+        .year_summary(2026, ym("2026-02"))
+        .unwrap();
+    assert_eq!(no_expenses.expenses_delta_percent(rub(100)), None);
+}
+
+#[test]
+fn plan_rate_comes_from_history_and_off_norm_flag_compares_with_the_norm() {
+    let mut data = base();
+    data.savings_rates[0].valid_from = ym("2026-03");
+    let ledger = Ledger::new(&data).unwrap();
+    let rate_of = |month: &str| {
+        ledger
+            .month_limits(ym(month))
+            .unwrap()
+            .rows
+            .iter()
+            .find(|r| r.category_id == SAVE)
+            .unwrap()
+            .plan_rate_bp
+    };
+    assert_eq!(rate_of("2026-02"), None);
+    assert_eq!(rate_of("2026-03"), Some(1400));
+    // Продукты — не накопление: процента у строки нет.
+    let food = ledger.month_limits(ym("2026-03")).unwrap();
+    let food = food.rows.iter().find(|r| r.category_id == FOOD).unwrap();
+    assert_eq!(food.plan_rate_bp, None);
+
+    // План 14 % равен норме 14 %: расхождения нет; 15 % — есть; без плана — нет.
+    let flag = |data: &DataSet, month: &str| {
+        Ledger::new(data)
+            .unwrap()
+            .month_summary(ym(month))
+            .unwrap()
+            .savings_plan_off_norm
+    };
+    assert!(!flag(&data, "2026-03"));
+    assert!(!flag(&data, "2026-02"));
+    data.savings_rates[0].rate = BasisPoints(1500);
+    assert!(flag(&data, "2026-03"));
 }

@@ -2,9 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use budget_core::query::{Filter, RecordKind, Source, Term};
-use budget_core::{CategoryId, IncomeId, IncomeStatus, Money, TxId, TxStatus, YearMonth};
 use chrono::NaiveDate;
+use planning_budget_core::query::{Filter, RecordKind, Source, Term};
+use planning_budget_core::{CategoryId, IncomeId, IncomeStatus, Money, TxId, TxStatus, YearMonth};
 use rusqlite::params_from_iter;
 use rusqlite::types::Value;
 
@@ -222,7 +222,7 @@ impl Db {
     /// Id категорий, имя которых (целиком или по слову) начинается с одной из ссылок.
     fn category_ids_by_refs(
         &self,
-        refs: &[budget_core::query::CategoryRef],
+        refs: &[planning_budget_core::query::CategoryRef],
     ) -> Result<Vec<i64>, StorageError> {
         if refs.is_empty() {
             return Ok(Vec::new());

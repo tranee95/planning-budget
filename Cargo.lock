@@ -233,100 +233,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "budget-app"
-version = "0.6.0"
-dependencies = [
- "budget-core",
- "budget-import",
- "budget-storage",
- "budget-vault",
- "chrono",
- "rusqlite",
- "secrecy",
- "serde",
- "serde_json",
- "specta",
- "specta-typescript",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-window-state",
- "tauri-specta",
- "tempfile",
- "thiserror 2.0.21",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
- "zeroize",
-]
-
-[[package]]
-name = "budget-broker"
-version = "0.6.0"
-dependencies = [
- "budget-core",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "budget-core"
-version = "0.6.0"
-dependencies = [
- "insta",
- "proptest",
- "serde",
- "serde_json",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "budget-export"
-version = "0.6.0"
-
-[[package]]
-name = "budget-import"
-version = "0.6.0"
-dependencies = [
- "budget-core",
- "calamine",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "budget-storage"
-version = "0.6.0"
-dependencies = [
- "budget-core",
- "chrono",
- "data-encoding",
- "rusqlite",
- "rusqlite_migration",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.21",
- "windows-sys 0.61.2",
- "zeroize",
-]
-
-[[package]]
-name = "budget-vault"
-version = "0.6.0"
-dependencies = [
- "argon2",
- "chacha20poly1305",
- "chrono",
- "data-encoding",
- "getrandom 0.4.3",
- "secrecy",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.21",
- "zeroize",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2649,6 +2555,100 @@ name = "pkg-config"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
+
+[[package]]
+name = "planning-budget-app"
+version = "0.6.1"
+dependencies = [
+ "chrono",
+ "planning-budget-core",
+ "planning-budget-import",
+ "planning-budget-storage",
+ "planning-budget-vault",
+ "rusqlite",
+ "secrecy",
+ "serde",
+ "serde_json",
+ "specta",
+ "specta-typescript",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-window-state",
+ "tauri-specta",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+ "zeroize",
+]
+
+[[package]]
+name = "planning-budget-broker"
+version = "0.6.1"
+dependencies = [
+ "planning-budget-core",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "planning-budget-core"
+version = "0.6.1"
+dependencies = [
+ "insta",
+ "proptest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "planning-budget-export"
+version = "0.6.1"
+
+[[package]]
+name = "planning-budget-import"
+version = "0.6.1"
+dependencies = [
+ "calamine",
+ "planning-budget-core",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "planning-budget-storage"
+version = "0.6.1"
+dependencies = [
+ "chrono",
+ "data-encoding",
+ "planning-budget-core",
+ "rusqlite",
+ "rusqlite_migration",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "windows-sys 0.61.2",
+ "zeroize",
+]
+
+[[package]]
+name = "planning-budget-vault"
+version = "0.6.1"
+dependencies = [
+ "argon2",
+ "chacha20poly1305",
+ "chrono",
+ "data-encoding",
+ "getrandom 0.4.3",
+ "secrecy",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "zeroize",
+]
 
 [[package]]
 name = "plist"

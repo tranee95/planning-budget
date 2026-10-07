@@ -68,7 +68,7 @@ export const messages: Record<string, string> = {
   'errors.month_invalid': 'Месяц указан неверно, нужен формат ГГГГ-ММ.',
   'errors.category.color_invalid': 'Цвет категории задан неверно.',
   'errors.category.in_use':
-    'В категории есть записи или правила импорта: удалить её нельзя, только убрать в архив.',
+    'На категорию ссылаются записи, правила импорта, долги или снимки плана: удалить её нельзя, только убрать в архив.',
   'errors.category.last_savings':
     'Нельзя убрать последнюю категорию сбережений: в этом году в ней есть записи.',
   'errors.category.name_empty': 'Укажите название категории.',
@@ -85,6 +85,18 @@ export const messages: Record<string, string> = {
   'errors.record.title_empty': 'Укажите название.',
   'errors.savings.not_a_savings_category': 'Процент плана задаётся только у категорий сбережений.',
   'errors.savings.rate_out_of_range': 'Процент плана — от 0 до 100.',
+  'errors.savings.negative_amount': 'Сумма накопления не может быть отрицательной.',
+  'errors.debt.lender_empty': 'Укажите, у кого или откуда взят долг.',
+  'errors.debt.date_month_mismatch': 'Дата займа должна быть в месяце займа.',
+  'errors.debt.transaction_linked': 'Для этой траты долг уже создан.',
+  'errors.debt.schedule':
+    'График погашения не сходится: платежи должны быть положительными, в разные месяцы, не раньше месяца займа, а их сумма — равна сумме долга.',
+  'errors.plan.already_locked': 'План этого месяца уже зафиксирован.',
+  'errors.plan.not_locked': 'План этого месяца не зафиксирован.',
+  'errors.plan.locked': 'План этого месяца зафиксирован: сначала разблокируйте его.',
+  'errors.plan.not_empty': 'В этом месяце уже есть плановые строки: копировать план некуда.',
+  'errors.plan.line_is_savings': 'Накопления задаются отдельно, а не строкой расходов.',
+  'errors.plan.same_month': 'Выберите другой месяц: нельзя копировать план в тот же месяц.',
   'errors.settings.bad_value': 'Недопустимое значение настройки.',
   'errors.settings.corridor_order':
     'Нижняя граница не больше нормы, норма не больше верхней границы.',

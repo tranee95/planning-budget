@@ -1,6 +1,7 @@
 import { getContext, setContext } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
-import { events, type ChartCardDto, type ChartSpecDto, type DashboardDto } from '$lib/api/bindings';
+import { type ChartCardDto, type ChartSpecDto, type DashboardDto } from '$lib/api/bindings';
+import { onDataChanged } from '$lib/api/data-events';
 import { analyticsApi, dashboardsApi } from '$lib/api/data';
 import type { CardData } from '$lib/charts/card-data';
 import {
@@ -265,7 +266,7 @@ export class AnalyticsVm {
   connect(): () => void {
     let timer: ReturnType<typeof setTimeout> | undefined;
     // Серия правок подряд (быстрое добавление, импорт) пересчитывает графики один раз.
-    const off = events.dataChanged.listen(() => {
+    const off = onDataChanged(() => {
       clearTimeout(timer);
       timer = setTimeout(() => {
         void this.refreshData();
@@ -273,9 +274,7 @@ export class AnalyticsVm {
     });
     return () => {
       clearTimeout(timer);
-      void off.then((stop) => {
-        stop();
-      });
+      off();
     };
   }
 }

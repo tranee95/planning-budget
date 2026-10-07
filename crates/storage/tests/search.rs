@@ -5,10 +5,10 @@
     reason = "тестовый файл: паника и есть провал теста"
 )]
 
-use budget_core::query::{Filter, parse};
-use budget_core::{CategoryId, IncomeStatus, Money, TxStatus, YearMonth};
-use budget_storage::{Db, NewIncome, NewTransaction, RecordSource, SearchResult};
 use chrono::{DateTime, TimeZone, Utc};
+use planning_budget_core::query::{Filter, parse};
+use planning_budget_core::{CategoryId, IncomeStatus, Money, TxStatus, YearMonth};
+use planning_budget_storage::{Db, NewIncome, NewTransaction, RecordSource, SearchResult};
 use tempfile::TempDir;
 
 const KEY: [u8; 32] = [6; 32];
@@ -114,7 +114,7 @@ fn fixture() -> (TempDir, Db) {
         TxStatus::Paid,
     );
     let tag = db.tag_create("Подарки").unwrap();
-    db.transaction_tags_set(budget_core::TxId(gift), &[tag.id])
+    db.transaction_tags_set(planning_budget_core::TxId(gift), &[tag.id])
         .unwrap();
     add_income(&mut db, "2026-09", "Зарплата 14", 60_000);
     add_income(&mut db, "2026-08", "Подработка", 9_000);
@@ -281,9 +281,10 @@ fn soft_deleted_and_renamed_rows_follow_the_index() {
         TxStatus::Paid,
     );
     assert_eq!(run(&db, "бассейн").transactions.total, 1);
-    db.transaction_delete(budget_core::TxId(id), now()).unwrap();
+    db.transaction_delete(planning_budget_core::TxId(id), now())
+        .unwrap();
     assert_eq!(run(&db, "бассейн").transactions.total, 0);
-    db.transaction_restore(budget_core::TxId(id), now())
+    db.transaction_restore(planning_budget_core::TxId(id), now())
         .unwrap();
     assert_eq!(run(&db, "бассейн").transactions.total, 1);
 }
@@ -381,16 +382,16 @@ fn saved_filters_upsert_by_name_and_validate() {
     );
     assert!(matches!(
         db.saved_filter_save(" ", "x", now()),
-        Err(budget_storage::StorageError::Invalid(_))
+        Err(planning_budget_storage::StorageError::Invalid(_))
     ));
     assert!(matches!(
         db.saved_filter_save("a", "  ", now()),
-        Err(budget_storage::StorageError::Invalid(_))
+        Err(planning_budget_storage::StorageError::Invalid(_))
     ));
     db.saved_filter_delete(first.id).unwrap();
     assert!(matches!(
         db.saved_filter_delete(first.id),
-        Err(budget_storage::StorageError::NotFound)
+        Err(planning_budget_storage::StorageError::NotFound)
     ));
 }
 

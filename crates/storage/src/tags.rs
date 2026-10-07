@@ -1,6 +1,6 @@
 //! Теги трат.
 
-use budget_core::{Tag, TagId};
+use planning_budget_core::{Tag, TagId};
 use rusqlite::params;
 
 use crate::{Db, StorageError};

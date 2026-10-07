@@ -2,8 +2,8 @@
 
 use std::collections::BTreeMap;
 
-use budget_core::query::{Filter, RecordKind, Term};
-use budget_core::{Money, TagId};
+use planning_budget_core::query::{Filter, RecordKind, Term};
+use planning_budget_core::{Money, TagId};
 use rusqlite::params_from_iter;
 use rusqlite::types::Value;
 

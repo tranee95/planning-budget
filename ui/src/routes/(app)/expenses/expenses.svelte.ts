@@ -16,8 +16,10 @@ import { connectScreen } from '$lib/stores/connect-screen';
 import { tags } from '$lib/stores/tags.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { undoStack } from '$lib/stores/undo.svelte';
+import { createDebtFromTransaction } from '../debts/open';
+import { sortRows, type SortColumn } from './table-sort';
 
-export type SortColumn = 'date' | 'month' | 'title' | 'category' | 'amount' | 'status';
+export type { SortColumn };
 
 export interface CategoryBlock {
   category: CategoryDto;
@@ -89,22 +91,9 @@ export class ExpensesVm {
   );
 
   /** Строки таблицы: фильтр статусов и сортировка; без сортировки — порядок ввода. */
-  sortedRows = $derived.by<TransactionDto[]>(() => {
-    const sort = this.sort;
-    if (sort === null) return this.visible;
-    const names = new SvelteMap(categories.items.map((c) => [c.id, c.name]));
-    const text = (a: string, b: string) => a.localeCompare(b, 'ru');
-    const compare: Record<SortColumn, (a: TransactionDto, b: TransactionDto) => number> = {
-      date: (a, b) => (a.date ?? '￿').localeCompare(b.date ?? '￿'),
-      month: (a, b) => a.month.localeCompare(b.month),
-      title: (a, b) => text(a.title, b.title),
-      category: (a, b) => text(names.get(a.categoryId) ?? '', names.get(b.categoryId) ?? ''),
-      amount: (a, b) => a.amount - b.amount,
-      status: (a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)
-    };
-    const sign = sort.descending ? -1 : 1;
-    return [...this.visible].sort((a, b) => sign * compare[sort.column](a, b));
-  });
+  sortedRows = $derived.by<readonly TransactionDto[]>(() =>
+    sortRows(this.visible, this.sort, new SvelteMap(categories.items.map((c) => [c.id, c.name])))
+  );
 
   /** Выбранные строки, которые не скрыты фильтром: массовые действия работают только с ними. */
   checkedVisible = $derived(this.visible.filter((t) => this.checked.has(t.id)).map((t) => t.id));
@@ -200,6 +189,17 @@ export class ExpensesVm {
       this.transactions = prev;
       toasts.push({ kind: 'error', message: errorText(e) });
       return;
+    }
+    if (status === 'debt' && before !== undefined && before !== 'debt') {
+      toasts.push({
+        message: 'Трата оплачена в долг. Создать долг с графиком погашения?',
+        action: {
+          label: 'Создать долг',
+          run: () => {
+            createDebtFromTransaction(id, this.#month);
+          }
+        }
+      });
     }
     if (before !== undefined && before !== status) {
       undoStack.record({
@@ -398,7 +398,7 @@ export class ExpensesVm {
         categoryId,
         title,
         amount: draft.amount,
-        status: 'planned',
+        status: this.overview?.planLocked === true ? 'unplanned' : 'planned',
         comment: null
       });
       this.transactions = [...this.transactions, created];

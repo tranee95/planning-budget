@@ -1,9 +1,9 @@
 //! Поиск палитры: разбор запроса `core::query` и выполнение `storage::search`.
 
-use budget_core::YearMonth;
-use budget_core::query::{ParsedQuery, parse};
-use budget_storage::{Db, LIST_LIMIT, SearchResult};
 use chrono::{DateTime, NaiveDate, Utc};
+use planning_budget_core::YearMonth;
+use planning_budget_core::query::{ParsedQuery, parse};
+use planning_budget_storage::{Db, LIST_LIMIT, SearchResult};
 
 use crate::AppError;
 use crate::dto::{

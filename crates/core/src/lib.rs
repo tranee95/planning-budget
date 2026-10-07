@@ -1,4 +1,4 @@
-//! Домен, деньги и расчёты «Бюджета»: чистый крейт без I/O.
+//! Домен, деньги и расчёты Planning Budget: чистый крейт без I/O.
 
 pub mod analytics;
 pub mod calc;
@@ -15,8 +15,9 @@ pub use legacy::{
     BlockMismatch, LegacyBook, LegacyCategory, LegacyIncome, LegacySettings, LegacyTransaction,
 };
 pub use model::{
-    BasisPoints, Category, CategoryId, CategoryKind, DataSet, Income, IncomeId, IncomeStatus,
-    LimitEntry, SavingsRateEntry, Settings, Tag, TagId, Transaction, TxId, TxStatus,
+    BasisPoints, Category, CategoryId, CategoryKind, DataSet, Debt, DebtId, DebtPayment,
+    DebtPaymentStatus, Income, IncomeId, IncomeStatus, LimitEntry, LockedPlan, SavingsParams,
+    SavingsRateEntry, Settings, Tag, TagId, Transaction, TxId, TxStatus,
 };
 pub use money::Money;
 pub use period::YearMonth;

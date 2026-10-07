@@ -2,8 +2,8 @@
 
 use std::collections::BTreeMap;
 
-use budget_core::{CategoryId, Money, TagId, TxId, TxStatus, YearMonth};
 use chrono::{DateTime, NaiveDate, Utc};
+use planning_budget_core::{CategoryId, Money, TagId, TxId, TxStatus, YearMonth};
 use rusqlite::{Row, params};
 
 use crate::records::{
@@ -254,7 +254,8 @@ impl Db {
         };
         tx.execute(
             "UPDATE transactions SET month = ?2, date = ?3, category_id = ?4, title = ?5,
-                 amount = ?6, status = ?7, comment = ?8, sort_key = ?9, updated_at = ?10
+                 amount = ?6, status = ?7, comment = ?8, sort_key = ?9, updated_at = ?10,
+                 planned_amount = CASE WHEN ?11 THEN NULL ELSE planned_amount END
              WHERE id = ?1",
             params![
                 id.0,
@@ -266,7 +267,8 @@ impl Db {
                 status_str(status),
                 comment,
                 sort_key,
-                stamp(now)
+                stamp(now),
+                month != previous.month
             ],
         )?;
         tx.commit()?;

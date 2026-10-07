@@ -28,6 +28,15 @@ pub struct LimitRow {
     pub remaining: Option<Money>,
     /// `fact / limit`; при нулевом лимите 1 при `fact > 0`, иначе 0.
     pub usage: Option<f64>,
+    /// `usage` в целых процентах; при нулевом лимите 100 при `fact > 0`, иначе 0.
+    pub usage_percent: Option<i32>,
+    /// Только у категорий-сбережений: процент плана по истории на этот месяц (без ручного значения
+    /// месяца); `None`, если до месяца процент не задавался.
+    pub plan_rate_bp: Option<i32>,
+    /// Доля лимита, занятая оплаченным (всё, кроме статуса «План»); `None` без лимита или при нулевом лимите.
+    pub paid_usage: Option<f64>,
+    /// Доля лимита, занятая планом.
+    pub planned_usage: Option<f64>,
     /// Для сбережений не задаётся: перевыполнение плана — не перерасход.
     pub level: Option<LimitLevel>,
     pub by_status: StatusAmounts,
@@ -43,6 +52,8 @@ pub struct MonthLimits {
     pub expenses: Money,
     pub spent_vs_limits: Option<f64>,
     pub limits_remaining: Money,
+    /// Сколько категорий вышло за лимит (`level = Over`).
+    pub over_count: u32,
 }
 
 /// Строка годового сравнения категорий.
@@ -105,12 +116,26 @@ impl Ledger<'_> {
             if let (Some(limit), false) = (limit, is_savings || category.archived) {
                 limits_total = limits_total.checked_add(limit)?;
             }
+            let paid = fact.checked_sub(by_status.planned)?;
             rows.push(LimitRow {
                 category_id: category.id,
                 fact,
                 limit,
                 remaining: limit.map(|l| l.checked_sub(fact)).transpose()?,
                 usage: limit.map(|l| usage(fact, l)),
+                usage_percent: limit.map(|l| usage_percent(fact, l)),
+                plan_rate_bp: if is_savings {
+                    self.category_rate_from_history(month, category.id)
+                        .map(|r| r.0)
+                } else {
+                    None
+                },
+                paid_usage: limit
+                    .filter(|l| !l.is_zero())
+                    .map(|l| paid.as_f64() / l.as_f64()),
+                planned_usage: limit
+                    .filter(|l| !l.is_zero())
+                    .map(|l| by_status.planned.as_f64() / l.as_f64()),
                 level: if is_savings {
                     None
                 } else {
@@ -120,6 +145,10 @@ impl Ledger<'_> {
             });
         }
         let expenses = self.totals(month).by_kind.expenses()?;
+        let over_count = rows
+            .iter()
+            .filter(|r| r.level == Some(LimitLevel::Over))
+            .count();
         Ok(MonthLimits {
             month,
             rows,
@@ -127,6 +156,7 @@ impl Ledger<'_> {
             expenses,
             spent_vs_limits: expenses.ratio(limits_total),
             limits_remaining: limits_total.checked_sub(expenses)?,
+            over_count: u32::try_from(over_count).unwrap_or(u32::MAX),
         })
     }
 
@@ -240,6 +270,13 @@ pub(crate) fn usage(fact: Money, limit: Money) -> f64 {
         return if fact > Money::ZERO { 1.0 } else { 0.0 };
     }
     fact.as_f64() / limit.as_f64()
+}
+
+fn usage_percent(fact: Money, limit: Money) -> i32 {
+    if limit.is_zero() {
+        return if fact > Money::ZERO { 100 } else { 0 };
+    }
+    fact.ratio_percent(limit).unwrap_or(0)
 }
 
 /// Границы сравниваются в целых числах: ровно 85% и ровно 100% не зависят от `f64`.

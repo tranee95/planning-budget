@@ -1,13 +1,10 @@
 <script lang="ts">
-  import type { StatusAmountsDto, TxStatusDto } from '$lib/api/bindings';
+  import type { StatusAmountsDto } from '$lib/api/bindings';
   import { StatusChip } from '$lib/components';
   import { STATUS_ORDER } from '$lib/components/status';
   import { formatMoney } from '$lib/format';
 
   let { byStatus }: { byStatus: StatusAmountsDto } = $props();
-
-  const total = $derived(STATUS_ORDER.reduce((sum, s) => sum + byStatus[s], 0));
-  const share = (s: TxStatusDto): number => (total === 0 ? 0 : (byStatus[s] / total) * 100);
 </script>
 
 <div class="strip">
@@ -15,7 +12,7 @@
   <div class="track" role="img" aria-label="Доли расходов по статусам">
     {#each STATUS_ORDER as status (status)}
       {#if byStatus[status] > 0}
-        <span class="seg {status}" style:width="{share(status)}%"></span>
+        <span class="seg {status}" style:width="{byStatus.shareBp[status] / 100}%"></span>
       {/if}
     {/each}
   </div>

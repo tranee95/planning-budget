@@ -32,6 +32,10 @@ id_type!(
     /// Идентификатор тега.
     TagId
 );
+id_type!(
+    /// Идентификатор долга (займа).
+    DebtId
+);
 
 /// Доля в сотых долях процента: 1400 = 14%.
 #[derive(
@@ -100,13 +104,25 @@ pub struct LimitEntry {
     pub amount: Money,
 }
 
-/// Строка истории процента плана сбережений категории: действует с `valid_from`
-/// до следующей строки. До первой строки процент категории равен нулю.
+/// Строка истории плана накопления: действует с `valid_from` до следующей строки. План — процент
+/// от дохода (`rate`) либо фиксированная сумма (`fixed_amount`, тогда `rate` равен нулю). До первой
+/// строки план равен нулю.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct SavingsRateEntry {
     pub category_id: CategoryId,
     pub valid_from: YearMonth,
     pub rate: BasisPoints,
+    pub fixed_amount: Option<Money>,
+}
+
+/// Параметры накопления (категории `savings`): ставка, налог, начальный баланс.
+/// Ставка 0 — простое накопление без купонов.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct SavingsParams {
+    pub annual_rate: BasisPoints,
+    pub tax: BasisPoints,
+    pub initial_balance: Money,
+    pub initial_month: YearMonth,
 }
 
 /// Неудалённая трата; `amount` положительна, направление задаёт тип записи.
@@ -118,6 +134,47 @@ pub struct Transaction {
     pub title: String,
     pub amount: Money,
     pub status: TxStatus,
+    /// Плановая сумма, зафиксированная «Планом готов»; `None` — вне плана.
+    pub planned_amount: Option<Money>,
+}
+
+/// Заём: деньги, которые пользователь взял. Не путать со статусом
+/// траты «Долг» и категорией «Займы другим».
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct Debt {
+    pub id: DebtId,
+    pub lender: String,
+    pub amount: Money,
+    /// Месяц, когда взят: в нём долг — источник денег (`borrowed`).
+    pub taken_month: YearMonth,
+    /// Статья расходов, на которую взят.
+    pub category_id: Option<CategoryId>,
+}
+
+/// Статус строки графика погашения.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DebtPaymentStatus {
+    Planned,
+    Paid,
+}
+
+/// Строка графика погашения долга: платёж месяца.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct DebtPayment {
+    pub debt_id: DebtId,
+    pub month: YearMonth,
+    pub amount: Money,
+    pub status: DebtPaymentStatus,
+}
+
+/// Зафиксированный план месяца: значения на момент фиксации.
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
+pub struct LockedPlan {
+    /// План погашений долгов месяца на момент фиксации.
+    pub repayments_planned: Money,
+    /// План по накоплениям (категории `savings`) на момент фиксации.
+    pub savings: BTreeMap<CategoryId, Money>,
 }
 
 /// Неудалённый доход.
@@ -136,10 +193,6 @@ pub struct Settings {
     pub savings_min: BasisPoints,
     pub savings_norm: BasisPoints,
     pub savings_max: BasisPoints,
-    pub bonds_rate: BasisPoints,
-    pub bonds_coupon_tax: BasisPoints,
-    pub bonds_initial_balance: Money,
-    pub bonds_initial_month: YearMonth,
     pub weeks_per_month: u8,
 }
 
@@ -155,4 +208,11 @@ pub struct DataSet {
     pub savings_overrides: BTreeMap<(YearMonth, CategoryId), BasisPoints>,
     pub transactions: Vec<Transaction>,
     pub incomes: Vec<Income>,
+    /// Неудалённые долги и их графики погашения.
+    pub debts: Vec<Debt>,
+    pub debt_payments: Vec<DebtPayment>,
+    /// Месяцы с зафиксированным планом.
+    pub locked_plans: BTreeMap<YearMonth, LockedPlan>,
+    /// Параметры накоплений по категориям `savings`.
+    pub savings_params: BTreeMap<CategoryId, SavingsParams>,
 }

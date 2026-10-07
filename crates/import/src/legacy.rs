@@ -6,11 +6,11 @@
 
 use std::io::Cursor;
 
-use budget_core::{
+use calamine::{Data, Reader as _, Xlsx};
+use planning_budget_core::{
     BasisPoints, BlockMismatch, CategoryKind, IncomeStatus, LegacyBook, LegacyCategory,
     LegacyIncome, LegacySettings, LegacyTransaction, Money, TxStatus, YearMonth,
 };
-use calamine::{Data, Reader as _, Xlsx};
 
 use crate::ImportError;
 

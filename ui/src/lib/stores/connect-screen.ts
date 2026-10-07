@@ -1,4 +1,4 @@
-import { events } from '$lib/api/bindings';
+import { onDataChanged } from '$lib/api/data-events';
 import { shortcuts, type Shortcut } from '$lib/shortcuts';
 
 /** Пустой список месяцев в `data-changed` — изменились данные всех месяцев. */
@@ -19,13 +19,11 @@ interface ScreenConnection {
 /** Подписки экрана данных: горячая клавиша и перезагрузка по `data-changed`. Возвращает cleanup. */
 export function connectScreen({ shortcut, month, anyMonth, reload }: ScreenConnection): () => void {
   const offShortcut = shortcuts.register(shortcut);
-  const offData = events.dataChanged.listen(({ payload }) => {
-    if (anyMonth?.() === true || affectsMonth(payload.months, month())) reload();
+  const offData = onDataChanged(({ months }) => {
+    if (anyMonth?.() === true || affectsMonth(months, month())) reload();
   });
   return () => {
     offShortcut();
-    void offData.then((off) => {
-      off();
-    });
+    offData();
   };
 }

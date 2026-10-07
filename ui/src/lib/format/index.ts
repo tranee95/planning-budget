@@ -69,6 +69,13 @@ export function currentMonth(now: Date = new Date()): string {
   return `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
+/** Сегодняшняя дата `YYYY-MM-DD` в часовом поясе пользователя. */
+export function today(now: Date = new Date()): string {
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${String(now.getFullYear())}-${month}-${day}`;
+}
+
 /** Первый и последний день месяца `YYYY-MM` в формате `YYYY-MM-DD`. */
 export function monthRange(month: string): { first: string; last: string } {
   const [year, number] = parseMonth(month);

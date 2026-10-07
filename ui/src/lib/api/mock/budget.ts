@@ -13,6 +13,10 @@ import type {
   IncomePatchDto_Deserialize,
   LimitRowDto,
   MonthOverviewDto,
+  MonthPlanDto,
+  PlanWizardInputDto,
+  MonthSummaryDto,
+  SeriesRangeDto,
   SettingsDto,
   SettingsPatchDto,
   YearSummaryDto,
@@ -22,6 +26,9 @@ import type {
   TransactionPatchDto_Deserialize,
   TxStatusDto
 } from '../bindings';
+import { currentMonth, shiftMonth } from '$lib/format';
+import { repaymentsOfMonth, resetMockDebts } from './debts';
+import { clearMockFixedPlan, resetMockSavings, setMockFixedPlan } from './savings';
 import { mockIncomeList, mockSearch, mockTransactionList } from './search';
 
 /**
@@ -93,6 +100,14 @@ function planRateBp(month: string): number {
       latest.set(r.categoryId, r);
   }
   return [...latest.values()].reduce((sum, r) => sum + r.rateBp, 0);
+}
+
+/** Процент плана накопления по истории на месяц; `null`, если до месяца процент не задавался. */
+function rateFromHistory(categoryId: number, month: string): number | null {
+  const rows = savingsRates
+    .filter((r) => r.categoryId === categoryId && r.validFrom <= month)
+    .sort((a, b) => a.validFrom.localeCompare(b.validFrom));
+  return rows.at(-1)?.rateBp ?? null;
 }
 
 function limitFor(categoryId: number, month: string): number | null {
@@ -171,8 +186,50 @@ const seedTags = (): TagDto[] => [
 let tags = seedTags();
 let savedFilters: SavedFilterDto[] = [];
 
+/** Зафиксированные месяцы и плановые суммы на момент фиксации. */
+let lockedPlans = new Map<string, Map<number, number>>();
+
+/** Категории-накопления мока (раздел «Сбережения»). */
+export const mockSavingsCategories = (): CategoryDto[] =>
+  categories.filter((c) => c.kind === 'savings' && !c.archived);
+
+/** Действующий процент плана накопления (до сегодняшнего дня), б. п. */
+export const mockPlanRateBp = (categoryId: number): number =>
+  rateFromHistory(categoryId, currentMonth()) ?? 0;
+
+/** Трата мока по идентификатору (для мока «Долг из траты»). */
+export const mockTransactionById = (id: number): TransactionDto | undefined =>
+  transactions.find((t) => t.id === id);
+
+/** Предпросмотр мастера для мока: текущий план месяца плюс введённое (формулы в Rust). */
+function wizardPreview(month: string, input: PlanWizardInputDto): MonthPlanDto {
+  const base = planDto(month);
+  const income = base.income + input.incomes.reduce((s, i) => s + Math.max(i.amount, 0), 0);
+  const lines = input.lines.filter((l) => l.amount > 0);
+  const planExpenses = base.planExpenses + lines.reduce((s, l) => s + l.amount, 0);
+  let planSavings = base.planSavings;
+  for (const s of input.savings) {
+    const before = base.rows.find((r) => r.categoryId === s.categoryId)?.plan ?? 0;
+    const next =
+      s.plan.kind === 'fixed' ? s.plan.amount : Math.round((income * s.plan.rateBp) / 10_000);
+    planSavings += next - before;
+  }
+  const unallocated = income - planExpenses - planSavings - base.planRepayments;
+  return {
+    ...base,
+    income,
+    planExpenses,
+    planSavings,
+    unallocated,
+    balance: planBalance(unallocated, income, planExpenses + planSavings + base.planRepayments)
+  };
+}
+
 /** Возвращает мок данных к исходному набору (для тестов). */
 export function resetMockBudget(): void {
+  lockedPlans = new Map();
+  resetMockDebts();
+  resetMockSavings();
   transactions = seedTransactions();
   incomes = seedIncomes();
   deletedTx = new Map();
@@ -211,8 +268,90 @@ function applyPatch<T extends object>(row: T, patch: Partial<Record<keyof T, unk
   return next;
 }
 
+const STATUS_KEYS: TxStatusDto[] = ['paid', 'debt', 'unplanned', 'planned'];
+
+function planBalance(
+  unallocated: number,
+  income: number,
+  planned: number
+): MonthPlanDto['balance'] {
+  if (income === 0 && planned === 0) return 'empty';
+  if (unallocated === 0) return 'balanced';
+  return unallocated > 0 ? 'unallocated' : 'over';
+}
+
+function conflict(key: string): Promise<never> {
+  const error: AppError = { code: 'Conflict', messageKey: key };
+  // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+  return Promise.reject(error);
+}
+
+/** План месяца для мока: только заполняет поля DTO, формулы живут в Rust. */
+function planDto(month: string): MonthPlanDto {
+  const locked = lockedPlans.get(month);
+  const rows = transactions.filter((t) => t.month === month);
+  const income = incomes.filter((i) => i.month === month).reduce((sum, i) => sum + i.amount, 0);
+  const planByCategory = new Map<number, number>();
+  for (const category of categories) {
+    const own = rows.filter((t) => t.categoryId === category.id);
+    const open = own.filter((t) => t.status !== 'unplanned').reduce((sum, t) => sum + t.amount, 0);
+    const savings =
+      category.kind === 'savings'
+        ? Math.round((income * (rateFromHistory(category.id, month) ?? 0)) / 10_000)
+        : 0;
+    planByCategory.set(
+      category.id,
+      locked?.get(category.id) ?? (category.kind === 'savings' ? savings : open)
+    );
+  }
+  let planExpenses = 0;
+  let planSavings = 0;
+  const planRows = categories.map((c) => {
+    const plan = planByCategory.get(c.id) ?? 0;
+    const fact = rows.filter((t) => t.categoryId === c.id).reduce((sum, t) => sum + t.amount, 0);
+    if (c.kind === 'savings') planSavings += plan;
+    else planExpenses += plan;
+    return { categoryId: c.id, plan, fact, deviation: fact - plan };
+  });
+  const repayments = repaymentsOfMonth(month);
+  const planRepayments = repayments.reduce((sum, r) => sum + r.amount, 0);
+  const unallocated = income - planExpenses - planSavings - planRepayments;
+  return {
+    month,
+    locked: locked !== undefined,
+    income,
+    planExpenses,
+    planSavings,
+    planRepayments,
+    unallocated,
+    balance: planBalance(unallocated, income, planExpenses + planSavings + planRepayments),
+    rows: planRows,
+    repayments,
+    unplanned: rows.filter((t) => t.status === 'unplanned').reduce((sum, t) => sum + t.amount, 0),
+    borrowed: 0,
+    saved: planRows
+      .filter((r) => categories.find((c) => c.id === r.categoryId)?.kind === 'savings')
+      .reduce((sum, r) => sum + r.fact, 0)
+  };
+}
+
 function emptyStatuses(): StatusAmountsDto {
-  return { paid: 0, debt: 0, unplanned: 0, planned: 0 };
+  return {
+    paid: 0,
+    debt: 0,
+    unplanned: 0,
+    planned: 0,
+    total: 0,
+    shareBp: { paid: 0, debt: 0, unplanned: 0, planned: 0 }
+  };
+}
+
+/** Мок только заполняет поля DTO; формулы живут в Rust, поэтому доли здесь приблизительные. */
+function finishStatuses(a: StatusAmountsDto): StatusAmountsDto {
+  const total = STATUS_KEYS.reduce((sum, k) => sum + a[k], 0);
+  for (const k of STATUS_KEYS) a.shareBp[k] = total === 0 ? 0 : Math.round((a[k] / total) * 10_000);
+  a.total = total;
+  return a;
 }
 
 function overview(month: string): MonthOverviewDto {
@@ -225,8 +364,8 @@ function overview(month: string): MonthOverviewDto {
     const statuses = emptyStatuses();
     for (const t of own) statuses[t.status] += t.amount;
     const fact = own.reduce((sum, t) => sum + t.amount, 0);
-    for (const status of Object.keys(statuses) as TxStatusDto[])
-      byStatus[status] += statuses[status];
+    finishStatuses(statuses);
+    for (const status of STATUS_KEYS) byStatus[status] += statuses[status];
     byKind[category.kind] += fact;
     const limit = limitFor(category.id, month);
     limitRows.push({
@@ -235,10 +374,15 @@ function overview(month: string): MonthOverviewDto {
       limit,
       remaining: limit === null ? null : limit - fact,
       usage: limit === null ? null : fact / limit,
+      usagePercent: limit === null ? null : Math.round((fact / limit) * 100),
+      planRateBp: category.kind === 'savings' ? rateFromHistory(category.id, month) : null,
+      paidUsage: limit === null || limit === 0 ? null : (fact - statuses.planned) / limit,
+      plannedUsage: limit === null || limit === 0 ? null : statuses.planned / limit,
       level: limit === null ? null : fact > limit ? 'over' : fact / limit >= 0.9 ? 'warn' : 'ok',
       byStatus: statuses
     });
   }
+  finishStatuses(byStatus);
   const expenses = rows
     .filter((t) => categories.find((c) => c.id === t.categoryId)?.kind !== 'savings')
     .reduce((sum, t) => sum + t.amount, 0);
@@ -257,12 +401,15 @@ function overview(month: string): MonthOverviewDto {
       incomeExpected: income - incomeReceived,
       expenses,
       savings,
+      borrowed: 0,
+      repaid: 0,
       free: income - expenses - savings,
       freeCum: income - expenses - savings,
       savingsCum: savings,
-      savingsRate: income === 0 ? null : savings / income,
+      savingsRateBp: income === 0 ? null : Math.round((savings / income) * 10_000),
       unspentRate: null,
       savingsPlanRateBp: planRateBp(month),
+      savingsPlanOffNorm: planRateBp(month) > 0 && planRateBp(month) !== settings.savingsNormBp,
       savingsPlan: Math.round(income * 0.14),
       savingsGap: savings - Math.round(income * 0.14),
       perWeek: Math.round(expenses / 4.33),
@@ -276,7 +423,10 @@ function overview(month: string): MonthOverviewDto {
     limitsTotal,
     limitsRemaining:
       limitsTotal - limitRows.reduce((sum, r) => sum + (r.limit === null ? 0 : r.fact), 0),
-    spentVsLimits: null
+    spentVsLimits: null,
+    overCount: limitRows.filter((r) => r.level === 'over').length,
+    planLocked: lockedPlans.has(month),
+    expensesDeltaPercent: null
   };
 }
 
@@ -287,10 +437,6 @@ let settings: SettingsDto = {
   savingsMinBp: 1300,
   savingsNormBp: 1400,
   savingsMaxBp: 1500,
-  bondsRateBp: 1600,
-  bondsCouponTaxBp: 1300,
-  bondsInitialBalance: 0,
-  bondsInitialMonth: '2026-01',
   weeksPerMonth: 4,
   autolockMinutes: 15,
   lockOnMinimize: false,
@@ -420,6 +566,7 @@ export const budgetHandlers = {
     ),
   savings_rates_list: () => savingsRates,
   savings_rate_set: (args: { categoryId: number; validFrom: string; rateBp: number }) => {
+    clearMockFixedPlan(args.categoryId);
     savingsRates = [
       ...savingsRates.filter(
         (r) => !(r.categoryId === args.categoryId && r.validFrom === args.validFrom)
@@ -438,6 +585,111 @@ export const budgetHandlers = {
     return settings;
   },
   summary_year: (args: { year: number }) => yearSummary(args.year),
+  plan_month: (args: { month: string }) => planDto(args.month),
+  plan_lock: (args: { month: string }) => {
+    if (lockedPlans.has(args.month)) return conflict('errors.plan.already_locked');
+    lockedPlans.set(
+      args.month,
+      new Map(planDto(args.month).rows.map((r) => [r.categoryId, r.plan]))
+    );
+    return planDto(args.month);
+  },
+  plan_unlock: (args: { month: string }) => {
+    if (!lockedPlans.delete(args.month)) return conflict('errors.plan.not_locked');
+    return planDto(args.month);
+  },
+  plan_preview: (args: { month: string; input: PlanWizardInputDto }) =>
+    wizardPreview(args.month, args.input),
+  plan_wizard_apply: (args: { month: string; input: PlanWizardInputDto }) => {
+    if (lockedPlans.has(args.month)) return conflict('errors.plan.locked');
+    if (transactions.some((t) => t.month === args.month && t.status === 'planned')) {
+      return conflict('errors.plan.not_empty');
+    }
+    for (const i of args.input.incomes) {
+      incomes = [
+        ...incomes,
+        {
+          id: nextId++,
+          month: args.month,
+          date: null,
+          sourceName: i.sourceName.trim(),
+          amount: i.amount,
+          status: 'expected',
+          comment: null
+        }
+      ];
+    }
+    for (const l of args.input.lines) {
+      const category = categories.find((c) => c.id === l.categoryId);
+      if (!category || category.kind === 'savings') continue;
+      transactions = [
+        ...transactions,
+        {
+          id: nextId++,
+          month: args.month,
+          date: null,
+          categoryId: l.categoryId,
+          title: category.name,
+          amount: l.amount,
+          status: 'planned',
+          comment: null,
+          tagIds: []
+        }
+      ];
+    }
+    for (const s of args.input.savings) {
+      if (s.plan.kind === 'fixed') setMockFixedPlan(s.categoryId, s.plan.amount);
+      else {
+        clearMockFixedPlan(s.categoryId);
+        savingsRates = [
+          ...savingsRates.filter(
+            (r) => !(r.categoryId === s.categoryId && r.validFrom === args.month)
+          ),
+          { categoryId: s.categoryId, validFrom: args.month, rateBp: s.plan.rateBp }
+        ];
+      }
+    }
+    lockedPlans.set(
+      args.month,
+      new Map(planDto(args.month).rows.map((r) => [r.categoryId, r.plan]))
+    );
+    return planDto(args.month);
+  },
+  plan_copy_from_previous: (args: { month: string }) => {
+    if (lockedPlans.has(args.month)) return conflict('errors.plan.locked');
+    if (transactions.some((t) => t.month === args.month && t.status === 'planned')) {
+      return conflict('errors.plan.not_empty');
+    }
+    const previous = shiftMonth(args.month, -1);
+    const copied = transactions
+      .filter(
+        (t) =>
+          t.month === previous &&
+          t.status !== 'unplanned' &&
+          categories.find((c) => c.id === t.categoryId)?.kind !== 'savings'
+      )
+      .map((t): TransactionDto => ({
+        ...t,
+        id: nextId++,
+        month: args.month,
+        date: null,
+        status: 'planned',
+        tagIds: []
+      }));
+    transactions = [...transactions, ...copied];
+    return planDto(args.month);
+  },
+  summary_series: (args: { month: string; range: SeriesRangeDto }): MonthSummaryDto[] => {
+    const year = Number(args.month.slice(0, 4));
+    if (args.range === 'year') return yearSummary(year).months;
+    if (args.range === '12m') {
+      return [...yearSummary(year - 1).months, ...yearSummary(year).months]
+        .filter((m) => m.month <= args.month)
+        .slice(-12);
+    }
+    const years = Array.from({ length: 11 }, (_, i) => yearSummary(year - 10 + i));
+    return years.flatMap((y) => y.months).filter((m) => m.income > 0 || m.expenses > 0);
+  },
 
   categories_list: (args: { includeArchived: boolean }) =>
     categories.filter((c) => args.includeArchived || !c.archived),
@@ -520,6 +772,21 @@ export const budgetHandlers = {
     const row: TagDto = { id: nextId++, name: args.name.trim() };
     tags = [...tags, row];
     return row;
+  },
+  tags_rename: (args: { id: number; name: string }) => {
+    const row = tags.find((t) => t.id === args.id);
+    if (!row) return notFound('tag', args.id);
+    const renamed: TagDto = { ...row, name: args.name.trim() };
+    tags = tags.map((t) => (t.id === args.id ? renamed : t));
+    return renamed;
+  },
+  tags_delete: (args: { id: number }) => {
+    tags = tags.filter((t) => t.id !== args.id);
+    transactions = transactions.map((t) => ({
+      ...t,
+      tagIds: t.tagIds.filter((id) => id !== args.id)
+    }));
+    return null;
   },
   tx_tags_set: (args: { id: number; tagIds: number[] }) => {
     if (!transactions.some((t) => t.id === args.id)) return notFound('transaction', args.id);

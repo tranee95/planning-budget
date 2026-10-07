@@ -5,8 +5,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock};
 use std::time::Instant;
 
-use budget_storage::Db;
-use budget_vault::VaultStore;
+use planning_budget_storage::Db;
+use planning_budget_vault::VaultStore;
 use tauri::{AppHandle, Manager as _};
 
 use crate::AppError;

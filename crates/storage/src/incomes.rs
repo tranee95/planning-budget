@@ -1,7 +1,7 @@
 //! Доходы: создание, правка, статус, мягкое удаление и восстановление.
 
-use budget_core::{IncomeId, IncomeStatus, Money, YearMonth};
 use chrono::{DateTime, NaiveDate, Utc};
+use planning_budget_core::{IncomeId, IncomeStatus, Money, YearMonth};
 use rusqlite::{Row, params};
 
 use crate::records::{

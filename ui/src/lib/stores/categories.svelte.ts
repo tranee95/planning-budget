@@ -1,4 +1,5 @@
-import { events, type CategoryDto, type ChangeScope } from '$lib/api/bindings';
+import { type CategoryDto, type ChangeScope } from '$lib/api/bindings';
+import { onDataChanged } from '$lib/api/data-events';
 import { categoriesApi } from '$lib/api/data';
 import { onLock } from './session.svelte';
 
@@ -26,14 +27,9 @@ class CategoriesStore {
 
   /** Перечитывает список, когда категории изменились (редактор, импорт). Возвращает cleanup. */
   watch(): () => void {
-    const off = events.dataChanged.listen(({ payload }) => {
-      if (this.loaded && affectsCategories(payload.scope)) void this.load();
+    return onDataChanged(({ scope }) => {
+      if (this.loaded && affectsCategories(scope)) void this.load();
     });
-    return () => {
-      void off.then((stop) => {
-        stop();
-      });
-    };
   }
 
   reset(): void {

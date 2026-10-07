@@ -78,8 +78,36 @@ export const commands = {
 	chartsUpdate: (id: Int53, spec: ChartSpecDto) => typedError<ChartCardDto, AppError>(__TAURI_INVOKE("charts_update", { id, spec })),
 	chartsDelete: (id: Int53) => typedError<null, AppError>(__TAURI_INVOKE("charts_delete", { id })),
 	chartsLayoutSet: (dashboardId: Int53, placements: CardPlacementDto[]) => typedError<null, AppError>(__TAURI_INVOKE("charts_layout_set", { dashboardId, placements })),
-	bondsProjection: (year: number) => typedError<BondsDto, AppError>(__TAURI_INVOKE("bonds_projection", { year })),
+	/**  Накопления года: факт, прогноз, итоги и готовые графики. */
+	savingsOverview: (year: number) => typedError<SavingsOverviewDto, AppError>(__TAURI_INVOKE("savings_overview", { year })),
+	/**  Ставка, налог, стартовый баланс и месяц начала накопления. */
+	savingsParamsSet: (categoryId: Int53, params: SavingsParamsDto) => typedError<null, AppError>(__TAURI_INVOKE("savings_params_set", { categoryId, params })),
+	/**  Фиксированный план накопления в месяц с `valid_from` (вместо процента от дохода). */
+	savingsFixedSet: (categoryId: Int53, validFrom: string, amount: Int53) => typedError<null, AppError>(__TAURI_INVOKE("savings_fixed_set", { categoryId, validFrom, amount })),
+	debtsList: (month: string, includeClosed: boolean) => typedError<DebtsOverviewDto, AppError>(__TAURI_INVOKE("debts_list", { month, includeClosed })),
+	debtsCreate: (input: DebtInput) => typedError<DebtDto, AppError>(__TAURI_INVOKE("debts_create", { input })),
+	/**  Долг из траты со статусом «Долг»: сумма, статья и месяц берутся из траты. */
+	debtFromTx: (txId: Int53, lender: string, schedule: SchedulePaymentDto[]) => typedError<DebtDto, AppError>(__TAURI_INVOKE("debt_from_tx", { txId, lender, schedule })),
+	debtsUpdate: (id: Int53, patch: DebtPatchDto_Deserialize) => typedError<DebtDto, AppError>(__TAURI_INVOKE("debts_update", { id, patch })),
+	debtsDelete: (id: Int53) => typedError<DebtDto, AppError>(__TAURI_INVOKE("debts_delete", { id })),
+	debtsRestore: (id: Int53) => typedError<DebtDto, AppError>(__TAURI_INVOKE("debts_restore", { id })),
+	/**  Отметить строку графика оплаченной или вернуть её в план. */
+	debtPaymentSetStatus: (paymentId: Int53, status: DebtPaymentStatusDto, paidDate: string | null) => typedError<DebtDto, AppError>(__TAURI_INVOKE("debt_payment_set_status", { paymentId, status, paidDate })),
+	/**  Быстрый график погашения: считает Rust, данные не читаются, но сессия нужна. */
+	debtSchedulePreview: (amount: Int53, takenMonth: string, kind: DebtScheduleKindDto) => typedError<SchedulePaymentDto[], AppError>(__TAURI_INVOKE("debt_schedule_preview", { amount, takenMonth, kind })),
+	planMonth: (month: string) => typedError<MonthPlanDto, AppError>(__TAURI_INVOKE("plan_month", { month })),
+	/**  «План готов»: фиксирует плановые суммы месяца. */
+	planLock: (month: string) => typedError<MonthPlanDto, AppError>(__TAURI_INVOKE("plan_lock", { month })),
+	/**  Снимает фиксацию плана. */
+	planUnlock: (month: string) => typedError<MonthPlanDto, AppError>(__TAURI_INVOKE("plan_unlock", { month })),
+	/**  «Скопировать план из прошлого месяца» в `month`. */
+	planCopyFromPrevious: (month: string) => typedError<MonthPlanDto, AppError>(__TAURI_INVOKE("plan_copy_from_previous", { month })),
+	/**  Предпросмотр мастера первого месяца: «Не распределено» по введённому, без записи. */
+	planPreview: (month: string, input: PlanWizardInputDto) => typedError<MonthPlanDto, AppError>(__TAURI_INVOKE("plan_preview", { month, input })),
+	/**  Мастер первого месяца: доходы, плановые траты и план накоплений, затем «План готов». */
+	planWizardApply: (month: string, input: PlanWizardInputDto) => typedError<MonthPlanDto, AppError>(__TAURI_INVOKE("plan_wizard_apply", { month, input })),
 	summaryMonth: (month: string) => typedError<MonthOverviewDto, AppError>(__TAURI_INVOKE("summary_month", { month })),
+	summarySeries: (month: string, range: SeriesRangeDto) => typedError<MonthSummaryDto[], AppError>(__TAURI_INVOKE("summary_series", { month, range })),
 	summaryYear: (year: number) => typedError<YearSummaryDto, AppError>(__TAURI_INVOKE("summary_year", { year })),
 	settingsGet: () => typedError<SettingsDto, AppError>(__TAURI_INVOKE("settings_get")),
 	settingsSet: (patch: SettingsPatchDto) => typedError<SettingsDto, AppError>(__TAURI_INVOKE("settings_set", { patch })),
@@ -111,6 +139,29 @@ export const events = {
 };
 
 /* Types */
+/**  Одно накопление: параметры, план, факт и прогноз; графики готовы к показу. */
+export type AccumulationDto = {
+	categoryId: number,
+	params: SavingsParamsDto,
+	planKind: SavingsPlanKindDto,
+	/**  Процент плана от дохода, базисные пункты (при `planKind = percent`). */
+	planRateBp: number,
+	/**  Фиксированная сумма плана в месяц (при `planKind = fixed`). */
+	planFixed: number | null,
+	/**  План взноса в текущем месяце. */
+	plan: number,
+	/**  Баланс на конец декабря года. */
+	balance: number,
+	/**  Ставка после налога на купон, базисные пункты: 1600 при налоге 1300 дают 1392. */
+	effectiveRateBp: number,
+	months: SavingsMonthDto[],
+	scenarios: ForecastScenarioDto[],
+	/**  Линии «Баланс» и «Внесено» по месяцам года. */
+	factChart: ChartDataDto,
+	/**  Линии сценариев A/B/C на 60 месяцев. */
+	forecastChart: ChartDataDto,
+};
+
 export type AppError = { code: "Locked" } | { code: "WrongPassword"; retryAfterMs: number } | 
 /**  Попытка в окне задержки: пароль не проверялся. */
 { code: "TooManyAttempts"; retryAfterMs: number } | { code: "Validation"; messageKey: string; field: string | null } | { code: "NotFound"; entity: string; id: number } | { code: "Conflict"; messageKey: string } | { code: "Import"; messageKey: string; line: number | null } | { code: "Io"; messageKey: string } | { code: "Internal"; correlationId: string };
@@ -121,26 +172,6 @@ export type BlockMismatchDto = {
 	category: string,
 	declared: number,
 	parsed: number,
-};
-
-export type BondsDto = {
-	year: number,
-	/**  Ставка после налога на купон и её месячный эквивалент (доли единицы). */
-	effectiveRate: number | null,
-	monthlyRate: number | null,
-	months: BondsMonthDto[],
-	/**  Баланс на конец декабря: старт прогноза. */
-	decBalance: number,
-	scenarios: ForecastScenarioDto[],
-};
-
-export type BondsMonthDto = {
-	month: string,
-	savings: number,
-	coupon: number,
-	balance: number,
-	deposited: number,
-	couponIncome: number,
 };
 
 /**  «Баланс бюджета». */
@@ -218,6 +249,10 @@ export type CategoryYearRowDto = {
 
 /**  Что изменилось: по области фронтенд сбрасывает нужные кэши. */
 export type ChangeScope = "categories" | "limits" | "savings" | "transactions" | "incomes" | "tags" | "settings" | 
+/**  План месяца: фиксация, разблокировка, копирование. */
+"plan" | 
+/**  Долги и графики погашений. */
+"debts" | 
 /**  Данные заменены целиком (dev-сид, будущий импорт xlsx): перечитать всё. */
 "all";
 
@@ -272,7 +307,7 @@ export type ChartSeriesDto = {
 
 export type ChartSortDto = "desc" | "asc" | "natural";
 
-/**  `ChartSpec` v1; в базе лежит JSON `budget_core::analytics::ChartSpec`. */
+/**  `ChartSpec` v1; в базе лежит JSON `planning_budget_core::analytics::ChartSpec`. */
 export type ChartSpecDto = {
 	version: number,
 	title: string,
@@ -307,10 +342,104 @@ export type DataChanged = {
 	months: string[],
 };
 
+/**  Долг со всем графиком; остаток и доля погашения посчитаны в Rust. */
+export type DebtDto = {
+	id: number,
+	lender: string,
+	amount: number,
+	takenMonth: string,
+	takenDate: string | null,
+	categoryId: number | null,
+	transactionId: number | null,
+	comment: string | null,
+	/**  Все платежи оплачены. */
+	closed: boolean,
+	remaining: number,
+	/**  Доля погашенного в базисных пунктах (10 000 = долг закрыт). */
+	paidBp: number,
+	nextPayment: DebtPaymentDto | null,
+	payments: DebtPaymentDto[],
+};
+
+/**  Новый долг; сумма графика должна равняться сумме долга. */
+export type DebtInput = {
+	lender: string,
+	amount: number,
+	takenMonth: string,
+	takenDate: string | null,
+	categoryId: number | null,
+	comment: string | null,
+	schedule: SchedulePaymentDto[],
+};
+
+/**
+ *  Правка долга: отсутствующее поле не меняется; `categoryId`/`comment: null` очищают значение.
+ *  `schedule` заменяет только неоплаченные строки.
+ */
+export type DebtPatchDto = DebtPatchDto_Serialize | DebtPatchDto_Deserialize;
+
+/**
+ *  Правка долга: отсутствующее поле не меняется; `categoryId`/`comment: null` очищают значение.
+ *  `schedule` заменяет только неоплаченные строки.
+ */
+export type DebtPatchDto_Deserialize = {
+	lender?: string | null,
+	amount?: number | null,
+	categoryId?: number | null,
+	comment?: string | null,
+	schedule?: SchedulePaymentDto[] | null,
+};
+
+/**
+ *  Правка долга: отсутствующее поле не меняется; `categoryId`/`comment: null` очищают значение.
+ *  `schedule` заменяет только неоплаченные строки.
+ */
+export type DebtPatchDto_Serialize = {
+	lender: string | null,
+	amount: number | null,
+	categoryId: number | null,
+	comment: string | null,
+	schedule: SchedulePaymentDto[] | null,
+};
+
+/**  Строка графика погашения. */
+export type DebtPaymentDto = {
+	id: number,
+	month: string,
+	amount: number,
+	status: DebtPaymentStatusDto,
+	paidDate: string | null,
+};
+
+/**  Статус строки графика. */
+export type DebtPaymentStatusDto = "planned" | "paid";
+
+/**  Быстрый график погашения (считает Rust). */
+export type DebtScheduleKindDto = 
+/**  Равными частями на `months` месяцев, начиная со следующего за месяцем займа. */
+{ kind: "equalParts"; months: number } | 
+/**  Одним платежом в месяце `month`. */
+{ kind: "single"; month: string };
+
+/**  Раздел «Долги» на месяц: список и итоги. */
+export type DebtsOverviewDto = {
+	debts: DebtDto[],
+	openCount: number,
+	closedCount: number,
+	/**  Сумма остатков открытых долгов. */
+	remainingTotal: number,
+	/**  К оплате в месяце (все строки графиков месяца). */
+	paymentsPlanned: number,
+	/**  Из них оплачено. */
+	paymentsPaid: number,
+};
+
 export type ForecastKindDto = "a" | "b" | "c";
 
 export type ForecastScenarioDto = {
 	scenario: ForecastKindDto,
+	/**  Название сценария для таблиц и легенды: «A · цель нормы». */
+	name: string,
 	contribution: number,
 	y1: number,
 	y3: number,
@@ -442,6 +571,14 @@ export type LimitRowDto = {
 	limit: number | null,
 	remaining: number | null,
 	usage: number | null,
+	/**  `usage` в целых процентах. */
+	usagePercent: number | null,
+	/**  Только у накоплений: процент плана по истории на месяц (без ручного значения месяца). */
+	planRateBp: number | null,
+	/**  Доля лимита, занятая оплаченным; `None` без лимита. */
+	paidUsage: number | null,
+	/**  Доля лимита, занятая планом. */
+	plannedUsage: number | null,
 	level: LimitLevelDto | null,
 	byStatus: StatusAmountsDto,
 };
@@ -462,6 +599,35 @@ export type MonthOverviewDto = {
 	limitsTotal: number,
 	limitsRemaining: number,
 	spentVsLimits: number | null,
+	/**  Категорий выше лимита. */
+	overCount: number,
+	/**  План месяца зафиксирован («План готов»): новые траты по умолчанию «Незапланировано». */
+	planLocked: boolean,
+	/**  Расходы месяца к среднему за год в целых процентах; `None`, если сравнивать не с чем. */
+	expensesDeltaPercent: number | null,
+};
+
+/**  План месяца: все числа посчитаны в Rust. */
+export type MonthPlanDto = {
+	month: string,
+	/**  Месяц зафиксирован кнопкой «План готов». */
+	locked: boolean,
+	income: number,
+	planExpenses: number,
+	planSavings: number,
+	planRepayments: number,
+	/**  `income − plan_expenses − plan_savings − plan_repayments`. */
+	unallocated: number,
+	balance: PlanBalanceDto,
+	rows: PlanRowDto[],
+	/**  Погашения долгов этого месяца. */
+	repayments: PlanRepaymentDto[],
+	/**  Траты со статусом «Незапланировано». */
+	unplanned: number,
+	/**  Взято в долг в этом месяце. */
+	borrowed: number,
+	/**  Отложено (факт по накоплениям). */
+	saved: number,
 };
 
 /**  Строка листа «Сводка» за месяц. */
@@ -472,12 +638,19 @@ export type MonthSummaryDto = {
 	incomeExpected: number,
 	expenses: number,
 	savings: number,
+	/**  Долги, взятые в месяце: источник денег. */
+	borrowed: number,
+	/**  Оплаченные погашения месяца: выплата, не расход. */
+	repaid: number,
 	free: number,
 	freeCum: number,
 	savingsCum: number,
-	savingsRate: number | null,
+	/**  Норма сбережений в базисных пунктах; `None` без дохода. */
+	savingsRateBp: number | null,
 	unspentRate: number | null,
 	savingsPlanRateBp: number,
+	/**  Процент плана больше нуля и отличается от нормы из настроек. */
+	savingsPlanOffNorm: boolean,
 	savingsPlan: number,
 	savingsGap: number,
 	perWeek: number,
@@ -489,6 +662,34 @@ export type MonthSummaryDto = {
 };
 
 export type PeriodPresetDto = "ytd" | "last12" | "current_month" | "all";
+
+/**  Итог распределения дохода. */
+export type PlanBalanceDto = "empty" | "balanced" | "unallocated" | "over";
+
+/**  Погашение долга в плане месяца: отдельная строка, отмечается «Оплачено» как трата. */
+export type PlanRepaymentDto = {
+	paymentId: number,
+	debtId: number,
+	lender: string,
+	amount: number,
+	status: DebtPaymentStatusDto,
+};
+
+/**  Строка «план → факт» по статье или накоплению. */
+export type PlanRowDto = {
+	categoryId: number,
+	plan: number,
+	fact: number,
+	/**  `fact − plan`: положительное — потрачено больше плана. */
+	deviation: number,
+};
+
+/**  Ввод мастера первого месяца: доходы, суммы по статьям, план накоплений. */
+export type PlanWizardInputDto = {
+	incomes: WizardIncomeDto[],
+	lines: WizardLineDto[],
+	savings: WizardSavingsDto[],
+};
 
 /**  Содержимое `ui-prefs.json`: только оболочка, никаких данных бюджета. */
 export type Prefs = {
@@ -503,8 +704,8 @@ export type Prefs = {
 	 *  `None` — ещё не известна (файл создан старой версией): экран входа тогда ничего не пишет.
 	 */
 	autolockMinutes: number | null,
-	/**  Подсказки для новичков (онбординг): показываются, пока пользователь не пройдёт их или не отключит. */
-	showTips: boolean,
+	/**  Знакомство при первом запуске пройдено или пропущено. */
+	introDone: boolean,
 };
 
 export type PrefsPatch = {
@@ -512,7 +713,7 @@ export type PrefsPatch = {
 	locale?: string | null,
 	uiScale?: number | null,
 	reducedMotion?: ReducedMotion | null,
-	showTips?: boolean | null,
+	introDone?: boolean | null,
 };
 
 /**  Причина мягкой подсказки: токен с известным ключом не распознан и ушёл в текст. */
@@ -541,11 +742,52 @@ export type SavedFilterDto = {
 	query: string,
 };
 
+/**  Месяц фактического накопления. */
+export type SavingsMonthDto = {
+	month: string,
+	savings: number,
+	coupon: number,
+	balance: number,
+	deposited: number,
+	couponIncome: number,
+};
+
+/**  Раздел «Сбережения» за год. */
+export type SavingsOverviewDto = {
+	year: number,
+	/**  Самый ранний год, с которого у накоплений есть данные (нижняя граница переключателя года). */
+	firstYear: number,
+	items: AccumulationDto[],
+	/**  Сумма балансов накоплений на конец декабря. */
+	totalBalance: number,
+	/**  План сбережений на текущий месяц (сумма планов накоплений). */
+	monthPlan: number,
+	totalScenarios: ForecastScenarioDto[],
+	totalForecastChart: ChartDataDto,
+};
+
+/**  Параметры накопления: ставка 0 — простое накопление без купонов. */
+export type SavingsParamsDto = {
+	annualRateBp: number,
+	taxBp: number,
+	initialBalance: number,
+	initialMonth: string,
+};
+
+/**  Как задан план накопления в месяц. */
+export type SavingsPlanKindDto = "percent" | "fixed";
+
 /**  Строка истории процента плана сбережений. */
 export type SavingsRateDto = {
 	categoryId: number,
 	validFrom: string,
 	rateBp: number,
+};
+
+/**  Строка графика на входе: месяц и сумма. */
+export type SchedulePaymentDto = {
+	month: string,
+	amount: number,
 };
 
 /**  Ответ палитры. `request_id` возвращается как есть: UI отбрасывает устаревшие ответы. */
@@ -562,15 +804,20 @@ export type SearchResultDto = {
 /**  Пароль или recovery-код с фронтенда. В `Debug` и логи не попадает. */
 export type Secret = string;
 
+/**  Период ряда месяцев для графика «Обзора». */
+export type SeriesRangeDto = 
+/**  Двенадцать месяцев года выбранного месяца. */
+"year" | 
+/**  Двенадцать месяцев, заканчивая выбранным. */
+"12m" | 
+/**  Все месяцы с данными (не дальше десяти лет назад). */
+"all";
+
 /**  Настройки, которые редактирует пользователь. */
 export type SettingsDto = {
 	savingsMinBp: number,
 	savingsNormBp: number,
 	savingsMaxBp: number,
-	bondsRateBp: number,
-	bondsCouponTaxBp: number,
-	bondsInitialBalance: number,
-	bondsInitialMonth: string,
 	weeksPerMonth: number,
 	autolockMinutes: number,
 	lockOnMinimize: boolean,
@@ -581,10 +828,6 @@ export type SettingsPatchDto = {
 	savingsMinBp?: number | null,
 	savingsNormBp?: number | null,
 	savingsMaxBp?: number | null,
-	bondsRateBp?: number | null,
-	bondsCouponTaxBp?: number | null,
-	bondsInitialBalance?: number | null,
-	bondsInitialMonth?: string | null,
 	weeksPerMonth?: number | null,
 	autolockMinutes?: number | null,
 	lockOnMinimize?: boolean | null,
@@ -592,6 +835,18 @@ export type SettingsPatchDto = {
 };
 
 export type StatusAmountsDto = {
+	paid: number,
+	debt: number,
+	unplanned: number,
+	planned: number,
+	/**  Сумма по всем статусам. */
+	total: number,
+	/**  Доли статусов в сумме, базисные пункты (0 при нулевой сумме). */
+	shareBp: StatusSharesDto,
+};
+
+/**  Доли статусов в общей сумме, базисные пункты (10 000 = 100 %). */
+export type StatusSharesDto = {
 	paid: number,
 	debt: number,
 	unplanned: number,
@@ -729,6 +984,26 @@ export type VaultStatusDto = {
 	/**  Сколько мс ещё ждать до следующей попытки входа; `0` — можно вводить. */
 	retryAfterMs: number,
 };
+
+/**  Ожидаемое поступление в мастере первого месяца. */
+export type WizardIncomeDto = {
+	sourceName: string,
+	amount: number,
+};
+
+/**  Плановая сумма по статье расходов. */
+export type WizardLineDto = {
+	categoryId: number,
+	amount: number,
+};
+
+export type WizardSavingsDto = {
+	categoryId: number,
+	plan: WizardSavingsPlanDto,
+};
+
+/**  План накопления: процент от дохода или фиксированная сумма. */
+export type WizardSavingsPlanDto = { kind: "percent"; rateBp: number } | { kind: "fixed"; amount: number };
 
 /**  Все строки листа «Сводка» за год: месяцы, итоги, категории и баланс бюджета. */
 export type YearSummaryDto = {

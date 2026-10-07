@@ -7,7 +7,7 @@ use serde::Deserialize;
 use crate::error::CoreError;
 use crate::model::{
     BasisPoints, Category, CategoryId, CategoryKind, DataSet, Income, IncomeId, IncomeStatus,
-    LimitEntry, SavingsRateEntry, Settings, Transaction, TxId, TxStatus,
+    LimitEntry, SavingsParams, SavingsRateEntry, Settings, Transaction, TxId, TxStatus,
 };
 use crate::money::Money;
 use crate::period::YearMonth;
@@ -78,6 +78,7 @@ pub fn load_seed(bytes: &[u8]) -> Result<DataSet, CoreError> {
     let mut categories = Vec::with_capacity(seed.categories.len());
     let mut limits = Vec::new();
     let mut savings_rates = Vec::new();
+    let mut savings_params = BTreeMap::new();
     let mut by_name = HashMap::with_capacity(seed.categories.len());
     for (index, c) in seed.categories.into_iter().enumerate() {
         let id = CategoryId(
@@ -88,7 +89,17 @@ pub fn load_seed(bytes: &[u8]) -> Result<DataSet, CoreError> {
                 category_id: id,
                 valid_from: seed.limits_valid_from,
                 rate: BasisPoints(seed.settings.savings_norm),
+                fixed_amount: None,
             });
+            savings_params.insert(
+                id,
+                SavingsParams {
+                    annual_rate: BasisPoints(seed.settings.bonds_rate),
+                    tax: BasisPoints(seed.settings.bonds_coupon_tax),
+                    initial_balance: Money::from_kopecks(seed.settings.bonds_initial_balance),
+                    initial_month: seed.settings.bonds_initial_month,
+                },
+            );
         } else if let Some(amount) = c.limit {
             limits.push(LimitEntry {
                 category_id: id,
@@ -122,6 +133,7 @@ pub fn load_seed(bytes: &[u8]) -> Result<DataSet, CoreError> {
             title: t.title,
             amount: Money::from_kopecks(t.amount),
             status: t.status,
+            planned_amount: None,
         });
     }
 
@@ -144,10 +156,6 @@ pub fn load_seed(bytes: &[u8]) -> Result<DataSet, CoreError> {
             savings_min: BasisPoints(s.savings_min),
             savings_norm: BasisPoints(s.savings_norm),
             savings_max: BasisPoints(s.savings_max),
-            bonds_rate: BasisPoints(s.bonds_rate),
-            bonds_coupon_tax: BasisPoints(s.bonds_coupon_tax),
-            bonds_initial_balance: Money::from_kopecks(s.bonds_initial_balance),
-            bonds_initial_month: s.bonds_initial_month,
             weeks_per_month: s.weeks_per_month,
         },
         categories,
@@ -156,5 +164,9 @@ pub fn load_seed(bytes: &[u8]) -> Result<DataSet, CoreError> {
         savings_overrides: BTreeMap::new(),
         transactions,
         incomes,
+        debts: Vec::new(),
+        debt_payments: Vec::new(),
+        locked_plans: BTreeMap::new(),
+        savings_params,
     })
 }

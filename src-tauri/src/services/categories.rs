@@ -1,14 +1,14 @@
 //! Категории, лимиты и план сбережений.
 
-use budget_core::{BasisPoints, CategoryId, Money, YearMonth};
-use budget_storage::{CategoryPatch, Db, NewCategory};
 use chrono::{DateTime, NaiveDate, Utc};
+use planning_budget_core::{BasisPoints, CategoryId, Money, YearMonth};
+use planning_budget_storage::{CategoryPatch, Db, NewCategory};
 
 use super::{month_of, parse_month};
 use crate::AppError;
 use crate::dto::{CategoryDto, CategoryInput, CategoryPatchDto, LimitEntryDto, SavingsRateDto};
 
-fn category_error(id: CategoryId) -> impl Fn(budget_storage::StorageError) -> AppError {
+fn category_error(id: CategoryId) -> impl Fn(planning_budget_storage::StorageError) -> AppError {
     move |e| AppError::from_storage(e, "category", id.0)
 }
 

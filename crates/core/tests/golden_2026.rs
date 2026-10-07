@@ -6,8 +6,8 @@
     clippy::expect_used
 )]
 
-use budget_core::calc::{Ledger, Scenario};
-use budget_core::{CategoryKind, DataSet, Money, TxStatus, YearMonth, load_seed};
+use planning_budget_core::calc::{Ledger, Scenario};
+use planning_budget_core::{CategoryKind, DataSet, Money, TxStatus, YearMonth, load_seed};
 use serde_json::Value;
 
 const SEED: &[u8] = include_bytes!(concat!(
@@ -243,14 +243,27 @@ fn year_totals() {
     finish(&errs);
 }
 
+/// Единственная категория-сбережение эталона: раздел «Облигации» таблицы — её накопление.
+fn sole_savings(data: &DataSet) -> planning_budget_core::CategoryId {
+    let ids: Vec<_> = data
+        .categories
+        .iter()
+        .filter(|c| c.kind == CategoryKind::Savings)
+        .map(|c| c.id)
+        .collect();
+    assert_eq!(ids.len(), 1, "в эталоне одна категория-сбережение");
+    ids[0]
+}
+
 #[test]
 fn bonds() {
     let data = dataset();
     let ledger = Ledger::new(&data).unwrap();
+    let savings = sole_savings(&data);
     let g = golden();
     let mut errs = Vec::new();
 
-    let fact = ledger.bonds_fact(YEAR).unwrap();
+    let fact = ledger.accumulation_fact(savings, YEAR).unwrap();
     for (month, expected) in golden_months(&g) {
         let Some(row) = fact.months.iter().find(|r| r.month == month) else {
             errs.push(format!("{}: no bonds row", month.month_name_ru()));
@@ -280,7 +293,8 @@ fn bonds() {
         RUB_TOL,
     );
 
-    let rates = budget_core::calc::BondRates::from_settings(&data.settings);
+    let params = data.savings_params[&savings];
+    let rates = planning_budget_core::calc::BondRates::new(params.annual_rate, params.tax);
     check_ratio(
         &mut errs,
         "bonds.effective_rate",
@@ -294,7 +308,9 @@ fn bonds() {
         &g["bonds"]["monthly_rate"],
     );
 
-    let forecast = ledger.bonds_forecast(YEAR, current()).unwrap();
+    let forecast = ledger
+        .accumulation_forecast(savings, YEAR, current())
+        .unwrap();
     for s in forecast.scenarios {
         let key = match s.scenario {
             Scenario::A => "A",
@@ -390,7 +406,9 @@ fn reference_balance() {
 fn forecast_lines_pass_through_the_one_three_and_five_year_totals() {
     let data = dataset();
     let ledger = Ledger::new(&data).unwrap();
-    let forecast = ledger.bonds_forecast(YEAR, current()).unwrap();
+    let forecast = ledger
+        .accumulation_forecast(sole_savings(&data), YEAR, current())
+        .unwrap();
     for s in &forecast.scenarios {
         assert_eq!(s.balances.len(), 60);
         assert_eq!(s.balances[11], s.y1);
@@ -400,5 +418,24 @@ fn forecast_lines_pass_through_the_one_three_and_five_year_totals() {
             s.balances.windows(2).all(|w| w[0] < w[1]),
             "баланс растёт каждый месяц"
         );
+    }
+}
+
+/// Раздел «Сбережения» с единственным накоплением даёт те же итоги, что само накопление.
+#[test]
+fn overview_of_a_single_accumulation_equals_the_accumulation() {
+    let data = dataset();
+    let ledger = Ledger::new(&data).unwrap();
+    let id = sole_savings(&data);
+    let fact = ledger.accumulation_fact(id, YEAR).unwrap();
+    let forecast = ledger.accumulation_forecast(id, YEAR, current()).unwrap();
+
+    let overview = ledger.savings_overview(YEAR, current()).unwrap();
+    assert_eq!(overview.items.len(), 1);
+    assert_eq!(overview.items[0].fact, fact);
+    assert_eq!(overview.items[0].forecast, forecast);
+    assert_eq!(overview.total_balance, fact.dec_balance);
+    for (total, scenario) in overview.total_forecast.iter().zip(&forecast.scenarios) {
+        assert_eq!(total, scenario);
     }
 }

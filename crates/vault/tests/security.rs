@@ -9,8 +9,8 @@
 use std::fs;
 use std::path::Path;
 
-use budget_vault::{KdfParams, VaultError, VaultStore, backoff_secs};
 use chrono::{DateTime, Duration, TimeZone, Utc};
+use planning_budget_vault::{KdfParams, VaultError, VaultStore, backoff_secs};
 use secrecy::SecretString;
 use tempfile::TempDir;
 
@@ -29,7 +29,7 @@ fn t0() -> DateTime<Utc> {
     Utc.with_ymd_and_hms(2026, 10, 1, 12, 0, 0).unwrap()
 }
 
-fn new_vault() -> (TempDir, VaultStore, budget_vault::Created) {
+fn new_vault() -> (TempDir, VaultStore, planning_budget_vault::Created) {
     let dir = TempDir::new().unwrap();
     let store = VaultStore::new(dir.path().to_path_buf());
     let created = store.create_with_params(&pw(PASSWORD), FAST, t0()).unwrap();

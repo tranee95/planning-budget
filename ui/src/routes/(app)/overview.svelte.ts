@@ -1,24 +1,27 @@
 import { getContext, setContext } from 'svelte';
 import {
-  events,
   type CategoryDto,
   type LimitRowDto,
   type MonthOverviewDto,
+  type MonthPlanDto,
+  type PlanRowDto,
   type MonthSummaryDto,
+  type SeriesRangeDto,
   type SettingsDto,
   type YearSummaryDto
 } from '$lib/api/bindings';
-import { settingsApi, summaryApi } from '$lib/api/data';
-import { formatMoney, formatMonth, formatPercent } from '$lib/format';
+import { onDataChanged } from '$lib/api/data-events';
+import { debtsApi, planApi, settingsApi, summaryApi } from '$lib/api/data';
+import { formatMoney, formatMonth, formatPercent, today } from '$lib/format';
 import { errorText } from '$lib/i18n/errors';
 import { categories } from '$lib/stores/categories.svelte';
+import { toasts } from '$lib/stores/toasts.svelte';
 
-export type ChartRange = 'year' | '12m' | 'all';
+export type ChartRange = SeriesRangeDto;
 
 export type LimitLine = { category: CategoryDto; row: LimitRowDto };
 
-/** Сколько лет назад заглядывает «Всё»: хватает на любую личную историю, запросов не больше этого. */
-const MAX_YEARS_BACK = 10;
+export type PlanLine = { category: CategoryDto; row: PlanRowDto };
 
 /** ViewModel экрана «Обзор»: сводка месяца, лимиты и ряд для графика. Суммы считает Rust. */
 export class OverviewVm {
@@ -27,6 +30,9 @@ export class OverviewVm {
   year = $state.raw<YearSummaryDto | null>(null);
   settings = $state.raw<SettingsDto | null>(null);
   series = $state.raw<MonthSummaryDto[]>([]);
+  /** План месяца: «Не распределено», план → факт (все числа из Rust). */
+  plan = $state.raw<MonthPlanDto | null>(null);
+  planBusy = $state(false);
   range = $state<ChartRange>('year');
   loading = $state(false);
   error = $state<string | null>(null);
@@ -53,7 +59,20 @@ export class OverviewVm {
     return lines.sort((a, b) => (b.row.usage ?? 0) - (a.row.usage ?? 0));
   });
 
-  overCount = $derived(this.limitLines.filter((l) => l.row.level === 'over').length);
+  overCount = $derived(this.overview?.overCount ?? 0);
+
+  /** Строки «план → факт»: статьи, у которых есть план или факт. */
+  planLines = $derived.by<PlanLine[]>(() => {
+    const lines: PlanLine[] = [];
+    for (const row of this.plan?.rows ?? []) {
+      const category = categories.byId.get(row.categoryId);
+      if (category && (row.plan !== 0 || row.fact !== 0)) lines.push({ category, row });
+    }
+    return lines;
+  });
+
+  /** «Скопировать план из прошлого месяца» предлагается, пока плановых трат нет. */
+  canCopyPlan = $derived(this.plan !== null && !this.plan.locked && this.plan.planExpenses === 0);
 
   /** Подзаголовок экрана — инсайт месяца. */
   subtitle = $derived.by(() => {
@@ -64,17 +83,10 @@ export class OverviewVm {
     return `${name}: ${plural(this.overCount, ['категория', 'категории', 'категорий'])} выше лимита`;
   });
 
-  /** Расходы месяца относительно среднего за год, в процентах; `null` — сравнивать не с чем. */
-  expensesDelta = $derived.by(() => {
-    const avg = this.year?.avgExpenses ?? 0;
-    if (this.summary === null || avg <= 0 || (this.year?.monthsWithData ?? 0) < 2) return null;
-    return Math.round(((this.summary.expenses - avg) / avg) * 100);
-  });
-
   savingsHint = $derived.by(() => {
     const s = this.summary;
     if (s === null || s.corridor === 'noIncome') return 'нет дохода в месяце';
-    const rate = formatPercent(Math.round((s.savingsRate ?? 0) * 10_000));
+    const rate = formatPercent(s.savingsRateBp ?? 0);
     if (s.corridor === 'below') {
       const min = this.settings === null ? '' : ` ${formatPercent(this.settings.savingsMinBp)}`;
       return `${rate} дохода · до${min} не хватает ${formatMoney(s.topUpToMin)}`;
@@ -99,17 +111,19 @@ export class OverviewVm {
     this.error = null;
     try {
       const yearNumber = Number(month.slice(0, 4));
-      const [overview, year, settings] = await Promise.all([
+      const [overview, year, settings, plan] = await Promise.all([
         summaryApi.month(month),
         summaryApi.year(yearNumber),
         settingsApi.get(),
+        planApi.month(month),
         categories.ensure()
       ]);
-      const series = await this.#series(month, year);
+      const series = await summaryApi.series(month, this.range);
       if (req !== this.#req) return;
       this.overview = overview;
       this.year = year;
       this.settings = settings;
+      this.plan = plan;
       this.series = series;
     } catch (e) {
       if (req === this.#req) this.error = errorText(e);
@@ -121,42 +135,63 @@ export class OverviewVm {
   async setRange(range: ChartRange): Promise<void> {
     if (range === this.range) return;
     this.range = range;
-    if (this.#month === '' || this.year === null) return;
+    if (this.#month === '') return;
     const req = ++this.#seriesReq;
     try {
-      const series = await this.#series(this.#month, this.year);
+      const series = await summaryApi.series(this.#month, range);
       if (req === this.#seriesReq) this.series = series;
     } catch (e) {
       if (req === this.#seriesReq) this.error = errorText(e);
     }
   }
 
-  async #series(month: string, current: YearSummaryDto): Promise<MonthSummaryDto[]> {
-    const yearNumber = current.year;
-    if (this.range === 'year') return current.months;
-    if (this.range === '12m') {
-      const prev = await summaryApi.year(yearNumber - 1);
-      return [...prev.months, ...current.months].filter((m) => m.month <= month).slice(-12);
+  /** «План готов», «Разблокировать», «Скопировать план»: действие, затем перечитать экран. */
+  async #planAction(action: (month: string) => Promise<MonthPlanDto>): Promise<void> {
+    if (this.#month === '' || this.planBusy) return;
+    this.planBusy = true;
+    try {
+      this.plan = await action(this.#month);
+      await this.load(this.#month);
+    } catch (e) {
+      toasts.push({ kind: 'error', message: errorText(e) });
+    } finally {
+      this.planBusy = false;
     }
-    const older = await Promise.all(
-      Array.from({ length: MAX_YEARS_BACK }, (_, i) => summaryApi.year(yearNumber - i - 1))
-    );
-    const all = [...older.reverse(), current];
-    return all.flatMap((y) => y.months).filter((m) => m.income > 0 || m.expenses > 0);
+  }
+
+  /** Погашение долга из плана месяца: оплачено (сегодняшней датой) или снова в плане. */
+  async payRepayment(paymentId: number, paid: boolean): Promise<void> {
+    if (this.#month === '' || this.planBusy) return;
+    this.planBusy = true;
+    try {
+      await debtsApi.setPaymentStatus(paymentId, paid ? 'paid' : 'planned', paid ? today() : null);
+      await this.load(this.#month);
+    } catch (e) {
+      toasts.push({ kind: 'error', message: errorText(e) });
+    } finally {
+      this.planBusy = false;
+    }
+  }
+
+  lockPlan(): Promise<void> {
+    return this.#planAction(planApi.lock);
+  }
+
+  unlockPlan(): Promise<void> {
+    return this.#planAction(planApi.unlock);
+  }
+
+  copyPlan(): Promise<void> {
+    return this.#planAction(planApi.copyFromPrevious);
   }
 
   /** Подписки экрана; страница вызывает в `onMount`, возвращает cleanup. */
   connect(): () => void {
-    const offData = events.dataChanged.listen(({ payload }) => {
+    return onDataChanged(({ months }) => {
       const year = this.#month.slice(0, 4);
-      const affects = payload.months.length === 0 || payload.months.some((m) => m.startsWith(year));
+      const affects = months.length === 0 || months.some((m) => m.startsWith(year));
       if (affects && this.#month !== '') void this.load(this.#month);
     });
-    return () => {
-      void offData.then((off) => {
-        off();
-      });
-    };
   }
 }
 

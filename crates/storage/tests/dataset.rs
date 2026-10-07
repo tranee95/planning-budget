@@ -5,10 +5,10 @@
     reason = "тестовый файл: паника и есть провал теста"
 )]
 
-use budget_core::calc::Ledger;
-use budget_core::{DataSet, Money, TxStatus, YearMonth, load_seed};
-use budget_storage::{Db, NewTransaction, RecordSource, StorageError};
 use chrono::{DateTime, TimeZone, Utc};
+use planning_budget_core::calc::Ledger;
+use planning_budget_core::{DataSet, Money, TxStatus, YearMonth, load_seed};
+use planning_budget_storage::{Db, NewTransaction, RecordSource, StorageError};
 use serde_json::json;
 use tempfile::TempDir;
 
@@ -121,25 +121,17 @@ fn settings_are_typed_and_validated() {
     let s = db.settings().unwrap();
     assert_eq!(s.savings_norm.0, 1400);
     assert_eq!(s.weeks_per_month, 4);
-    // Месяц создания хранилища (сид выполнен 2026-10-01).
-    assert_eq!(s.bonds_initial_month, ym("2026-10"));
 
     db.setting_set("savings.target_norm_bp", &json!(1500))
         .unwrap();
     db.setting_set("ui.weeks_per_month", &json!(5)).unwrap();
-    db.setting_set("bonds.initial_month", &json!("2025-12"))
-        .unwrap();
     let s = db.settings().unwrap();
-    assert_eq!(
-        (s.savings_norm.0, s.weeks_per_month, s.bonds_initial_month),
-        (1500, 5, ym("2025-12"))
-    );
+    assert_eq!((s.savings_norm.0, s.weeks_per_month), (1500, 5));
 
     for (key, value) in [
         ("savings.target_norm_bp", json!(10_001)),
         ("savings.target_norm_bp", json!("1500")),
         ("ui.weeks_per_month", json!(0)),
-        ("bonds.initial_month", json!("2026-13")),
         ("security.lock_on_minimize", json!(1)),
         ("currency", json!(" ")),
     ] {

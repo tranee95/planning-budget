@@ -15,7 +15,7 @@ use crate::error::VaultError;
 pub(crate) const SALT_LEN: usize = 16;
 const NONCE_LEN: usize = 24;
 const KEY_LEN: usize = 32;
-const AAD_PREFIX: &str = "budget-vault-v1|";
+const AAD_PREFIX: &str = "planning-budget-vault-v1|";
 
 const CALIBRATION_FLOOR: Duration = Duration::from_millis(250);
 const CALIBRATION_TARGET_MICROS: u128 = 500_000;

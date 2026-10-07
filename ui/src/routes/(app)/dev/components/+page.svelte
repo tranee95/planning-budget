@@ -143,7 +143,7 @@
 </script>
 
 <svelte:head>
-  <title>Private Budget — компоненты</title>
+  <title>Planning Budget — компоненты</title>
 </svelte:head>
 
 <div class="grid">

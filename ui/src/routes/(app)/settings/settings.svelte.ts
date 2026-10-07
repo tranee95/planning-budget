@@ -17,7 +17,6 @@ export class SettingsVm {
   // Вид
   theme = $derived(prefs.current?.theme ?? 'system');
   reducedMotion = $derived(prefs.current?.reducedMotion === 'on');
-  showTips = $derived(prefs.current?.showTips ?? true);
   // Switch хранит своё состояние: при ошибке сохранения View пересоздаёт его по этому ключу.
   switchKey = $state(0);
 
@@ -62,8 +61,9 @@ export class SettingsVm {
     return this.saveView({ reducedMotion: on ? 'on' : 'system' });
   }
 
-  setShowTips(on: boolean): Promise<void> {
-    return this.saveView({ showTips: on });
+  /** Знакомство снова показывается сразу: оболочка следит за `introDone`. */
+  showIntroAgain(): Promise<void> {
+    return this.saveView({ introDone: false });
   }
 
   async changePassword(): Promise<void> {

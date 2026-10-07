@@ -1,5 +1,5 @@
 [package]
-name = "budget-import"
+name = "planning-budget-import"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,5 +11,5 @@ workspace = true
 
 [dependencies]
 calamine = { version = "0.36.1", default-features = false }
-budget-core.workspace = true
+planning-budget-core.workspace = true
 thiserror = "2.0.21"

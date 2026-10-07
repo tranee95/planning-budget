@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use budget_core::{BasisPoints, Money, Settings, YearMonth};
+use planning_budget_core::{BasisPoints, Settings};
 use rusqlite::params;
 use serde_json::Value;
 
@@ -12,22 +12,16 @@ use crate::{Db, StorageError};
 #[derive(Clone, Copy)]
 enum Shape {
     BasisPoints,
-    Kopecks,
-    Month,
     Int { min: i64, max: i64 },
     Bool,
     Text,
 }
 
 /// Все известные ключи: незнакомый ключ записать нельзя.
-const KEYS: [(&str, Shape); 13] = [
+const KEYS: [(&str, Shape); 9] = [
     ("savings.target_min_bp", Shape::BasisPoints),
     ("savings.target_norm_bp", Shape::BasisPoints),
     ("savings.target_max_bp", Shape::BasisPoints),
-    ("bonds.rate_bp", Shape::BasisPoints),
-    ("bonds.coupon_tax_bp", Shape::BasisPoints),
-    ("bonds.initial_balance", Shape::Kopecks),
-    ("bonds.initial_month", Shape::Month),
     ("ui.weeks_per_month", Shape::Int { min: 1, max: 5 }),
     (
         "security.autolock_minutes",
@@ -42,8 +36,6 @@ const KEYS: [(&str, Shape); 13] = [
 fn validate(shape: Shape, value: &Value) -> bool {
     match shape {
         Shape::BasisPoints => value.as_i64().is_some_and(|v| (0..=10_000).contains(&v)),
-        Shape::Kopecks => value.as_i64().is_some_and(|v| v >= 0),
-        Shape::Month => value.as_str().is_some_and(|s| YearMonth::parse(s).is_ok()),
         Shape::Int { min, max } => value.as_i64().is_some_and(|v| (min..=max).contains(&v)),
         Shape::Bool => value.is_boolean(),
         Shape::Text => value.as_str().is_some_and(|s| !s.trim().is_empty()),
@@ -137,19 +129,10 @@ impl Db {
     /// [`StorageError::Corrupt`], если нет обязательного ключа или значение испорчено.
     pub fn settings(&self) -> Result<Settings, StorageError> {
         let map = self.settings_map()?;
-        let initial_month = map
-            .get("bonds.initial_month")
-            .and_then(Value::as_str)
-            .ok_or(StorageError::Corrupt)?;
         Ok(Settings {
             savings_min: basis_points(&map, "savings.target_min_bp")?,
             savings_norm: basis_points(&map, "savings.target_norm_bp")?,
             savings_max: basis_points(&map, "savings.target_max_bp")?,
-            bonds_rate: basis_points(&map, "bonds.rate_bp")?,
-            bonds_coupon_tax: basis_points(&map, "bonds.coupon_tax_bp")?,
-            bonds_initial_balance: Money::from_kopecks(int(&map, "bonds.initial_balance")?),
-            bonds_initial_month: YearMonth::parse(initial_month)
-                .map_err(|_| StorageError::Corrupt)?,
             weeks_per_month: u8::try_from(int(&map, "ui.weeks_per_month")?)
                 .map_err(|_| StorageError::Corrupt)?,
         })

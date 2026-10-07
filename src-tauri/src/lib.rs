@@ -1,6 +1,7 @@
 //! Оболочка Tauri: состояние сессии, команды, события.
 
 mod commands;
+mod data_migration;
 mod dto;
 mod error;
 mod events;
@@ -21,78 +22,7 @@ pub use state::{AppPaths, AppState};
 #[must_use]
 pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::<tauri::Wry>::new()
-        .commands(tauri_specta::collect_commands![
-            commands::app::app_version,
-            commands::vault::vault_status,
-            commands::vault::vault_create,
-            commands::vault::vault_unlock,
-            commands::vault::vault_unlock_recovery,
-            commands::vault::vault_change_password,
-            commands::vault::vault_rekey,
-            commands::vault::vault_lock,
-            commands::vault::vault_reset,
-            commands::vault::vault_save_recovery_code,
-            commands::vault::activity_ping,
-            commands::prefs::prefs_get,
-            commands::prefs::system_dark,
-            commands::prefs::prefs_set,
-            commands::categories::categories_list,
-            commands::categories::categories_create,
-            commands::categories::categories_update,
-            commands::categories::categories_archive,
-            commands::categories::categories_unarchive,
-            commands::categories::categories_delete,
-            commands::categories::categories_reorder,
-            commands::categories::limits_set,
-            commands::categories::limits_clear,
-            commands::categories::limits_history,
-            commands::categories::savings_rates_list,
-            commands::categories::savings_rate_set,
-            commands::categories::savings_override_set,
-            commands::categories::savings_override_clear,
-            commands::transactions::tx_list,
-            commands::transactions::tx_create,
-            commands::transactions::tx_update,
-            commands::transactions::tx_set_status,
-            commands::transactions::tx_delete,
-            commands::transactions::tx_restore,
-            commands::transactions::tx_tags_set,
-            commands::transactions::tags_list,
-            commands::transactions::tags_create,
-            commands::transactions::tags_rename,
-            commands::transactions::tags_delete,
-            commands::incomes::incomes_list,
-            commands::incomes::incomes_create,
-            commands::incomes::incomes_update,
-            commands::incomes::incomes_delete,
-            commands::incomes::incomes_restore,
-            commands::search::search,
-            commands::search::tx_search,
-            commands::search::incomes_search,
-            commands::search::filters_list,
-            commands::search::filters_save,
-            commands::search::filters_delete,
-            commands::search::tx_suggest,
-            commands::search::tx_category_usage,
-            commands::analytics::analytics_run,
-            commands::analytics::analytics_check,
-            commands::analytics::dashboards_list,
-            commands::analytics::dashboards_create,
-            commands::analytics::dashboards_rename,
-            commands::analytics::dashboards_delete,
-            commands::analytics::charts_list,
-            commands::analytics::charts_create,
-            commands::analytics::charts_update,
-            commands::analytics::charts_delete,
-            commands::analytics::charts_layout_set,
-            commands::bonds::bonds_projection,
-            commands::summary::summary_month,
-            commands::summary::summary_year,
-            commands::settings::settings_get,
-            commands::settings::settings_set,
-            commands::legacy::legacy_import,
-            commands::dev::dev_seed,
-        ])
+        .commands(commands::registry::all())
         .events(tauri_specta::collect_events![
             events::VaultLocked,
             events::SystemThemeChanged,
@@ -133,6 +63,12 @@ pub fn run() -> tauri::Result<()> {
         .setup(move |app| {
             builder.mount_events(app);
             let data_dir = app.path().app_data_dir()?;
+            if let Some(old) = data_migration::LEGACY_IDENTIFIER
+                .and_then(|id| data_migration::legacy_dir(&data_dir, id))
+            {
+                // Результат не логируется: пути и данные в лог не попадают.
+                let _ = data_migration::migrate(&old, &data_dir);
+            }
             let log_dir = data_dir.join("logs");
             std::fs::create_dir_all(&log_dir)?;
             app.manage(AppState::new(AppPaths::new(data_dir)));

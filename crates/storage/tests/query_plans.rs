@@ -8,8 +8,8 @@
     reason = "тестовый файл: паника и есть провал теста"
 )]
 
-use budget_storage::Db;
 use chrono::{TimeZone, Utc};
+use planning_budget_storage::Db;
 use tempfile::TempDir;
 
 fn db_with_rows() -> (TempDir, Db) {

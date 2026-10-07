@@ -5,7 +5,7 @@ use std::process::Command;
 
 #[test]
 fn export_bindings() {
-    let status = Command::new(env!("CARGO_BIN_EXE_budget-app"))
+    let status = Command::new(env!("CARGO_BIN_EXE_planning-budget-app"))
         .arg("--export-bindings")
         .status()
         .unwrap();

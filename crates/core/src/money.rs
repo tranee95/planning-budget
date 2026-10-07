@@ -13,7 +13,7 @@ const MINUS: char = '\u{2212}';
 /// Сумма в копейках. Может быть отрицательной (разности, остатки).
 ///
 /// ```
-/// use budget_core::Money;
+/// use planning_budget_core::Money;
 /// let m = Money::from_rub_str("2 596,50 ₽").unwrap();
 /// assert_eq!(m.kopecks(), 259_650);
 /// assert_eq!(m.to_string(), "2\u{a0}597\u{a0}₽");
@@ -120,6 +120,34 @@ impl Money {
         Some(self.as_f64() / total.as_f64())
     }
 
+    /// Доля `self / total` в базисных пунктах (10 000 = 100 %), округление half away from zero.
+    /// `None`, если знаменатель равен нулю; результат ограничен диапазоном `i32`.
+    pub fn ratio_bp(self, total: Self) -> Option<i32> {
+        self.ratio_scaled(total, 10_000)
+    }
+
+    /// Доля `self / total` в целых процентах (то же округление, что у `ratio_bp`).
+    pub fn ratio_percent(self, total: Self) -> Option<i32> {
+        self.ratio_scaled(total, 100)
+    }
+
+    fn ratio_scaled(self, total: Self, scale: i128) -> Option<i32> {
+        if total.is_zero() {
+            return None;
+        }
+        let numerator = i128::from(self.0).checked_mul(scale)?;
+        let denominator = i128::from(total.0);
+        let negative = (numerator < 0) != (denominator < 0);
+        let (n, d) = (numerator.unsigned_abs(), denominator.unsigned_abs());
+        let quotient = i128::try_from(n.checked_add(d / 2)?.checked_div(d)?).ok()?;
+        let signed = if negative {
+            quotient.checked_neg()?
+        } else {
+            quotient
+        };
+        Some(i32::try_from(signed).unwrap_or(if signed < 0 { i32::MIN } else { i32::MAX }))
+    }
+
     /// Разбор ввода: «2596», «2 596», «2596,5», «2 596,50 ₽», «-100».
     pub fn from_rub_str(input: &str) -> Result<Self, MoneyError> {
         let trimmed = input.trim();
@@ -219,6 +247,22 @@ fn group_digits(n: u64) -> String {
 mod tests {
     use super::*;
     use proptest::prelude::*;
+
+    #[test]
+    fn ratio_in_basis_points_and_percent_rounds_half_away_from_zero() {
+        let m = |kop: i64| Money(kop);
+        assert_eq!(m(1).ratio_bp(m(3)), Some(3_333));
+        assert_eq!(m(2).ratio_bp(m(3)), Some(6_667));
+        assert_eq!(m(1).ratio_bp(m(8)), Some(1_250));
+        assert_eq!(m(-1).ratio_bp(m(8)), Some(-1_250));
+        assert_eq!(m(1).ratio_bp(m(-8)), Some(-1_250));
+        assert_eq!(m(5).ratio_percent(m(200)), Some(3));
+        assert_eq!(m(-5).ratio_percent(m(200)), Some(-3));
+        assert_eq!(m(0).ratio_bp(m(100)), Some(0));
+        assert_eq!(m(100).ratio_bp(Money::ZERO), None);
+        assert_eq!(m(i64::MAX).ratio_bp(m(1)), Some(i32::MAX));
+        assert_eq!(m(i64::MIN).ratio_bp(m(1)), Some(i32::MIN));
+    }
 
     #[test]
     fn parses_money_input() {

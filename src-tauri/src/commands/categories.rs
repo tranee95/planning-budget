@@ -1,7 +1,7 @@
 //! Категории, лимиты и план сбережений.
 
-use budget_core::CategoryId;
 use chrono::{Local, Utc};
+use planning_budget_core::CategoryId;
 use tauri::{AppHandle, State};
 
 use crate::AppError;

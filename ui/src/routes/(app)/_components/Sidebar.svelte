@@ -1,10 +1,9 @@
 <script lang="ts">
   import Lock from '@lucide/svelte/icons/lock';
-  import Settings from '@lucide/svelte/icons/settings';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import Logo from '$lib/components/Logo.svelte';
-  import { sections } from '$lib/nav';
+  import { helpItem, sections, settingsItem } from '$lib/nav';
   import { shortcutLabel } from '$lib/shortcuts';
 
   let { onlock }: { onlock: () => void } = $props();
@@ -15,7 +14,7 @@
 </script>
 
 <aside class="sidebar">
-  <div class="brand"><Logo size={32} /><span class="text">Private Budget</span></div>
+  <div class="brand"><Logo size={32} /><span class="text">Planning Budget</span></div>
   <nav aria-label="Разделы">
     {#each sections as item, i (item.href)}
       <a
@@ -30,9 +29,25 @@
       </a>
     {/each}
   </nav>
-  <a href={resolve('/settings')} class="nav" title="Настройки" aria-current={current('/settings')}>
-    <Settings size={18} strokeWidth={1.75} aria-hidden="true" />
-    <span class="text">Настройки</span>
+  <a
+    href={resolve(helpItem.href)}
+    class="nav"
+    title={helpItem.label}
+    aria-current={current(helpItem.href)}
+    aria-keyshortcuts="?"
+  >
+    <helpItem.icon size={18} strokeWidth={1.75} aria-hidden="true" />
+    <span class="text">{helpItem.label}</span>
+    <kbd class="text">?</kbd>
+  </a>
+  <a
+    href={resolve(settingsItem.href)}
+    class="nav"
+    title={settingsItem.label}
+    aria-current={current(settingsItem.href)}
+  >
+    <settingsItem.icon size={18} strokeWidth={1.75} aria-hidden="true" />
+    <span class="text">{settingsItem.label}</span>
   </a>
   <button
     type="button"

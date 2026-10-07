@@ -1,10 +1,10 @@
 //! Траты, доходы и теги.
 
-use budget_core::{CategoryId, IncomeId, Money, TagId, TxId};
-use budget_storage::{
+use chrono::{DateTime, NaiveDate, Utc};
+use planning_budget_core::{CategoryId, IncomeId, Money, TagId, TxId};
+use planning_budget_storage::{
     Db, IncomePatch, NewIncome, NewTransaction, RecordSource, StorageError, TransactionPatch,
 };
-use chrono::{DateTime, NaiveDate, Utc};
 
 use super::{parse_date, parse_month};
 use crate::AppError;

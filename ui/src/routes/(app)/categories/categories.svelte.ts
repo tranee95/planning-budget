@@ -1,15 +1,14 @@
 import { getContext, setContext } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 import {
-  events,
   type BudgetBalanceDto,
   type CategoryDto,
   type CategoryKindDto,
   type CategoryYearRowDto,
   type LimitRowDto,
-  type SavingsRateDto,
   type SettingsDto
 } from '$lib/api/bindings';
+import { onDataChanged } from '$lib/api/data-events';
 import { categoriesApi, settingsApi, summaryApi } from '$lib/api/data';
 import { CATEGORY_COLORS, parsePercentBp } from '$lib/category-colors';
 import { errorText } from '$lib/i18n/errors';
@@ -54,7 +53,6 @@ export class CategoriesVm {
   items = $state.raw<CategoryDto[]>([]);
   limits = $state.raw<LimitRowDto[]>([]);
   yearRows = $state.raw<CategoryYearRowDto[]>([]);
-  rates = $state.raw<SavingsRateDto[]>([]);
   balance = $state.raw<BudgetBalanceDto | null>(null);
   /** Процент плана сбережений месяца с учётом переопределения, б. п. (считает Rust). */
   monthPlanBp = $state<number | null>(null);
@@ -77,23 +75,17 @@ export class CategoriesVm {
   }
 
   rows = $derived.by<CategoryRow[]>(() => {
-    const limitById = new SvelteMap(this.limits.map((l) => [l.categoryId, l.limit]));
+    const limitById = new SvelteMap(this.limits.map((l) => [l.categoryId, l]));
     const yearById = new SvelteMap(this.yearRows.map((r) => [r.categoryId, r]));
-    // Процент действует с последней даты не позже начала месяца.
-    const rateById = new SvelteMap<number, SavingsRateDto>();
-    for (const rate of this.rates) {
-      if (rate.validFrom > this.#month) continue;
-      const known = rateById.get(rate.categoryId);
-      if (!known || known.validFrom < rate.validFrom) rateById.set(rate.categoryId, rate);
-    }
     return this.items
       .filter((c) => this.showArchived || !c.archived)
       .map((category) => {
         const year = yearById.get(category.id);
+        const row = limitById.get(category.id);
         return {
           category,
-          limit: limitById.get(category.id) ?? null,
-          rateBp: rateById.get(category.id)?.rateBp ?? null,
+          limit: row?.limit ?? null,
+          rateBp: row?.planRateBp ?? null,
           avg: year?.avg ?? 0,
           overLimit: year?.avgMinusLimit ?? null
         };
@@ -106,12 +98,7 @@ export class CategoriesVm {
   });
 
   /** Процент плана расходится с нормой из настроек: пользователю нужно это объяснить. */
-  rateMismatch = $derived(
-    this.settings !== null &&
-      this.monthPlanBp !== null &&
-      this.monthPlanBp > 0 &&
-      this.monthPlanBp !== this.settings.savingsNormBp
-  );
+  rateMismatch = $state(false);
 
   current = $derived(
     typeof this.selected === 'number'
@@ -125,11 +112,10 @@ export class CategoriesVm {
     this.loading = true;
     this.error = null;
     try {
-      const [items, overview, year, rates, settings] = await Promise.all([
+      const [items, overview, year, settings] = await Promise.all([
         categoriesApi.list(true),
         summaryApi.month(month),
         summaryApi.year(Number(month.slice(0, 4))),
-        categoriesApi.savingsRates(),
         settingsApi.get()
       ]);
       if (req !== this.#req) return;
@@ -138,7 +124,7 @@ export class CategoriesVm {
       this.yearRows = year.categories;
       this.balance = year.balance;
       this.monthPlanBp = overview.summary.savingsPlanRateBp;
-      this.rates = rates;
+      this.rateMismatch = overview.summary.savingsPlanOffNorm;
       this.settings = settings;
       if (typeof this.selected === 'number' && !items.some((c) => c.id === this.selected)) {
         this.selected = null;
@@ -287,14 +273,9 @@ export class CategoriesVm {
   }
 
   connect(): () => void {
-    const offData = events.dataChanged.listen(() => {
+    return onDataChanged(() => {
       if (this.#month !== '') void this.load(this.#month);
     });
-    return () => {
-      void offData.then((off) => {
-        off();
-      });
-    };
   }
 }
 

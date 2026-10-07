@@ -5,9 +5,9 @@
     reason = "тестовый файл: паника и есть провал теста"
 )]
 
-use budget_core::analytics::{ChartSpec, ChartType, standard_dashboard};
-use budget_storage::{CardPlacement, Db, StorageError};
 use chrono::{DateTime, TimeZone, Utc};
+use planning_budget_core::analytics::{ChartSpec, ChartType, standard_dashboard};
+use planning_budget_storage::{CardPlacement, Db, StorageError};
 use tempfile::TempDir;
 
 const KEY: [u8; 32] = [5; 32];

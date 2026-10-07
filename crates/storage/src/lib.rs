@@ -3,10 +3,12 @@
 mod categories;
 mod dashboards;
 mod dataset;
+mod debts;
 mod devseed;
 mod incomes;
 mod legacy;
 mod migrations;
+mod month_plans;
 mod plan;
 mod platform;
 mod records;
@@ -18,11 +20,14 @@ mod settings;
 mod suggest;
 mod tags;
 mod transactions;
+mod writes;
 
 pub use categories::{CategoryPatch, NewCategory};
 pub use dashboards::{CardPlacement, ChartCard, Dashboard, GRID_COLUMNS};
+pub use debts::{DebtPatch, DebtPaymentRecord, DebtRecord, NewDebt};
 pub use incomes::{IncomePatch, IncomeRecord, IncomeUpdate, NewIncome};
 pub use legacy::LegacyReport;
+pub use month_plans::{PlanWizardInput, SavingsPlanInput};
 pub use records::RecordSource;
 pub use saved_filters::SavedFilter;
 pub use search::{CategoryHit, Group, IncomeHit, MonthHit, SearchResult, TransactionHit};

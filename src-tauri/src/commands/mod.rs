@@ -5,12 +5,15 @@
 
 pub mod analytics;
 pub mod app;
-pub mod bonds;
 pub mod categories;
+pub mod debts;
 pub mod dev;
 pub mod incomes;
 pub mod legacy;
+pub mod plan;
 pub mod prefs;
+pub(crate) mod registry;
+pub mod savings;
 pub mod search;
 pub mod settings;
 pub mod summary;

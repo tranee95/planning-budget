@@ -11,7 +11,7 @@ pub enum MoneyError {
     DivisionByZero,
 }
 
-/// Единая ошибка `budget-core`.
+/// Единая ошибка `planning-budget-core`.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum CoreError {
     #[error(transparent)]
@@ -26,4 +26,6 @@ pub enum CoreError {
     SeedFormat { line: usize, column: usize },
     #[error("seed refers to an unknown category (record {index})")]
     SeedUnknownCategory { index: usize },
+    #[error("invalid repayment schedule: {0}")]
+    Schedule(&'static str),
 }

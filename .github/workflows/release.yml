@@ -47,7 +47,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: Private Budget ${{ github.ref_name }}
+          releaseName: Planning Budget ${{ github.ref_name }}
           releaseBody: "Установщики для Windows, macOS и Linux приложены ниже. Установщики не подписаны: система покажет предупреждение о неизвестном издателе."
           releaseDraft: false
           prerelease: false

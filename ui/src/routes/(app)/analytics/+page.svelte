@@ -34,7 +34,7 @@
 </script>
 
 <svelte:head>
-  <title>Private Budget — аналитика</title>
+  <title>Planning Budget — аналитика</title>
 </svelte:head>
 
 <div class="screen">

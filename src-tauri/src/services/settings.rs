@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use budget_storage::Db;
+use planning_budget_storage::Db;
 use serde_json::Value;
 
 use crate::AppError;
@@ -29,14 +29,6 @@ pub fn get(db: &Db) -> Result<SettingsDto, AppError> {
         savings_min_bp: to_i32("savings.target_min_bp")?,
         savings_norm_bp: to_i32("savings.target_norm_bp")?,
         savings_max_bp: to_i32("savings.target_max_bp")?,
-        bonds_rate_bp: to_i32("bonds.rate_bp")?,
-        bonds_coupon_tax_bp: to_i32("bonds.coupon_tax_bp")?,
-        bonds_initial_balance: int(&map, "bonds.initial_balance")?,
-        bonds_initial_month: map
-            .get("bonds.initial_month")
-            .and_then(Value::as_str)
-            .ok_or_else(missing)?
-            .to_owned(),
         weeks_per_month: u8::try_from(int(&map, "ui.weeks_per_month")?).map_err(|_| missing())?,
         autolock_minutes: u16::try_from(int(&map, "security.autolock_minutes")?)
             .map_err(|_| missing())?,
@@ -58,7 +50,7 @@ pub fn apply_security(state: &AppState, autolock_minutes: u16, lock_on_minimize:
 
 /// Записывает только переданные поля и возвращает настройки целиком.
 pub fn set(db: &mut Db, patch: SettingsPatchDto) -> Result<SettingsDto, AppError> {
-    let changes: [(&str, Option<Value>); 11] = [
+    let changes: [(&str, Option<Value>); 7] = [
         (
             "savings.target_min_bp",
             patch.savings_min_bp.map(Value::from),
@@ -70,19 +62,6 @@ pub fn set(db: &mut Db, patch: SettingsPatchDto) -> Result<SettingsDto, AppError
         (
             "savings.target_max_bp",
             patch.savings_max_bp.map(Value::from),
-        ),
-        ("bonds.rate_bp", patch.bonds_rate_bp.map(Value::from)),
-        (
-            "bonds.coupon_tax_bp",
-            patch.bonds_coupon_tax_bp.map(Value::from),
-        ),
-        (
-            "bonds.initial_balance",
-            patch.bonds_initial_balance.map(Value::from),
-        ),
-        (
-            "bonds.initial_month",
-            patch.bonds_initial_month.map(Value::from),
         ),
         ("ui.weeks_per_month", patch.weeks_per_month.map(Value::from)),
         (

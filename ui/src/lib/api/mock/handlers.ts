@@ -1,7 +1,13 @@
 import type { AppError, Prefs, PrefsPatch, VaultStatusDto } from '../bindings';
-import { mockBonds } from './bonds';
 import { dashboardHandlers } from './dashboards';
-import { budgetHandlers } from './budget';
+import {
+  budgetHandlers,
+  mockPlanRateBp,
+  mockSavingsCategories,
+  mockTransactionById
+} from './budget';
+import { createSavingsHandlers } from './savings';
+import { createDebtHandlers } from './debts';
 
 /**
  * Обработчики моков IPC: один источник для dev:mock, unit, e2e и ui-shot.
@@ -15,8 +21,8 @@ const MOCK_RETRY_MS = 3000;
 
 // ?vault=new — хранилища нет; ?vault=open — сразу разблокировано (для скриншотов и ручной проверки).
 const vaultParam = new URLSearchParams(globalThis.location.search).get('vault');
-// Подсказки новичка в моке выключены, чтобы не перекрывать экраны в e2e и скриншотах: ?tips=1 включает.
-const tipsParam = new URLSearchParams(globalThis.location.search).get('tips');
+// Знакомство в моке выключено, чтобы не перекрывать экраны в e2e и скриншотах: ?intro=1 включает.
+const introParam = new URLSearchParams(globalThis.location.search).get('intro');
 
 const vault = {
   exists: vaultParam !== 'new',
@@ -39,7 +45,7 @@ let prefs: Prefs = {
   uiScale: 100,
   reducedMotion: 'system',
   autolockMinutes: 5,
-  showTips: tipsParam === '1'
+  introDone: introParam !== '1'
 };
 
 function reject(error: AppError): Promise<never> {
@@ -68,7 +74,8 @@ function checkPassword(password: string): Promise<null> {
 export const handlers = {
   ...budgetHandlers,
   ...dashboardHandlers,
-  bonds_projection: (args: { year: number }) => mockBonds(args.year),
+  ...createDebtHandlers(mockTransactionById),
+  ...createSavingsHandlers(mockSavingsCategories, mockPlanRateBp),
   app_version: () => '0.0.0-mock',
 
   vault_status: (): VaultStatusDto => ({
@@ -131,14 +138,14 @@ export const handlers = {
   // В браузере тему ОС отдаёт media-запрос (в окне Tauri её сообщает Rust).
   system_dark: () => globalThis.matchMedia('(prefers-color-scheme: dark)').matches,
   prefs_set: (args: { patch: PrefsPatch }) => {
-    const { theme, locale, uiScale, reducedMotion, showTips } = args.patch;
+    const { theme, locale, uiScale, reducedMotion, introDone } = args.patch;
     prefs = {
       theme: theme ?? prefs.theme,
       locale: locale ?? prefs.locale,
       uiScale: uiScale ?? prefs.uiScale,
       reducedMotion: reducedMotion ?? prefs.reducedMotion,
       autolockMinutes: prefs.autolockMinutes,
-      showTips: showTips ?? prefs.showTips
+      introDone: introDone ?? prefs.introDone
     };
     return prefs;
   }

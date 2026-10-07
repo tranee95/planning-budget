@@ -8,11 +8,11 @@
 
 use std::collections::BTreeMap;
 
-use budget_core::analytics::{
+use planning_budget_core::analytics::{
     ChartSpec, ChartType, Context, GroupBy, Metric, Options, PeriodPreset, PeriodSpec, SeriesBy,
     SortOrder, SpecError, Unit, compute,
 };
-use budget_core::{TxId, YearMonth, load_seed};
+use planning_budget_core::{TxId, YearMonth, load_seed};
 
 const SEED: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -40,7 +40,7 @@ fn today() -> YearMonth {
     YearMonth::new(2026, 9).unwrap()
 }
 
-fn run(spec: &ChartSpec) -> budget_core::analytics::ChartData {
+fn run(spec: &ChartSpec) -> planning_budget_core::analytics::ChartData {
     let data = load_seed(SEED).unwrap();
     let tags = BTreeMap::new();
     compute(
@@ -180,8 +180,9 @@ fn filter_narrows_expenses_and_drops_income() {
     let mut s = base();
     s.filter = "статус:план".to_owned();
     let planned = run(&s);
-    let sum =
-        |c: &budget_core::analytics::ChartData| c.series[0].values.iter().flatten().sum::<f64>();
+    let sum = |c: &planning_budget_core::analytics::ChartData| {
+        c.series[0].values.iter().flatten().sum::<f64>()
+    };
     assert!(sum(&planned) < sum(&all));
 
     let mut s = base();
@@ -349,7 +350,12 @@ fn empty_data_gives_zero_series_not_an_error() {
 fn period_presets_resolve_against_today() {
     let data = load_seed(SEED).unwrap();
     let months = |preset| {
-        budget_core::analytics::period_months(&data, PeriodSpec::Preset { preset }, today()).len()
+        planning_budget_core::analytics::period_months(
+            &data,
+            PeriodSpec::Preset { preset },
+            today(),
+        )
+        .len()
     };
     assert_eq!(months(PeriodPreset::Ytd), 9);
     assert_eq!(months(PeriodPreset::Last12), 12);
@@ -363,7 +369,7 @@ fn all_time_keeps_the_newest_months_when_history_is_too_long() {
     let mut old = data.incomes.first().unwrap().clone();
     old.month = YearMonth::new(1990, 1).unwrap();
     data.incomes.push(old);
-    let months = budget_core::analytics::period_months(
+    let months = planning_budget_core::analytics::period_months(
         &data,
         PeriodSpec::Preset {
             preset: PeriodPreset::All,

@@ -8,7 +8,7 @@ const prefs = (over: Partial<Prefs>): Prefs => ({
   uiScale: 100,
   reducedMotion: 'system',
   autolockMinutes: 5,
-  showTips: true,
+  introDone: true,
   ...over
 });
 

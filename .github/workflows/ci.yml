@@ -42,7 +42,7 @@ jobs:
       - run: cargo test --workspace
       - name: Bindings are up to date
         run: |
-          cargo test -p budget-app export_bindings
+          cargo test -p planning-budget-app export_bindings
           git diff --exit-code ui/src/lib/api/bindings.ts
       - run: pnpm -C ui test
 
@@ -84,7 +84,7 @@ jobs:
       - name: Smoke test (--self-test)
         shell: bash
         run: |
-          bin=target/release/budget-app
+          bin=target/release/planning-budget-app
           [ "${{ matrix.os }}" = "windows-latest" ] && bin="$bin.exe"
           "$bin" --self-test
       - uses: actions/upload-artifact@v4

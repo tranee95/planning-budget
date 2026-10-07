@@ -5,7 +5,7 @@
 
 use super::Ledger;
 use crate::error::CoreError;
-use crate::model::Settings;
+use crate::model::BasisPoints;
 use crate::money::Money;
 use crate::period::YearMonth;
 
@@ -21,9 +21,9 @@ pub struct BondRates {
 }
 
 impl BondRates {
-    pub fn from_settings(settings: &Settings) -> Self {
-        let effective =
-            settings.bonds_rate.as_ratio() * (1.0 - settings.bonds_coupon_tax.as_ratio());
+    /// Ставки накопления: годовая ставка и налог на купон.
+    pub fn new(annual_rate: BasisPoints, tax: BasisPoints) -> Self {
+        let effective = annual_rate.as_ratio() * (1.0 - tax.as_ratio());
         let monthly = (1.0 + effective).powf(1.0 / 12.0) - 1.0;
         Self { effective, monthly }
     }
@@ -82,18 +82,22 @@ pub struct BondsForecast {
 }
 
 impl Ledger<'_> {
-    /// Фактический баланс по месяцам года `year`. Накопление всегда идёт от `initial_month`:
-    /// взносы и купоны прошлых лет входят в баланс, в список попадают только месяцы `year`.
-    pub fn bonds_fact(&self, year: u16) -> Result<BondsFact, CoreError> {
-        let settings = &self.data().settings;
-        let rates = BondRates::from_settings(settings);
+    /// Баланс по взносам `contribution(m)` с `initial_month` по декабрь `year`.
+    pub(crate) fn accumulate(
+        &self,
+        rates: BondRates,
+        initial_balance: Money,
+        initial_month: YearMonth,
+        year: u16,
+        contribution: impl Fn(YearMonth) -> Result<Money, CoreError>,
+    ) -> Result<BondsFact, CoreError> {
         let end = YearMonth::new(year, 12)?;
 
-        let mut balance = settings.bonds_initial_balance.as_f64();
-        let mut deposited = settings.bonds_initial_balance;
+        let mut balance = initial_balance.as_f64();
+        let mut deposited = initial_balance;
         let mut months = Vec::new();
-        for month in settings.bonds_initial_month.iter_to(end) {
-            let savings = self.totals(month).by_kind.savings;
+        for month in initial_month.iter_to(end) {
+            let savings = contribution(month)?;
             let coupon = balance * rates.monthly;
             balance += savings.as_f64() + coupon;
             deposited = deposited.checked_add(savings)?;
@@ -115,36 +119,9 @@ impl Ledger<'_> {
             dec_balance: Money::from_kopecks_f64(balance)?,
         })
     }
-
-    /// Прогноз на 60 месяцев от декабрьского баланса `year`; `current` задаёт действующие лимиты.
-    pub fn bonds_forecast(
-        &self,
-        year: u16,
-        current: YearMonth,
-    ) -> Result<BondsForecast, CoreError> {
-        let rates = BondRates::from_settings(&self.data().settings);
-        let start_balance = self.bonds_fact(year)?.dec_balance;
-        let summary = self.year_summary(year, current)?;
-        let balance = self.balance_for(&summary, current)?;
-
-        let contributions = [
-            (Scenario::A, balance.savings_target),
-            (
-                Scenario::B,
-                balance.savings_target.checked_add(balance.economy)?,
-            ),
-            (Scenario::C, summary.avg_savings),
-        ];
-        let [a, b, c] = contributions
-            .map(|(scenario, contribution)| forecast(scenario, contribution, start_balance, rates));
-        Ok(BondsForecast {
-            start_balance,
-            scenarios: [a?, b?, c?],
-        })
-    }
 }
 
-fn forecast(
+pub(crate) fn forecast(
     scenario: Scenario,
     contribution: Money,
     start_balance: Money,

@@ -3,9 +3,17 @@ import type {
   CategoryInput,
   CardPlacementDto,
   CategoryPatchDto_Deserialize,
+  DebtInput,
+  DebtPatchDto,
+  DebtPaymentStatusDto,
+  DebtScheduleKindDto,
+  PlanWizardInputDto,
+  SavingsParamsDto,
+  SchedulePaymentDto,
   ChartSpecDto,
   IncomeInput,
   IncomePatchDto_Deserialize,
+  SeriesRangeDto,
   SettingsPatchDto,
   TransactionInput,
   TransactionPatchDto_Deserialize,
@@ -27,7 +35,6 @@ export const categoriesApi = {
   clearLimit: (categoryId: number, validFrom: string) =>
     call(commands.limitsClear(categoryId, validFrom)),
   limitHistory: (categoryId: number) => call(commands.limitsHistory(categoryId)),
-  savingsRates: () => call(commands.savingsRatesList()),
   setSavingsRate: (categoryId: number, validFrom: string, rateBp: number) =>
     call(commands.savingsRateSet(categoryId, validFrom, rateBp)),
   setSavingsOverride: (month: string, categoryId: number, rateBp: number) =>
@@ -67,7 +74,32 @@ export const incomesApi = {
 
 export const summaryApi = {
   month: (month: string) => call(commands.summaryMonth(month)),
-  year: (year: number) => call(commands.summaryYear(year))
+  year: (year: number) => call(commands.summaryYear(year)),
+  series: (month: string, range: SeriesRangeDto) => call(commands.summarySeries(month, range))
+};
+
+export const debtsApi = {
+  list: (month: string, includeClosed: boolean) => call(commands.debtsList(month, includeClosed)),
+  create: (input: DebtInput) => call(commands.debtsCreate(input)),
+  fromTransaction: (txId: number, lender: string, schedule: SchedulePaymentDto[]) =>
+    call(commands.debtFromTx(txId, lender, schedule)),
+  update: (id: number, patch: DebtPatchDto) => call(commands.debtsUpdate(id, patch)),
+  remove: (id: number) => call(commands.debtsDelete(id)),
+  restore: (id: number) => call(commands.debtsRestore(id)),
+  setPaymentStatus: (paymentId: number, status: DebtPaymentStatusDto, paidDate: string | null) =>
+    call(commands.debtPaymentSetStatus(paymentId, status, paidDate)),
+  schedulePreview: (amount: number, takenMonth: string, kind: DebtScheduleKindDto) =>
+    call(commands.debtSchedulePreview(amount, takenMonth, kind))
+};
+
+export const planApi = {
+  month: (month: string) => call(commands.planMonth(month)),
+  lock: (month: string) => call(commands.planLock(month)),
+  unlock: (month: string) => call(commands.planUnlock(month)),
+  copyFromPrevious: (month: string) => call(commands.planCopyFromPrevious(month)),
+  preview: (month: string, input: PlanWizardInputDto) => call(commands.planPreview(month, input)),
+  wizardApply: (month: string, input: PlanWizardInputDto) =>
+    call(commands.planWizardApply(month, input))
 };
 
 export const settingsApi = {
@@ -116,6 +148,10 @@ export const dashboardsApi = {
     call(commands.chartsLayoutSet(dashboardId, placements))
 };
 
-export const bondsApi = {
-  projection: (year: number) => call(commands.bondsProjection(year))
+export const savingsApi = {
+  overview: (year: number) => call(commands.savingsOverview(year)),
+  setParams: (categoryId: number, params: SavingsParamsDto) =>
+    call(commands.savingsParamsSet(categoryId, params)),
+  setFixedPlan: (categoryId: number, validFrom: string, amount: number) =>
+    call(commands.savingsFixedSet(categoryId, validFrom, amount))
 };

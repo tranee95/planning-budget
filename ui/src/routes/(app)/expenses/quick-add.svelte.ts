@@ -51,6 +51,8 @@ export class QuickAddVm {
     this.#expenses = expenses;
     const day = today();
     this.date = day.startsWith(expenses.month) ? day : '';
+    // В зафиксированном месяце новая трата по умолчанию вне плана.
+    if (expenses.overview?.planLocked === true) this.status = 'unplanned';
     void transactionsApi
       .categoryUsage()
       .then((rows) => {

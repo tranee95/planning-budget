@@ -1,5 +1,5 @@
 [package]
-name = "budget-broker"
+name = "planning-budget-broker"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,5 +10,5 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-budget-core.workspace = true
+planning-budget-core.workspace = true
 thiserror = "2.0.21"

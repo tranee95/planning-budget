@@ -1,7 +1,7 @@
 //! Траты и теги.
 
-use budget_core::{TagId, TxId};
 use chrono::Utc;
+use planning_budget_core::{TagId, TxId};
 use tauri::{AppHandle, State};
 
 use crate::AppError;

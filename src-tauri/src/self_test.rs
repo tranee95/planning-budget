@@ -1,7 +1,7 @@
-//! `budget-app --self-test`: CI-проверка на каждой ОС.
+//! `planning-budget-app --self-test`: CI-проверка на каждой ОС.
 //! Создаёт временную зашифрованную базу, пишет и читает, проверяет шифрование, удаляет её.
 
-use budget_storage::{Db, StorageError};
+use planning_budget_storage::{Db, StorageError};
 
 const KEY: [u8; 32] = [7; 32];
 const OTHER_KEY: [u8; 32] = [9; 32];

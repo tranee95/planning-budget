@@ -3,6 +3,7 @@
   import { Button, CorridorBar, EmptyState, Kpi, Skeleton } from '$lib/components';
   import { month } from '$lib/stores/month.svelte';
   import LimitsList from './_overview/LimitsList.svelte';
+  import PlanCard from './_overview/PlanCard.svelte';
   import MonthsChart from './_overview/MonthsChart.svelte';
   import StatusStrip from './_overview/StatusStrip.svelte';
   import { OverviewVm, setOverviewVm, type ChartRange } from './overview.svelte';
@@ -21,11 +22,11 @@
   onMount(() => vm.connect());
 
   const summary = $derived(vm.summary);
-  const delta = $derived(vm.expensesDelta);
+  const delta = $derived(vm.overview?.expensesDeltaPercent ?? null);
 </script>
 
 <svelte:head>
-  <title>Private Budget — обзор</title>
+  <title>Planning Budget — обзор</title>
 </svelte:head>
 
 <div class="screen">
@@ -47,6 +48,19 @@
       {#each [0, 1, 2, 3, 4] as i (i)}<Skeleton height="112px" />{/each}
     </div>
   {:else}
+    {#if vm.plan !== null}
+      <PlanCard
+        plan={vm.plan}
+        lines={vm.planLines}
+        busy={vm.planBusy}
+        canCopy={vm.canCopyPlan}
+        onlock={() => void vm.lockPlan()}
+        onunlock={() => void vm.unlockPlan()}
+        oncopy={() => void vm.copyPlan()}
+        onrepay={(id: number, paid: boolean) => void vm.payRepayment(id, paid)}
+      />
+    {/if}
+
     <div class="kpis">
       <div class="card"><Kpi label="Доход" amount={summary.income} hint={vm.incomeHint} /></div>
       <div class="card">
@@ -63,9 +77,9 @@
       </div>
       <div class="card">
         <Kpi label="Сбережения" amount={summary.savings}>
-          {#if vm.settings !== null && summary.savingsRate !== null}
+          {#if vm.settings !== null && summary.savingsRateBp !== null}
             <CorridorBar
-              value={Math.round(summary.savingsRate * 10_000)}
+              value={summary.savingsRateBp}
               min={vm.settings.savingsMinBp}
               max={vm.settings.savingsMaxBp}
             />

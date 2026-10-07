@@ -1,5 +1,5 @@
 [package]
-name = "budget-app"
+name = "planning-budget-app"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -7,17 +7,17 @@ license.workspace = true
 publish.workspace = true
 
 [lib]
-name = "budget_app_lib"
+name = "planning_budget_app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [lints]
 workspace = true
 
 [dependencies]
-budget-core.workspace = true
-budget-import.workspace = true
-budget-storage.workspace = true
-budget-vault.workspace = true
+planning-budget-core.workspace = true
+planning-budget-import.workspace = true
+planning-budget-storage.workspace = true
+planning-budget-vault.workspace = true
 chrono = { version = "0.4.45", default-features = false, features = ["std", "clock"] }
 secrecy = "0.10.3"
 serde = { version = "1.0.229", features = ["derive"] }

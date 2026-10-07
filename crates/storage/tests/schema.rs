@@ -5,12 +5,28 @@
     reason = "тестовый файл: паника и есть провал теста"
 )]
 
-use budget_storage::Db;
 use chrono::{TimeZone, Utc};
+use planning_budget_storage::Db;
 use rusqlite::{Connection, params};
 use tempfile::TempDir;
 
 const KEY: [u8; 32] = [5; 32];
+/// Число файлов миграций: версия схемы равна ему, константа не требует правки с новой миграцией.
+fn latest_version() -> i64 {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations");
+    let files = std::fs::read_dir(dir)
+        .unwrap()
+        .filter(|e| {
+            e.as_ref()
+                .unwrap()
+                .path()
+                .extension()
+                .is_some_and(|x| x == "sql")
+        })
+        .count();
+    i64::try_from(files).unwrap()
+}
+
 const NOW: &str = "2026-10-01T12:00:00Z";
 
 fn now() -> chrono::DateTime<Utc> {
@@ -65,7 +81,7 @@ fn search(conn: &Connection, query: &str) -> Vec<i64> {
 fn migration_sets_user_version_and_passes_integrity_checks() {
     let (_dir, db) = seeded();
     let conn = db.conn();
-    assert_eq!(count(conn, "PRAGMA user_version"), 5);
+    assert_eq!(count(conn, "PRAGMA user_version"), latest_version());
     let integrity: String = conn
         .query_row("PRAGMA integrity_check", [], |r| r.get(0))
         .unwrap();
@@ -85,7 +101,7 @@ fn reopening_does_not_reapply_migrations_or_touch_data() {
         db.seed_defaults(now()).unwrap();
     }
     let db = Db::open(&path, &KEY).unwrap();
-    assert_eq!(count(db.conn(), "PRAGMA user_version"), 5);
+    assert_eq!(count(db.conn(), "PRAGMA user_version"), latest_version());
     assert_eq!(count(db.conn(), "SELECT count(*) FROM categories"), 17);
 }
 
@@ -123,7 +139,7 @@ fn seed_creates_categories_limits_and_settings() {
         count(conn, "SELECT count(*) FROM savings_category_rates"),
         1
     );
-    assert_eq!(count(conn, "SELECT count(*) FROM settings"), 13);
+    assert_eq!(count(conn, "SELECT count(*) FROM settings"), 9);
     let autolock: String = conn
         .query_row(
             "SELECT value FROM settings WHERE key = 'security.autolock_minutes'",
@@ -161,7 +177,7 @@ fn rekey_moves_the_whole_database_to_the_new_key() {
     }
     assert!(matches!(
         Db::open(&path, &KEY),
-        Err(budget_storage::StorageError::KeyRejected)
+        Err(planning_budget_storage::StorageError::KeyRejected)
     ));
     let db = Db::open(&path, &NEW_KEY).unwrap();
     let conn = db.conn();
@@ -232,7 +248,7 @@ fn seed_is_idempotent_and_keeps_user_changes() {
     let conn = db.conn();
     assert_eq!(count(conn, "SELECT count(*) FROM categories"), 17);
     assert_eq!(count(conn, "SELECT count(*) FROM category_limits"), 0);
-    assert_eq!(count(conn, "SELECT count(*) FROM settings"), 13);
+    assert_eq!(count(conn, "SELECT count(*) FROM settings"), 9);
     let autolock: String = conn
         .query_row(
             "SELECT value FROM settings WHERE key = 'security.autolock_minutes'",
@@ -255,7 +271,7 @@ fn seed_creates_the_standard_dashboard_once() {
     );
     assert_eq!(count(conn, "SELECT count(*) FROM charts"), 9);
 
-    let expected = budget_core::analytics::standard_dashboard();
+    let expected = planning_budget_core::analytics::standard_dashboard();
     let mut stmt = conn
         .prepare("SELECT spec, x, y, w, h FROM charts ORDER BY id")
         .unwrap();
@@ -267,7 +283,8 @@ fn seed_creates_the_standard_dashboard_once() {
         .collect::<Result<_, _>>()
         .unwrap();
     for (row, placement) in rows.iter().zip(&expected) {
-        let spec: budget_core::analytics::ChartSpec = serde_json::from_str(&row.0).unwrap();
+        let spec: planning_budget_core::analytics::ChartSpec =
+            serde_json::from_str(&row.0).unwrap();
         assert_eq!(spec, placement.spec);
         assert_eq!(
             (row.1, row.2, row.3, row.4),
@@ -495,7 +512,7 @@ fn open_refuses_a_missing_file_instead_of_creating_an_empty_database() {
     let path = dir.path().join("budget.db");
     assert!(matches!(
         Db::open(&path, &KEY),
-        Err(budget_storage::StorageError::Missing)
+        Err(planning_budget_storage::StorageError::Missing)
     ));
     assert!(!path.exists(), "nothing was created");
 }

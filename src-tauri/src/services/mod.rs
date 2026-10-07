@@ -1,22 +1,24 @@
 //! Сервисы: логика команд без Tauri-типов, чтобы тестироваться напрямую.
 
 pub mod analytics;
-pub mod bonds;
 pub mod categories;
 #[cfg(test)]
 mod checklist;
 #[cfg(test)]
 mod data_tests;
+pub mod debts;
 pub mod devseed;
 pub mod legacy;
+pub mod plan;
 pub mod records;
+pub mod savings;
 pub mod search;
 pub mod settings;
 pub mod summary;
 pub mod vault;
 
-use budget_core::YearMonth;
 use chrono::{Datelike as _, NaiveDate};
+use planning_budget_core::YearMonth;
 
 use crate::AppError;
 

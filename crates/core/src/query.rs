@@ -191,7 +191,7 @@ const MONTH_NAMES: [&str; 12] = [
 /// месяцы без года («мес:сен»).
 ///
 /// ```
-/// use budget_core::query::{parse, RecordKind};
+/// use planning_budget_core::query::{parse, RecordKind};
 /// let q = parse("лента статус:оплачено сумма>10000 доход", 2026);
 /// assert_eq!(q.text.len(), 1);
 /// assert_eq!(q.filter.record, RecordKind::Income);

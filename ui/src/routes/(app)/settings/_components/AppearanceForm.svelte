@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Theme } from '$lib/api/bindings';
+  import Button from '$lib/components/Button.svelte';
   import Segmented from '$lib/components/Segmented.svelte';
   import Switch from '$lib/components/Switch.svelte';
   import { THEMES, type SettingsVm } from '../settings.svelte';
@@ -19,11 +20,9 @@
       Меньше анимаций
     </Switch>
   {/key}
-  {#key vm.switchKey}
-    <Switch checked={vm.showTips} onchange={(on: boolean) => void vm.setShowTips(on)}>
-      Подсказки для начала работы
-    </Switch>
-  {/key}
+  <Button variant="secondary" onclick={() => void vm.showIntroAgain()}>
+    Показать знакомство снова
+  </Button>
 </div>
 
 <style>

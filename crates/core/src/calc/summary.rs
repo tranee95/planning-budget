@@ -1,6 +1,6 @@
 //! Сводка месяца и итоги года.
 
-use super::{KindAmounts, Ledger, StatusAmounts};
+use super::{KindAmounts, Ledger, PlanEntry, StatusAmounts};
 use crate::error::{CoreError, MoneyError};
 use crate::model::{BasisPoints, CategoryId, CategoryKind, TxStatus};
 use crate::money::Money;
@@ -25,12 +25,20 @@ pub struct MonthSummary {
     /// Расходы без сбережений; статус «План» входит (так считает таблица).
     pub expenses: Money,
     pub savings: Money,
+    /// Долги, взятые в месяце (источник денег),.
+    pub borrowed: Money,
+    /// Оплаченные погашения месяца (выплата, не расход).
+    pub repaid: Money,
     pub free: Money,
     pub free_cum: Money,
     pub savings_cum: Money,
     pub savings_rate: Option<f64>,
+    /// Норма сбережений в базисных пунктах (10 000 = 100 %); `None` без дохода.
+    pub savings_rate_bp: Option<i32>,
     pub unspent_rate: Option<f64>,
     pub savings_plan_rate: BasisPoints,
+    /// Процент плана больше нуля и отличается от нормы из настроек: UI объясняет расхождение.
+    pub savings_plan_off_norm: bool,
     pub savings_plan: Money,
     /// Факт − план; отрицательное значение — недобор.
     pub savings_gap: Money,
@@ -71,6 +79,18 @@ impl YearSummary {
         Ok(self.by_status.get(status).ratio(self.by_status.total()?))
     }
 
+    /// Отклонение расходов месяца от среднего за год в целых процентах. `None`, если сравнивать не
+    /// с чем: меньше двух месяцев с данными или среднее не больше нуля.
+    pub fn expenses_delta_percent(&self, month_expenses: Money) -> Option<i32> {
+        if self.months_with_data < 2 || self.avg_expenses <= Money::ZERO {
+            return None;
+        }
+        month_expenses
+            .checked_sub(self.avg_expenses)
+            .ok()?
+            .ratio_percent(self.avg_expenses)
+    }
+
     /// Доля типа категорий в доходе года.
     pub fn kind_share_of_income(&self, kind: CategoryKind) -> Option<f64> {
         self.by_kind.get(kind).ratio(self.income)
@@ -106,12 +126,16 @@ impl Ledger<'_> {
             income_expected: totals.income_expected,
             expenses,
             savings,
+            borrowed: totals.borrowed,
+            repaid: totals.repaid,
             free,
             free_cum,
             savings_cum,
             savings_rate: savings.ratio(income),
+            savings_rate_bp: savings.ratio_bp(income),
             unspent_rate: savings.checked_add(free)?.ratio(income),
             savings_plan_rate: plan_rate,
+            savings_plan_off_norm: plan_rate.0 > 0 && plan_rate != settings.savings_norm,
             savings_plan,
             savings_gap: savings.checked_sub(savings_plan)?,
             per_week: free.div_round(weeks)?,
@@ -164,6 +188,18 @@ impl Ledger<'_> {
         })
     }
 
+    /// Процент категории-сбережения по истории (без ручного значения месяца): последняя строка
+    /// с `valid_from ≤ month`; `None`, если строк до месяца ещё нет.
+    pub fn category_rate_from_history(
+        &self,
+        month: YearMonth,
+        category: CategoryId,
+    ) -> Option<BasisPoints> {
+        self.plan_entry(month, category)
+            .filter(|e| e.fixed.is_none())
+            .map(|e| e.rate)
+    }
+
     /// Процент плана категории-сбережения: ручной на месяц, иначе последняя строка истории
     /// с `valid_from ≤ month`, иначе ноль.
     pub fn category_savings_rate(&self, month: YearMonth, category: CategoryId) -> BasisPoints {
@@ -171,21 +207,32 @@ impl Ledger<'_> {
             .savings_overrides
             .get(&(month, category))
             .copied()
-            .or_else(|| {
-                self.savings_rate_history
-                    .get(&category)
-                    .and_then(|history| history.range(..=month).next_back())
-                    .map(|(_, rate)| *rate)
-            })
+            .or_else(|| self.plan_entry(month, category).map(|e| e.rate))
             .unwrap_or(BasisPoints(0))
     }
 
-    /// План категории-сбережения в рублях: `round(income × rate)`.
+    /// Действующая строка истории плана накопления на месяц.
+    pub(crate) fn plan_entry(&self, month: YearMonth, category: CategoryId) -> Option<PlanEntry> {
+        self.savings_rate_history
+            .get(&category)
+            .and_then(|history| history.range(..=month).next_back())
+            .map(|(_, entry)| *entry)
+    }
+
+    /// План категории-сбережения в рублях: ручной процент месяца перекрывает всё; иначе
+    /// фиксированная сумма действующей строки истории; иначе `round(income × rate)`.
     pub fn category_savings_plan(
         &self,
         month: YearMonth,
         category: CategoryId,
     ) -> Result<Money, CoreError> {
+        let overridden = self
+            .data()
+            .savings_overrides
+            .contains_key(&(month, category));
+        if !overridden && let Some(fixed) = self.plan_entry(month, category).and_then(|e| e.fixed) {
+            return Ok(fixed);
+        }
         let income = self.totals(month).income()?;
         Ok(income.mul_ratio(self.category_savings_rate(month, category).as_ratio())?)
     }

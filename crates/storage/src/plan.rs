@@ -1,8 +1,9 @@
 //! Лимиты категорий и план сбережений: история с `valid_from` и ручные проценты месяца
 //!.
 
-use budget_core::{
-    BasisPoints, CategoryId, CategoryKind, LimitEntry, Money, SavingsRateEntry, YearMonth,
+use planning_budget_core::{
+    BasisPoints, CategoryId, CategoryKind, LimitEntry, Money, SavingsParams, SavingsRateEntry,
+    YearMonth,
 };
 use rusqlite::params;
 
@@ -19,7 +20,7 @@ fn validate_rate(rate: BasisPoints) -> Result<(), StorageError> {
 }
 
 impl Db {
-    fn require_kind(&self, id: CategoryId, savings: bool) -> Result<(), StorageError> {
+    pub(crate) fn require_kind(&self, id: CategoryId, savings: bool) -> Result<(), StorageError> {
         let is_savings = self.category(id)?.kind == CategoryKind::Savings;
         match (savings, is_savings) {
             (true, false) => Err(StorageError::Invalid("savings.not_a_savings_category")),
@@ -103,12 +104,90 @@ impl Db {
     ) -> Result<(), StorageError> {
         validate_rate(rate)?;
         self.require_kind(category, true)?;
-        self.conn.execute(
-            "INSERT INTO savings_category_rates (category_id, valid_from, rate_bp) VALUES (?1, ?2, ?3)
-             ON CONFLICT (category_id, valid_from) DO UPDATE SET rate_bp = excluded.rate_bp",
-            params![category.0, valid_from.to_string(), rate.0],
+        crate::writes::upsert_rate_percent(
+            &self.conn,
+            category.0,
+            &valid_from.to_string(),
+            i64::from(rate.0),
         )?;
         Ok(())
+    }
+
+    /// Фиксированный план накопления в месяц с `valid_from` (вместо процента от дохода).
+    ///
+    /// # Errors
+    /// `NotFound`; `Invalid`, если сумма отрицательна или категория не сбережения.
+    pub fn savings_fixed_set(
+        &mut self,
+        category: CategoryId,
+        valid_from: YearMonth,
+        amount: Money,
+    ) -> Result<(), StorageError> {
+        if amount.is_negative() {
+            return Err(StorageError::Invalid("savings.negative_amount"));
+        }
+        self.require_kind(category, true)?;
+        crate::writes::upsert_rate_fixed(
+            &self.conn,
+            category.0,
+            &valid_from.to_string(),
+            amount.kopecks(),
+        )?;
+        Ok(())
+    }
+
+    /// Параметры накоплений: ставка, налог, начальный баланс и месяц начала.
+    ///
+    /// # Errors
+    /// Ошибка SQLite или повреждённая строка.
+    pub fn savings_params(
+        &self,
+    ) -> Result<std::collections::BTreeMap<CategoryId, SavingsParams>, StorageError> {
+        let mut stmt = self.conn.prepare_cached(
+            "SELECT category_id, annual_rate_bp, tax_bp, initial_balance, initial_month
+             FROM savings_params",
+        )?;
+        let mut rows = stmt.query([])?;
+        let mut out = std::collections::BTreeMap::new();
+        while let Some(row) = rows.next()? {
+            let month: String = row.get(4)?;
+            out.insert(
+                CategoryId(row.get(0)?),
+                SavingsParams {
+                    annual_rate: BasisPoints(row.get(1)?),
+                    tax: BasisPoints(row.get(2)?),
+                    initial_balance: Money::from_kopecks(row.get(3)?),
+                    initial_month: parse_month(&month)?,
+                },
+            );
+        }
+        Ok(out)
+    }
+
+    /// Задаёт параметры накопления.
+    ///
+    /// # Errors
+    /// `NotFound`; `Invalid`, если ставка или налог вне 0–100 %, баланс отрицателен или категория не
+    /// сбережения.
+    pub fn savings_params_set(
+        &mut self,
+        category: CategoryId,
+        params: &SavingsParams,
+    ) -> Result<(), StorageError> {
+        validate_rate(params.annual_rate)?;
+        validate_rate(params.tax)?;
+        if params.initial_balance.is_negative() {
+            return Err(StorageError::Invalid("savings.negative_amount"));
+        }
+        self.require_kind(category, true)?;
+        crate::writes::upsert_savings_params(
+            &self.conn,
+            category.0,
+            i64::from(params.annual_rate.0),
+            i64::from(params.tax.0),
+            params.initial_balance.kopecks(),
+            &params.initial_month.to_string(),
+        )
     }
 
     /// История процентов плана всех категорий сбережений.
@@ -117,7 +196,7 @@ impl Db {
     /// Ошибка SQLite или повреждённая строка.
     pub fn savings_rates(&self) -> Result<Vec<SavingsRateEntry>, StorageError> {
         let mut stmt = self.conn.prepare_cached(
-            "SELECT category_id, valid_from, rate_bp FROM savings_category_rates
+            "SELECT category_id, valid_from, rate_bp, amount FROM savings_category_rates
              ORDER BY category_id, valid_from",
         )?;
         let mut rows = stmt.query([])?;
@@ -128,6 +207,7 @@ impl Db {
                 category_id: CategoryId(row.get(0)?),
                 valid_from: parse_month(&valid_from)?,
                 rate: BasisPoints(row.get(2)?),
+                fixed_amount: row.get::<_, Option<i64>>(3)?.map(Money::from_kopecks),
             });
         }
         Ok(out)

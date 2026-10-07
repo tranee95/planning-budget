@@ -5,7 +5,7 @@
     reason = "тестовый файл: паника и есть провал теста"
 )]
 
-use budget_storage::{Db, StorageError};
+use planning_budget_storage::{Db, StorageError};
 use rusqlite::Connection;
 
 const KEY: [u8; 32] = [7; 32];

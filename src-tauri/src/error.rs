@@ -3,7 +3,7 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use budget_storage::StorageError;
+use planning_budget_storage::StorageError;
 use serde::Serialize;
 use specta::Type;
 
@@ -107,9 +107,9 @@ impl AppError {
     }
 }
 
-impl From<budget_import::ImportError> for AppError {
-    fn from(e: budget_import::ImportError) -> Self {
-        use budget_import::ImportError as E;
+impl From<planning_budget_import::ImportError> for AppError {
+    fn from(e: planning_budget_import::ImportError) -> Self {
+        use planning_budget_import::ImportError as E;
         let (key, line) = match e {
             E::NotXlsx => ("not_xlsx", None),
             E::MissingSheet(_) => ("missing_sheet", None),
@@ -126,8 +126,8 @@ impl From<budget_import::ImportError> for AppError {
     }
 }
 
-impl From<budget_core::CoreError> for AppError {
-    fn from(e: budget_core::CoreError) -> Self {
+impl From<planning_budget_core::CoreError> for AppError {
+    fn from(e: planning_budget_core::CoreError) -> Self {
         Self::internal("core", &e)
     }
 }

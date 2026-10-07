@@ -2,7 +2,7 @@
 //! реализация MVP — `NotConfigured`. Сеть появится только вместе с настоящим провайдером
 //! после отдельного решения (модель угроз, хранение токена в сейфе).
 
-use budget_core::{Money, YearMonth};
+use planning_budget_core::{Money, YearMonth};
 
 /// Включительный период в месяцах.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

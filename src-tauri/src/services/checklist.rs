@@ -6,9 +6,9 @@ use std::io;
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 
-use budget_storage::Db;
-use budget_vault::KdfParams;
 use chrono::{DateTime, TimeZone, Utc};
+use planning_budget_storage::Db;
+use planning_budget_vault::KdfParams;
 use secrecy::SecretString;
 use tempfile::TempDir;
 use tracing_subscriber::fmt::MakeWriter;
@@ -162,7 +162,7 @@ fn rekey_requires_an_open_session_and_the_right_password() {
 fn interrupted_rekey_after_database_was_rewritten_is_finished_at_next_unlock() {
     let (dir, state) = fresh();
     vault::create(&state, &pw(PASSWORD), t0(), Some(FAST)).unwrap();
-    let store = budget_vault::VaultStore::new(state.paths().data_dir().to_path_buf());
+    let store = planning_budget_vault::VaultStore::new(state.paths().data_dir().to_path_buf());
 
     // Процесс «упал» после PRAGMA rekey, но до замены слотов.
     let plan = store.begin_rekey(&pw(PASSWORD), t0()).unwrap();
@@ -190,7 +190,7 @@ fn interrupted_rekey_after_database_was_rewritten_is_finished_at_next_unlock() {
 fn interrupted_rekey_before_database_was_touched_is_discarded_at_next_unlock() {
     let (_dir, state) = fresh();
     vault::create(&state, &pw(PASSWORD), t0(), Some(FAST)).unwrap();
-    let store = budget_vault::VaultStore::new(state.paths().data_dir().to_path_buf());
+    let store = planning_budget_vault::VaultStore::new(state.paths().data_dir().to_path_buf());
     store.begin_rekey(&pw(PASSWORD), t0()).unwrap();
     state.lock();
 
@@ -447,8 +447,8 @@ fn database_without_the_right_key_is_unreadable_even_through_the_app_open_path()
 
 // ---- Регрессии по ревью ----
 
-fn raw_store(state: &AppState) -> budget_vault::VaultStore {
-    budget_vault::VaultStore::new(state.paths().data_dir().to_path_buf())
+fn raw_store(state: &AppState) -> planning_budget_vault::VaultStore {
+    planning_budget_vault::VaultStore::new(state.paths().data_dir().to_path_buf())
 }
 
 /// Доводит перевыпуск до состояния «база под новым ключом, слоты не заменены».

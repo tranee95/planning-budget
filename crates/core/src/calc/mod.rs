@@ -1,20 +1,40 @@
 //! Расчёты. Один проход по `DataSet` строит `Ledger`; все сводки читают из него.
 
 mod bonds;
+mod debts;
 mod limits;
+mod plan;
+mod savings;
 mod summary;
 
 use std::collections::BTreeMap;
 
 pub use bonds::{BondRates, BondsFact, BondsForecast, BondsMonth, ForecastScenario, Scenario};
+pub use debts::{
+    DebtState, DebtsSummary, debt_progress, equal_parts_schedule, single_payment_schedule,
+    validate_schedule,
+};
 pub(crate) use limits::usage;
 pub use limits::{BudgetBalance, CategoryYearRow, LimitLevel, LimitRow, MonthLimits};
+pub use plan::{LockSnapshot, MonthPlan, PlanBalance, PlanCopyRow, PlanRow};
+pub use savings::{Accumulation, SavingsOverview};
 pub use summary::{Corridor, MonthSummary, YearSummary};
 
 use crate::error::{CoreError, MoneyError};
-use crate::model::{BasisPoints, CategoryId, CategoryKind, DataSet, IncomeStatus, TxStatus};
+use crate::model::{
+    BasisPoints, CategoryId, CategoryKind, DataSet, DebtPaymentStatus, IncomeStatus, TxStatus,
+};
 use crate::money::Money;
 use crate::period::YearMonth;
+
+/// Доли статусов в сумме по всем статусам, базисные пункты (10 000 = 100 %).
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct StatusShares {
+    pub paid: i32,
+    pub debt: i32,
+    pub unplanned: i32,
+    pub planned: i32,
+}
 
 /// Суммы по четырём статусам трат.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
@@ -65,6 +85,18 @@ impl StatusAmounts {
     /// Сумма по всем статусам.
     pub fn total(&self) -> Result<Money, MoneyError> {
         Money::sum([self.paid, self.debt, self.unplanned, self.planned])
+    }
+
+    /// Доли статусов в общей сумме; при нулевой (или не помещающейся в `Money`) сумме все доли 0.
+    pub fn shares_bp(&self) -> StatusShares {
+        let total = self.total().unwrap_or(Money::ZERO);
+        let share = |amount: Money| amount.ratio_bp(total).unwrap_or(0);
+        StatusShares {
+            paid: share(self.paid),
+            debt: share(self.debt),
+            unplanned: share(self.unplanned),
+            planned: share(self.planned),
+        }
     }
 }
 
@@ -127,6 +159,10 @@ pub(crate) struct MonthTotals {
     pub income_expected: Money,
     pub by_status: StatusAmounts,
     pub by_kind: KindAmounts,
+    /// Долги, взятые в месяце: источник денег.
+    pub borrowed: Money,
+    /// Оплаченные погашения месяца: выплата, не расход.
+    pub repaid: Money,
 }
 
 impl MonthTotals {
@@ -140,11 +176,13 @@ impl MonthTotals {
         self.income_received.checked_add(self.income_expected)
     }
 
-    /// «Свободный остаток»: `income − expenses − savings`.
+    /// «Свободный остаток»: `income − expenses − savings + borrowed − repaid`.
     pub fn free(&self) -> Result<Money, MoneyError> {
         self.income()?
             .checked_sub(self.by_kind.expenses()?)?
-            .checked_sub(self.by_kind.savings)
+            .checked_sub(self.by_kind.savings)?
+            .checked_add(self.borrowed)?
+            .checked_sub(self.repaid)
     }
 }
 
@@ -156,7 +194,14 @@ pub struct Ledger<'a> {
     by_category: BTreeMap<(YearMonth, CategoryId), StatusAmounts>,
     months: BTreeMap<YearMonth, MonthTotals>,
     limit_history: BTreeMap<CategoryId, BTreeMap<YearMonth, Money>>,
-    savings_rate_history: BTreeMap<CategoryId, BTreeMap<YearMonth, BasisPoints>>,
+    savings_rate_history: BTreeMap<CategoryId, BTreeMap<YearMonth, PlanEntry>>,
+}
+
+/// Строка истории плана накопления: процент либо фиксированная сумма.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) struct PlanEntry {
+    pub rate: BasisPoints,
+    pub fixed: Option<Money>,
 }
 
 impl<'a> Ledger<'a> {
@@ -231,6 +276,17 @@ impl<'a> Ledger<'a> {
             *slot = slot.checked_add(income.amount)?;
         }
 
+        for debt in &data.debts {
+            let totals = months.entry(debt.taken_month).or_default();
+            totals.borrowed = totals.borrowed.checked_add(debt.amount)?;
+        }
+        for payment in &data.debt_payments {
+            if payment.status == DebtPaymentStatus::Paid {
+                let totals = months.entry(payment.month).or_default();
+                totals.repaid = totals.repaid.checked_add(payment.amount)?;
+            }
+        }
+
         let mut limit_history: BTreeMap<CategoryId, BTreeMap<YearMonth, Money>> = BTreeMap::new();
         for entry in &data.limits {
             limit_history
@@ -239,13 +295,19 @@ impl<'a> Ledger<'a> {
                 .insert(entry.valid_from, entry.amount);
         }
 
-        let mut savings_rate_history: BTreeMap<CategoryId, BTreeMap<YearMonth, BasisPoints>> =
+        let mut savings_rate_history: BTreeMap<CategoryId, BTreeMap<YearMonth, PlanEntry>> =
             BTreeMap::new();
         for entry in &data.savings_rates {
             savings_rate_history
                 .entry(entry.category_id)
                 .or_default()
-                .insert(entry.valid_from, entry.rate);
+                .insert(
+                    entry.valid_from,
+                    PlanEntry {
+                        rate: entry.rate,
+                        fixed: entry.fixed_amount,
+                    },
+                );
         }
 
         Ok(Self {

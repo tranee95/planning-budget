@@ -1,7 +1,7 @@
 //! Общие части записей трат и доходов: источник, месяц и дата, проверки.
 
-use budget_core::{CategoryId, Money, YearMonth};
 use chrono::{Datelike as _, NaiveDate};
+use planning_budget_core::{CategoryId, Money, YearMonth};
 
 use crate::{Db, StorageError};
 

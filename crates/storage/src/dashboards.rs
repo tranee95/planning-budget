@@ -2,8 +2,8 @@
 
 use std::collections::BTreeSet;
 
-use budget_core::analytics::ChartSpec;
 use chrono::{DateTime, Utc};
+use planning_budget_core::analytics::ChartSpec;
 use rusqlite::{Transaction, params};
 
 use crate::{Db, StorageError, stamp};

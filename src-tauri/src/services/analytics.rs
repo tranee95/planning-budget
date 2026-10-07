@@ -1,14 +1,12 @@
 //! Данные графиков поверх `core::analytics`.
 
-use budget_core::YearMonth;
-use budget_core::analytics::{
+use chrono::{DateTime, NaiveDate, Utc};
+use planning_budget_core::YearMonth;
+use planning_budget_core::analytics::{
     AnalyticsError, ChartData, ChartSpec, Context, Options, PeriodSpec, SpecError, Unit, compute,
     period_bounds,
 };
-use budget_storage::{CardPlacement, ChartCard, Dashboard, Db};
-use chrono::{DateTime, NaiveDate, Utc};
-use serde::Serialize;
-use serde::de::DeserializeOwned;
+use planning_budget_storage::{CardPlacement, ChartCard, Dashboard, Db};
 use std::collections::BTreeMap;
 
 use super::{month_of, parse_month};
@@ -18,17 +16,10 @@ use crate::dto::{
     ChartSeriesDto, ChartSpecDto, ChartUnitDto, DashboardDto,
 };
 
-/// Перечисления DTO и ядра совпадают по именам значений; тест проверяет каждое.
-fn same<A: Serialize, B: DeserializeOwned>(value: &A) -> Result<B, AppError> {
-    serde_json::to_value(value)
-        .and_then(serde_json::from_value)
-        .map_err(|e| AppError::internal("chart_spec", &e))
-}
-
 pub(crate) fn spec_from_dto(dto: &ChartSpecDto) -> Result<ChartSpec, AppError> {
     let period = match &dto.period {
         ChartPeriodDto::Preset { preset } => PeriodSpec::Preset {
-            preset: same(preset)?,
+            preset: (*preset).into(),
         },
         ChartPeriodDto::Range { from, to } => PeriodSpec::Range {
             from: parse_month(from, "period")?,
@@ -39,17 +30,17 @@ pub(crate) fn spec_from_dto(dto: &ChartSpecDto) -> Result<ChartSpec, AppError> {
     Ok(ChartSpec {
         version: dto.version,
         title: dto.title.clone(),
-        chart_type: same(&dto.chart_type)?,
-        metric: same(&dto.metric)?,
-        group_by: same(&dto.group_by)?,
-        series_by: dto.series_by.as_ref().map(same).transpose()?,
-        metrics: dto.metrics.iter().map(same).collect::<Result<_, _>>()?,
+        chart_type: dto.chart_type.into(),
+        metric: dto.metric.into(),
+        group_by: dto.group_by.into(),
+        series_by: dto.series_by.map(Into::into),
+        metrics: dto.metrics.iter().copied().map(Into::into).collect(),
         period,
         filter: dto.filter.clone(),
         options: Options {
             show_limit: options.show_limit,
             top_n: options.top_n,
-            sort: same(&options.sort)?,
+            sort: options.sort.into(),
             cumulative: options.cumulative,
             compare_prev_period: options.compare_prev_period,
             percent: options.percent,
@@ -60,7 +51,7 @@ pub(crate) fn spec_from_dto(dto: &ChartSpecDto) -> Result<ChartSpec, AppError> {
 pub(crate) fn spec_to_dto(spec: &ChartSpec) -> Result<ChartSpecDto, AppError> {
     let period = match spec.period {
         PeriodSpec::Preset { preset } => ChartPeriodDto::Preset {
-            preset: same(&preset)?,
+            preset: preset.into(),
         },
         PeriodSpec::Range { from, to } => ChartPeriodDto::Range {
             from: from.to_string(),
@@ -71,17 +62,17 @@ pub(crate) fn spec_to_dto(spec: &ChartSpec) -> Result<ChartSpecDto, AppError> {
     Ok(ChartSpecDto {
         version: spec.version,
         title: spec.title.clone(),
-        chart_type: same(&spec.chart_type)?,
-        metric: same(&spec.metric)?,
-        group_by: same(&spec.group_by)?,
-        series_by: spec.series_by.as_ref().map(same).transpose()?,
-        metrics: spec.metrics.iter().map(same).collect::<Result<_, _>>()?,
+        chart_type: spec.chart_type.into(),
+        metric: spec.metric.into(),
+        group_by: spec.group_by.into(),
+        series_by: spec.series_by.map(Into::into),
+        metrics: spec.metrics.iter().copied().map(Into::into).collect(),
         period,
         filter: spec.filter.clone(),
         options: ChartOptionsDto {
             show_limit: options.show_limit,
             top_n: options.top_n,
-            sort: same(&options.sort)?,
+            sort: options.sort.into(),
             cumulative: options.cumulative,
             compare_prev_period: options.compare_prev_period,
             percent: options.percent,
@@ -265,7 +256,7 @@ pub fn charts_layout_set(
 
 #[cfg(test)]
 mod tests {
-    use budget_core::analytics::standard_dashboard;
+    use planning_budget_core::analytics::standard_dashboard;
 
     use super::*;
 

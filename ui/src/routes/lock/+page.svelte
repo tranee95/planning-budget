@@ -14,7 +14,7 @@
 </script>
 
 <svelte:head>
-  <title>Private Budget — вход</title>
+  <title>Planning Budget — вход</title>
 </svelte:head>
 
 {#if vm.view === 'recovery' && session.recoveryCode !== null}
