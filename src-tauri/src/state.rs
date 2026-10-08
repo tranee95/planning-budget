@@ -10,7 +10,9 @@ use planning_budget_vault::VaultStore;
 use tauri::{AppHandle, Manager as _};
 
 use crate::AppError;
+use crate::dto::TransactionDto;
 use crate::idle::IdleTimer;
+use crate::recent::{RecentRequests, check_request_id};
 
 /// Выполняет блокирующую работу (Argon2, файлы, диалоги) вне async-рантайма.
 ///
@@ -69,6 +71,8 @@ impl AppPaths {
 #[derive(Debug)]
 struct Session {
     db: Mutex<Db>,
+    /// Недавно созданные траты по `request_id` (идемпотентность `tx_create`).
+    recent_tx: Mutex<RecentRequests<TransactionDto>>,
     #[allow(dead_code, reason = "нужно idle-таймеру и логу длительности сессии")]
     opened_at: Instant,
 }
@@ -77,6 +81,26 @@ impl Session {
     fn run<T>(&self, f: impl FnOnce(&mut Db) -> Result<T, AppError>) -> Result<T, AppError> {
         let mut db = self.db.lock().unwrap_or_else(PoisonError::into_inner);
         f(&mut db)
+    }
+
+    /// Блокировка БД держится на всё время проверки, вызова и записи результата:
+    /// два одновременных запроса с одним id не создадут две записи.
+    fn run_once(
+        &self,
+        request_id: String,
+        f: impl FnOnce(&mut Db) -> Result<TransactionDto, AppError>,
+    ) -> Result<TransactionDto, AppError> {
+        let mut db = self.db.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut recent = self
+            .recent_tx
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        if let Some(done) = recent.get(&request_id) {
+            return Ok(done);
+        }
+        let created = f(&mut db)?;
+        recent.remember(request_id, created.clone());
+        Ok(created)
     }
 }
 
@@ -92,6 +116,10 @@ pub struct AppState {
     lock_on_minimize: AtomicBool,
     /// Сохранение recovery-кода в файл разрешено только сразу после его выдачи.
     recovery_save_allowed: AtomicBool,
+    /// Папка прежнего идентификатора, из которой нужно перенести данные (`data_migration`).
+    legacy_dir: Mutex<Option<PathBuf>>,
+    /// Последняя попытка переноса данных закончилась ошибкой.
+    migration_failed: AtomicBool,
 }
 
 impl AppState {
@@ -104,7 +132,33 @@ impl AppState {
             idle: IdleTimer::new(),
             lock_on_minimize: AtomicBool::new(false),
             recovery_save_allowed: AtomicBool::new(false),
+            legacy_dir: Mutex::new(None),
+            migration_failed: AtomicBool::new(false),
         }
+    }
+
+    pub fn set_legacy_dir(&self, dir: Option<PathBuf>) {
+        *self
+            .legacy_dir
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = dir;
+    }
+
+    #[must_use]
+    pub fn legacy_dir(&self) -> Option<PathBuf> {
+        self.legacy_dir
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
+    pub fn set_migration_failed(&self, failed: bool) {
+        self.migration_failed.store(failed, Ordering::SeqCst);
+    }
+
+    #[must_use]
+    pub fn migration_failed(&self) -> bool {
+        self.migration_failed.load(Ordering::SeqCst)
     }
 
     #[must_use]
@@ -149,6 +203,7 @@ impl AppState {
     pub fn open_session(&self, db: Db) {
         let session = Arc::new(Session {
             db: Mutex::new(db),
+            recent_tx: Mutex::new(RecentRequests::new()),
             opened_at: Instant::now(),
         });
         // Таймер сбрасывается до публикации сессии: иначе сторож успел бы увидеть
@@ -193,7 +248,27 @@ impl AppState {
         let session = self.current().ok_or(AppError::Locked)?;
         tauri::async_runtime::spawn_blocking(move || session.run(f))
             .await
-            .map_err(|e| AppError::internal("session worker", &e))?
+            .map_err(|e| AppError::worker_failed(&e))?
+    }
+
+    /// Как [`Self::with_session`], но идемпотентно по `request_id`: повтор возвращает ту же
+    /// трату, не вызывая `f`. Список недавних запросов живёт в сессии и пропадает при блокировке.
+    ///
+    /// # Errors
+    /// `Validation` для неверного `request_id`, `Locked`, ошибка из `f` или `Internal`.
+    pub async fn with_session_once<F>(
+        &self,
+        request_id: String,
+        f: F,
+    ) -> Result<TransactionDto, AppError>
+    where
+        F: FnOnce(&mut Db) -> Result<TransactionDto, AppError> + Send + 'static,
+    {
+        check_request_id(&request_id)?;
+        let session = self.current().ok_or(AppError::Locked)?;
+        tauri::async_runtime::spawn_blocking(move || session.run_once(request_id, f))
+            .await
+            .map_err(|e| AppError::worker_failed(&e))?
     }
 
     /// То же без `spawn_blocking`, для сервисов, которые и так выполняются в блокирующем потоке.
@@ -262,6 +337,91 @@ mod tests {
         crate::services::settings::apply_security(&state, 0, false);
         assert!(!state.lock_on_minimize());
         assert!(!state.idle().expired(crate::idle::Moment::now()));
+    }
+
+    #[test]
+    fn a_new_session_never_inherits_a_stale_activity_mark() {
+        // Гонка входа: сторож видел новую сессию со старой отметкой
+        // активности и сразу закрывал её. `open_session` обязан сбросить отсчёт.
+        let dir = tempfile::tempdir().unwrap();
+        let state = state_in(&dir);
+        state.idle().set_minutes(1);
+        let now = crate::idle::Moment::now();
+        let two_minutes_ago = crate::idle::Moment {
+            monotonic: now.monotonic - std::time::Duration::from_secs(120),
+            wall: now.wall - std::time::Duration::from_secs(120),
+        };
+        state.idle().touch_at(two_minutes_ago);
+        assert!(state.idle().expired(now), "the mark is stale before login");
+
+        state.open_session(open_db(&state));
+        assert!(!state.idle().expired(crate::idle::Moment::now()));
+    }
+
+    fn dto(id: i64) -> TransactionDto {
+        TransactionDto {
+            id,
+            month: "2026-09".into(),
+            date: None,
+            category_id: 1,
+            title: "t".into(),
+            amount: 100,
+            status: crate::dto::TxStatusDto::Planned,
+            comment: None,
+            tag_ids: vec![],
+        }
+    }
+
+    #[test]
+    fn repeated_request_id_returns_the_first_result_without_running_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = state_in(&dir);
+        state.open_session(open_db(&state));
+        let runs = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let call = |id: &str| {
+            let runs = Arc::clone(&runs);
+            block_on(state.with_session_once(id.into(), move |_| {
+                let n = i64::try_from(runs.fetch_add(1, Ordering::SeqCst)).unwrap();
+                Ok(dto(n + 1))
+            }))
+            .unwrap()
+        };
+        assert_eq!(call("req-1").id, 1);
+        assert_eq!(call("req-1").id, 1);
+        assert_eq!(call("req-2").id, 2);
+        assert_eq!(runs.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn failed_request_is_not_remembered_and_can_be_retried() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = state_in(&dir);
+        state.open_session(open_db(&state));
+        let failed = block_on(state.with_session_once("req".into(), |_| {
+            Err(AppError::Conflict {
+                message_key: "errors.test".into(),
+            })
+        }));
+        assert!(failed.is_err());
+        let ok = block_on(state.with_session_once("req".into(), |_| Ok(dto(5)))).unwrap();
+        assert_eq!(ok.id, 5);
+    }
+
+    #[test]
+    fn request_memory_does_not_survive_a_lock_and_bad_ids_are_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = state_in(&dir);
+        state.open_session(open_db(&state));
+        block_on(state.with_session_once("req".into(), |_| Ok(dto(1)))).unwrap();
+        state.lock();
+        state.open_session(open_db(&state));
+        let again = block_on(state.with_session_once("req".into(), |_| Ok(dto(2)))).unwrap();
+        assert_eq!(again.id, 2);
+        let bad = block_on(state.with_session_once(String::new(), |_| Ok(dto(3))));
+        assert!(matches!(bad, Err(AppError::Validation { .. })));
+        state.lock();
+        let locked = block_on(state.with_session_once("x".into(), |_| Ok(dto(4))));
+        assert!(matches!(locked, Err(AppError::Locked)));
     }
 
     #[test]

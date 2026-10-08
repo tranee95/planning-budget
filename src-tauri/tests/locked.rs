@@ -1,6 +1,6 @@
 //! «После `vault_lock` любая команда с данными возвращает `Locked`».
 //!
-//! Тестовый бинарник с Tauri на Windows не стартует, поэтому команды здесь не вызываются.
+//! Команды здесь не вызываются (сканер по исходникам); вызов через IPC — в `tests/dispatch.rs`.
 //! Гарантия строится из двух частей: `AppState::with_session` без сессии отвечает `Locked`
 //! (юнит-тесты в `state.rs`), а этот тест проверяет по исходникам, что каждая
 //! `#[tauri::command]` либо ходит в БД через `with_session`, либо входит в список команд,
@@ -18,6 +18,7 @@ use std::path::Path;
 const WORKS_WITHOUT_SESSION: &[&str] = &[
     "app_version",
     "vault_status",
+    "vault_retry_migration",
     "vault_create",
     "vault_unlock",
     "vault_unlock_recovery",
@@ -32,6 +33,8 @@ const WORKS_WITHOUT_SESSION: &[&str] = &[
     "prefs_set",
     "system_dark",
     "open_data_dir",
+    // Чистый разбор строки запроса: данных бюджета не читает.
+    "query_parse",
 ];
 
 const MARKER: &str = "#[tauri::command]";
@@ -56,8 +59,9 @@ fn unguarded_commands(source: &str) -> Vec<String> {
                 .filter(|line| !line.trim_start().starts_with("//"))
                 .collect::<Vec<_>>()
                 .join("\n");
-            let guarded =
-                code.contains(".with_session(") || WORKS_WITHOUT_SESSION.contains(&name.as_str());
+            let guarded = code.contains(".with_session(")
+                || code.contains(".with_session_once(")
+                || WORKS_WITHOUT_SESSION.contains(&name.as_str());
             (!guarded).then_some(name)
         })
         .collect()

@@ -59,6 +59,21 @@ test('create: код хранится в сторе до подтвержден�
   expect(session.phase).toBe('unlocked');
 });
 
+test('unlock: бэкенд выдал новый recovery-код после прерванного перевыпуска → код показывается', async () => {
+  const unlock = handlers.vault_unlock;
+  handlers.vault_unlock = (() => ({
+    recoveryCode: 'NEW1-NEW1-NEW1-NEW1-NEW1-NEW1-NE'
+  })) as unknown as typeof unlock;
+  try {
+    await session.unlock('correct horse battery');
+  } finally {
+    handlers.vault_unlock = unlock;
+  }
+  expect(session.phase).toBe('unlocked');
+  expect(session.recoveryCode).toBe('NEW1-NEW1-NEW1-NEW1-NEW1-NEW1-NE');
+  expect(routeFor(session.phase, '/settings', session.recoveryCode !== null)).toBe('/lock');
+});
+
 test('lock вызывает очистку доменных сторов и переводит в locked', async () => {
   const reset = vi.fn();
   onLock(reset);

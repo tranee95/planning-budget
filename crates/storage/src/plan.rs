@@ -52,6 +52,24 @@ impl Db {
         Ok(())
     }
 
+    /// Лимита нет с месяца `valid_from` и до следующей строки истории (запись «без лимита»).
+    ///
+    /// # Errors
+    /// `NotFound`; `Invalid` для категории сбережений.
+    pub fn limit_unset(
+        &mut self,
+        category: CategoryId,
+        valid_from: YearMonth,
+    ) -> Result<(), StorageError> {
+        self.require_kind(category, false)?;
+        self.conn.execute(
+            "INSERT INTO category_limits (category_id, valid_from, amount) VALUES (?1, ?2, NULL)
+             ON CONFLICT (category_id, valid_from) DO UPDATE SET amount = NULL",
+            params![category.0, valid_from.to_string()],
+        )?;
+        Ok(())
+    }
+
     /// Убирает строку истории. Лимит на месяцы после неё вернётся к предыдущей строке.
     ///
     /// # Errors
@@ -86,7 +104,7 @@ impl Db {
             out.push(LimitEntry {
                 category_id: category,
                 valid_from: parse_month(&valid_from)?,
-                amount: Money::from_kopecks(row.get(1)?),
+                amount: row.get::<_, Option<i64>>(1)?.map(Money::from_kopecks),
             });
         }
         Ok(out)

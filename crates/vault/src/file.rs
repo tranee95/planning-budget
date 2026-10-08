@@ -30,6 +30,11 @@ pub(crate) struct KdfRecord {
 pub(crate) struct NextKeys {
     pub(crate) pw: KeySlot,
     pub(crate) rc: KeySlot,
+    /// Новый DEK под старым DEK. Старый recovery-код открывает старый DEK, а тот — новый:
+    /// так «забыл пароль» работает и при прерванном перевыпуске. У файлов, записанных
+    /// до этого поля, его нет.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) via_old: Option<KeySlot>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -85,7 +90,11 @@ impl VaultFile {
         self.pw.validate()?;
         self.rc.validate()?;
         match &self.next {
-            Some(next) => next.pw.validate().and_then(|()| next.rc.validate()),
+            Some(next) => next
+                .pw
+                .validate()
+                .and_then(|()| next.rc.validate())
+                .and_then(|()| next.via_old.as_ref().map_or(Ok(()), KeySlot::validate)),
             None => Ok(()),
         }
     }

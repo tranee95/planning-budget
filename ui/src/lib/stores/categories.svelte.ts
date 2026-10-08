@@ -28,8 +28,27 @@ class CategoriesStore {
   /** Перечитывает список, когда категории изменились (редактор, импорт). Возвращает cleanup. */
   watch(): () => void {
     return onDataChanged(({ scope }) => {
-      if (this.loaded && affectsCategories(scope)) void this.load();
+      if (this.loaded && affectsCategories(scope)) void this.#refresh();
     });
+  }
+
+  #refreshing = false;
+  #requested = 0;
+
+  /** Одна загрузка за раз: события, пришедшие во время неё, дают ровно одну повторную. */
+  async #refresh(): Promise<void> {
+    this.#requested++;
+    if (this.#refreshing) return;
+    this.#refreshing = true;
+    try {
+      let served = -1;
+      while (served !== this.#requested) {
+        served = this.#requested;
+        await this.load();
+      }
+    } finally {
+      this.#refreshing = false;
+    }
   }
 
   reset(): void {

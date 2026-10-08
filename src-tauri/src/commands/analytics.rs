@@ -4,7 +4,9 @@ use chrono::{Local, Utc};
 use tauri::State;
 
 use crate::AppError;
-use crate::dto::{CardPlacementDto, ChartCardDto, ChartDataDto, ChartSpecDto, DashboardDto, Int53};
+use crate::dto::{
+    CardPlacementDto, ChartCardDto, ChartDataDto, ChartRunDto, ChartSpecDto, DashboardDto, Int53,
+};
 use crate::services::analytics as service;
 use crate::state::AppState;
 
@@ -16,6 +18,17 @@ pub async fn analytics_run(
 ) -> Result<ChartDataDto, AppError> {
     state
         .with_session(move |db| service::run(db, &spec, Local::now().date_naive()))
+        .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn analytics_run_many(
+    state: State<'_, AppState>,
+    specs: Vec<ChartSpecDto>,
+) -> Result<Vec<ChartRunDto>, AppError> {
+    state
+        .with_session(move |db| service::run_many(db, &specs, Local::now().date_naive()))
         .await
 }
 
@@ -33,6 +46,16 @@ pub async fn dashboards_create(
 ) -> Result<DashboardDto, AppError> {
     state
         .with_session(move |db| service::dashboard_create(db, &name))
+        .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn dashboards_create_default(
+    state: State<'_, AppState>,
+) -> Result<DashboardDto, AppError> {
+    state
+        .with_session(|db| service::dashboard_create_default(db, Utc::now()))
         .await
 }
 

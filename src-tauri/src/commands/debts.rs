@@ -7,7 +7,7 @@ use tauri::{AppHandle, State};
 use crate::AppError;
 use crate::dto::{
     DebtDto, DebtInput, DebtPatchDto, DebtPaymentStatusDto, DebtScheduleKindDto, DebtsOverviewDto,
-    Int53, SchedulePaymentDto,
+    Int53, SchedulePaymentDto, SchedulePreviewDto,
 };
 use crate::events::{ChangeScope, data_changed};
 use crate::services::debts as service;
@@ -135,7 +135,7 @@ pub async fn debt_schedule_preview(
     amount: Int53,
     taken_month: String,
     kind: DebtScheduleKindDto,
-) -> Result<Vec<SchedulePaymentDto>, AppError> {
+) -> Result<SchedulePreviewDto, AppError> {
     state
         .with_session(move |_| service::schedule_preview(amount.0, &taken_month, kind))
         .await

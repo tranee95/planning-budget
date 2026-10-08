@@ -16,11 +16,17 @@ export const messages: Record<string, string> = {
     'Файл базы budget.db не найден. Восстановите его из резервной копии: пустая база взамен не создаётся.',
   'errors.vault.corrupt':
     'Файл ключей vault.json повреждён или создан другой версией приложения. Восстановите его из резервной копии.',
+  'errors.rekey.wal_busy':
+    'Не удалось подготовить базу к смене ключа: данные ещё в журнале. Ключ не изменён, повторите через несколько секунд.',
+  'errors.rekey.journal_mode':
+    'Не удалось подготовить базу к смене ключа. Ключ не изменён: закройте и снова откройте приложение и повторите.',
   'errors.vault.rekey_pending':
     'Прошлый перевыпуск ключа не завершён. Заблокируйте приложение и войдите снова, затем повторите.',
   'errors.vault.rekey_interrupted':
     'Перевыпуск ключа был прерван, и этот ключ восстановления больше не подходит. Войдите с паролем.',
   'errors.io.vault': 'Не удалось прочитать или записать файл ключей.',
+  'errors.io.migration':
+    'Перенос данных из прежней папки снова не удался. Прежние данные не изменены.',
   'errors.io.recovery_file': 'Не удалось записать файл с ключом.',
   'errors.io.delete': 'Не удалось удалить файлы данных.',
   'errors.io.prefs': 'Не удалось сохранить настройки.',
@@ -30,6 +36,7 @@ export const messages: Record<string, string> = {
   'errors.filter.query_invalid': 'Запрос пуст или длиннее 500 символов.',
   'errors.dashboard.name_empty': 'Укажите название дашборда.',
   'errors.dashboard.name_too_long': 'Название дашборда не длиннее 60 символов.',
+  'errors.dashboard.exists': 'Дашборд уже есть: стандартный добавляется только в пустой список.',
   'errors.dashboard.last': 'Последний дашборд удалить нельзя.',
   'errors.dashboard.card_size': 'Размер карточки вне сетки: ширина 1–12, высота 1–12.',
   'errors.dashboard.full': 'Дашборд заполнен: удалите ненужные графики или создайте новый дашборд.',
@@ -80,6 +87,7 @@ export const messages: Record<string, string> = {
   'errors.record.amount_too_large': 'Сумма не больше 999 999 999,99 ₽.',
   'errors.record.category_archived': 'Категория в архиве: выберите другую.',
   'errors.record.date_invalid': 'Дата указана неверно.',
+  'errors.request_id_invalid': 'Не удалось отправить запись: повторите действие.',
   'errors.record.date_month_mismatch': 'Дата должна лежать в выбранном месяце.',
   'errors.record.duplicate': 'Такая запись уже есть: восстановить дубликат нельзя.',
   'errors.record.title_empty': 'Укажите название.',
@@ -103,6 +111,13 @@ export const messages: Record<string, string> = {
   'errors.settings.unknown_key': 'Неизвестная настройка.',
   'errors.tag.name_empty': 'Укажите название тега.',
   'errors.tag.name_taken': 'Тег с таким названием уже есть.',
+  'errors.import.legacy.not_xlsx': 'Файл не открывается как таблица xlsx.',
+  'errors.import.legacy.missing_sheet': 'В таблице нет нужного листа.',
+  'errors.import.legacy.layout': 'Структура таблицы отличается от ожидаемой.',
+  'errors.import.legacy.unknown_status': 'В таблице есть неизвестный статус.',
+  'errors.import.legacy.unknown_kind': 'В таблице есть неизвестный тип категории.',
+  'errors.import.legacy.number': 'В таблице есть число вне допустимого диапазона.',
+  'errors.import.legacy.no_year': 'В таблице не найден заголовок месяца с годом.',
   'errors.legacy.empty': 'В таблице нет данных для переноса.',
   'errors.legacy.not_empty': 'Перенос возможен только в пустое хранилище: в нём уже есть записи.',
   'errors.legacy.unknown_category': 'В таблице есть категория, которой нет в хранилище.',

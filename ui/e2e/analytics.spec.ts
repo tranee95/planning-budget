@@ -151,10 +151,10 @@ test('конструктор: недопустимое сочетание пок
   await open(page);
   await page.getByRole('button', { name: 'График', exact: true }).click();
   const panel = page.getByRole('dialog', { name: 'Новый график' });
-  await panel.getByLabel('Фильтр').fill('источник:импорт');
+  await panel.getByRole('textbox', { name: 'Фильтр', exact: true }).fill('источник:импорт');
   await expect(panel.getByRole('alert')).toContainText('Фильтр по источнику');
   await expect(panel.getByRole('button', { name: 'Добавить на панель' })).toBeDisabled();
-  await panel.getByLabel('Фильтр').fill('');
+  await panel.getByRole('textbox', { name: 'Фильтр', exact: true }).fill('');
   await expect(panel.getByRole('button', { name: 'Добавить на панель' })).toBeEnabled();
 });
 

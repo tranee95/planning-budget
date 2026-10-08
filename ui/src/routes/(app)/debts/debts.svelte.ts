@@ -7,7 +7,7 @@ import type {
   SchedulePaymentDto,
   TransactionDto
 } from '$lib/api/bindings';
-import { onDataChanged } from '$lib/api/data-events';
+import { LoadStamp, onDataChanged } from '$lib/api/data-events';
 import { debtsApi, transactionsApi } from '$lib/api/data';
 import { errorText } from '$lib/i18n/errors';
 import { toasts } from '$lib/stores/toasts.svelte';
@@ -49,6 +49,8 @@ export class DebtsVm {
   draft = $state<Draft>(emptyDraft(''));
   /** График для сохранения: ответ `debt_schedule_preview`. */
   schedule = $state.raw<SchedulePaymentDto[]>([]);
+  /** Сумма графика, копейки: приходит от `debt_schedule_preview`, UI её не считает. */
+  scheduleTotal = $state(0);
   scheduleError = $state<string | null>(null);
   /** Трата, из которой создаётся долг (сумма, статья и месяц берутся из неё). */
   fromTransaction = $state.raw<TransactionDto | null>(null);
@@ -57,7 +59,10 @@ export class DebtsVm {
 
   #month = '';
   #req = 0;
+  #stamp = new LoadStamp();
   #scheduleReq = 0;
+  /** Ключ графика при открытии долга: пока он не изменился, график берётся из `payments`. */
+  #openedKey: string | null = null;
 
   get month(): string {
     return this.#month;
@@ -103,6 +108,7 @@ export class DebtsVm {
   });
 
   async load(month: string): Promise<void> {
+    this.#stamp.mark();
     const req = ++this.#req;
     this.#month = month;
     this.loading = true;
@@ -138,6 +144,7 @@ export class DebtsVm {
     this.fieldError = null;
     this.scheduleError = null;
     this.schedule = [];
+    this.#openedKey = null;
     this.draft = emptyDraft(this.#month);
   }
 
@@ -168,6 +175,8 @@ export class DebtsVm {
     this.fieldError = null;
     this.scheduleError = null;
     this.schedule = debt.payments.map((p) => ({ month: p.month, amount: p.amount }));
+    // График сохранённого долга всегда сходится с суммой долга (проверяет core).
+    this.scheduleTotal = debt.amount;
     this.draft = {
       lender: debt.lender,
       amount: debt.amount,
@@ -178,6 +187,7 @@ export class DebtsVm {
       months: String(Math.max(debt.payments.length, 1)),
       singleMonth: debt.payments.at(-1)?.month ?? debt.takenMonth
     };
+    this.#openedKey = this.scheduleKey;
   }
 
   close(): void {
@@ -190,6 +200,15 @@ export class DebtsVm {
   async refreshSchedule(): Promise<void> {
     if (!this.scheduleEditable) return;
     const req = ++this.#scheduleReq;
+    if (this.#openedKey !== null && this.scheduleKey === this.#openedKey) {
+      // Поля графика не менялись (или вернулись к исходным): график долга как есть.
+      this.schedule = (this.current?.payments ?? []).map((p) => ({
+        month: p.month,
+        amount: p.amount
+      }));
+      this.scheduleError = null;
+      return;
+    }
     const amount = this.draft.amount;
     const kind = this.scheduleKind;
     if (amount === null || amount <= 0 || kind === null) {
@@ -198,9 +217,10 @@ export class DebtsVm {
       return;
     }
     try {
-      const rows = await debtsApi.schedulePreview(amount, this.draft.takenMonth, kind);
+      const preview = await debtsApi.schedulePreview(amount, this.draft.takenMonth, kind);
       if (req !== this.#scheduleReq) return;
-      this.schedule = rows;
+      this.schedule = preview.rows;
+      this.scheduleTotal = preview.total;
       this.scheduleError = null;
     } catch (e) {
       if (req !== this.#scheduleReq) return;
@@ -290,7 +310,8 @@ export class DebtsVm {
 
   /** Подписки экрана; страница вызывает в `onMount`, возвращает cleanup. */
   connect(): () => void {
-    return onDataChanged(() => {
+    return onDataChanged((change) => {
+      if (this.#stamp.isFresh(change)) return;
       if (this.#month !== '') void this.load(this.#month);
     });
   }

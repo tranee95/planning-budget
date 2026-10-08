@@ -5,7 +5,7 @@ import type {
   CategoryYearRowDto,
   CategoryPatchDto_Deserialize,
   LimitEntryDto,
-  SavingsRateDto,
+  FilterScreenDto,
   SavedFilterDto,
   TagDto,
   IncomeDto,
@@ -29,7 +29,7 @@ import type {
 import { currentMonth, shiftMonth } from '$lib/format';
 import { repaymentsOfMonth, resetMockDebts } from './debts';
 import { clearMockFixedPlan, resetMockSavings, setMockFixedPlan } from './savings';
-import { mockIncomeList, mockSearch, mockTransactionList } from './search';
+import { mockIncomeList, mockQueryParse, mockSearch, mockTransactionList } from './search';
 
 /**
  * Моки команд данных: небольшой набор за сентябрь 2026 (суммы в копейках).
@@ -89,11 +89,17 @@ const seedLimits = (): void => {
   limitHistory.set(3, [{ validFrom: '2026-01', amount: 1_000_000 }]);
 };
 seedLimits();
-let savingsRates: SavingsRateDto[] = [{ categoryId: 4, validFrom: '2026-01', rateBp: 1400 }];
+interface SavingsRate {
+  categoryId: number;
+  validFrom: string;
+  rateBp: number;
+}
+
+let savingsRates: SavingsRate[] = [{ categoryId: 4, validFrom: '2026-01', rateBp: 1400 }];
 
 /** Процент плана месяца: у каждой категории действует строка с последней `validFrom` не позже месяца. */
 function planRateBp(month: string): number {
-  const latest = new Map<number, SavingsRateDto>();
+  const latest = new Map<number, SavingsRate>();
   for (const r of savingsRates) {
     const known = latest.get(r.categoryId);
     if (r.validFrom <= month && (!known || known.validFrom < r.validFrom))
@@ -177,6 +183,7 @@ let transactions = seedTransactions();
 let incomes = seedIncomes();
 // Удалённые строки хранятся отдельно: tx_restore возвращает их по id.
 let deletedTx = new Map<number, TransactionDto>();
+let createdByRequest = new Map<string, TransactionDto>();
 let deletedIncomes = new Map<number, IncomeDto>();
 let nextId = 100;
 const seedTags = (): TagDto[] => [
@@ -233,6 +240,7 @@ export function resetMockBudget(): void {
   transactions = seedTransactions();
   incomes = seedIncomes();
   deletedTx = new Map();
+  createdByRequest = new Map();
   deletedIncomes = new Map();
   nextId = 100;
   tags = seedTags();
@@ -269,6 +277,7 @@ function applyPatch<T extends object>(row: T, patch: Partial<Record<keyof T, unk
 }
 
 const STATUS_KEYS: TxStatusDto[] = ['paid', 'debt', 'unplanned', 'planned'];
+const KIND_KEYS = ['mandatory', 'wants', 'savings', 'loans'] as const;
 
 function planBalance(
   unallocated: number,
@@ -346,12 +355,47 @@ function emptyStatuses(): StatusAmountsDto {
   };
 }
 
-/** Мок только заполняет поля DTO; формулы живут в Rust, поэтому доли здесь приблизительные. */
+/** Доли статусов в базисных пунктах, округление от нуля, как в Rust. */
 function finishStatuses(a: StatusAmountsDto): StatusAmountsDto {
   const total = STATUS_KEYS.reduce((sum, k) => sum + a[k], 0);
-  for (const k of STATUS_KEYS) a.shareBp[k] = total === 0 ? 0 : Math.round((a[k] / total) * 10_000);
+  for (const k of STATUS_KEYS) a.shareBp[k] = total === 0 ? 0 : roundAway((a[k] * 10_000) / total);
   a.total = total;
   return a;
+}
+
+/** Округление «от нуля», как `Money::div_round` и `ratio_scaled` в Rust. */
+function roundAway(x: number): number {
+  return x < 0 ? -Math.round(-x) : Math.round(x);
+}
+
+/** `core::calc::limits::level`: ровно 85 % и ровно 100 % считаются в целых числах. */
+function limitLevel(fact: number, limit: number): LimitRowDto['level'] {
+  if (fact === 0) return 'ok';
+  if (fact > limit) return 'over';
+  return fact * 100 < limit * 85 ? 'ok' : 'warn';
+}
+
+/** `core::calc::limits::usage`: при нулевом лимите 1 при факте > 0, иначе 0. */
+function usageOf(fact: number, limit: number): number {
+  return limit === 0 ? (fact > 0 ? 1 : 0) : fact / limit;
+}
+
+function usagePercentOf(fact: number, limit: number): number {
+  return limit === 0 ? (fact > 0 ? 100 : 0) : roundAway((fact * 100) / limit);
+}
+
+/** `core::calc::summary::corridor`. */
+function corridorOf(savings: number, income: number): MonthSummaryDto['corridor'] {
+  if (income <= 0) return 'noIncome';
+  if (savings * 10_000 < income * settings.savingsMinBp) return 'below';
+  if (savings * 10_000 > income * settings.savingsMaxBp) return 'above';
+  return 'within';
+}
+
+/** `core::calc::summary::top_up`: сколько доложить, чтобы дойти до `targetBp`. */
+function topUp(savings: number, income: number, targetBp: number): number {
+  if (income <= 0 || targetBp <= 0) return 0;
+  return Math.max(0, Math.ceil((income * targetBp) / 10_000) - savings);
 }
 
 function overview(month: string): MonthOverviewDto {
@@ -364,6 +408,7 @@ function overview(month: string): MonthOverviewDto {
     const statuses = emptyStatuses();
     for (const t of own) statuses[t.status] += t.amount;
     const fact = own.reduce((sum, t) => sum + t.amount, 0);
+    if (category.archived && fact === 0) continue;
     finishStatuses(statuses);
     for (const status of STATUS_KEYS) byStatus[status] += statuses[status];
     byKind[category.kind] += fact;
@@ -373,12 +418,12 @@ function overview(month: string): MonthOverviewDto {
       fact,
       limit,
       remaining: limit === null ? null : limit - fact,
-      usage: limit === null ? null : fact / limit,
-      usagePercent: limit === null ? null : Math.round((fact / limit) * 100),
+      usage: limit === null ? null : usageOf(fact, limit),
+      usagePercent: limit === null ? null : usagePercentOf(fact, limit),
       planRateBp: category.kind === 'savings' ? rateFromHistory(category.id, month) : null,
       paidUsage: limit === null || limit === 0 ? null : (fact - statuses.planned) / limit,
       plannedUsage: limit === null || limit === 0 ? null : statuses.planned / limit,
-      level: limit === null ? null : fact > limit ? 'over' : fact / limit >= 0.9 ? 'warn' : 'ok',
+      level: limit === null || category.kind === 'savings' ? null : limitLevel(fact, limit),
       byStatus: statuses
     });
   }
@@ -392,7 +437,16 @@ function overview(month: string): MonthOverviewDto {
     .filter((i) => i.status === 'received')
     .reduce((s, i) => s + i.amount, 0);
   const savings = byKind.savings;
-  const limitsTotal = limitRows.reduce((sum, r) => sum + (r.limit ?? 0), 0);
+  const countsInTotal = (r: LimitRowDto): boolean => {
+    const c = categories.find((x) => x.id === r.categoryId);
+    return c !== undefined && c.kind !== 'savings' && !c.archived;
+  };
+  const limitsTotal = limitRows.reduce(
+    (sum, r) => sum + (countsInTotal(r) ? (r.limit ?? 0) : 0),
+    0
+  );
+  const free = income - expenses - savings;
+  const savingsPlan = roundAway((income * planRateBp(month)) / 10_000);
   return {
     summary: {
       month,
@@ -403,27 +457,26 @@ function overview(month: string): MonthOverviewDto {
       savings,
       borrowed: 0,
       repaid: 0,
-      free: income - expenses - savings,
-      freeCum: income - expenses - savings,
+      free,
+      freeCum: free,
       savingsCum: savings,
-      savingsRateBp: income === 0 ? null : Math.round((savings / income) * 10_000),
-      unspentRate: null,
+      savingsRateBp: income === 0 ? null : roundAway((savings * 10_000) / income),
+      unspentRate: income === 0 ? null : (savings + free) / income,
       savingsPlanRateBp: planRateBp(month),
       savingsPlanOffNorm: planRateBp(month) > 0 && planRateBp(month) !== settings.savingsNormBp,
-      savingsPlan: Math.round(income * 0.14),
-      savingsGap: savings - Math.round(income * 0.14),
-      perWeek: Math.round(expenses / 4.33),
-      corridor: income === 0 ? 'noIncome' : 'within',
-      topUpToMin: 0,
-      topUpToNorm: 0,
+      savingsPlan,
+      savingsGap: savings - savingsPlan,
+      perWeek: roundAway(free / settings.weeksPerMonth),
+      corridor: corridorOf(savings, income),
+      topUpToMin: topUp(savings, income, settings.savingsMinBp),
+      topUpToNorm: topUp(savings, income, settings.savingsNormBp),
       byStatus,
       byKind
     },
     limits: limitRows,
     limitsTotal,
-    limitsRemaining:
-      limitsTotal - limitRows.reduce((sum, r) => sum + (r.limit === null ? 0 : r.fact), 0),
-    spentVsLimits: null,
+    limitsRemaining: limitsTotal - expenses,
+    spentVsLimits: limitsTotal === 0 ? null : expenses / limitsTotal,
     overCount: limitRows.filter((r) => r.level === 'over').length,
     planLocked: lockedPlans.has(month),
     expensesDeltaPercent: null
@@ -444,61 +497,89 @@ let settings: SettingsDto = {
 };
 
 function yearSummary(year: number): YearSummaryDto {
-  const months = Array.from(
-    { length: 12 },
-    (_, i) => overview(`${String(year)}-${String(i + 1).padStart(2, '0')}`).summary
+  const overviews = Array.from({ length: 12 }, (_, i) =>
+    overview(`${String(year)}-${String(i + 1).padStart(2, '0')}`)
   );
+  const months = overviews.map((o) => o.summary);
   type Row = (typeof months)[number];
-  const filled = months.filter((m) => m.income > 0 || m.expenses > 0);
+  // Делитель средних — месяцы с доходом, не меньше одного (core::year_summary).
+  const monthsWithData = Math.max(1, months.filter((m) => m.income > 0).length);
   const sum = (pick: (m: Row) => number) => months.reduce((total, m) => total + pick(m), 0);
-  const avg = (pick: (m: Row) => number) =>
-    filled.length === 0 ? 0 : Math.round(sum(pick) / filled.length);
+  const avg = (pick: (m: Row) => number) => roundAway(sum(pick) / monthsWithData);
   const income = sum((m) => m.income);
+  const byStatus = emptyStatuses();
+  const byKind = { mandatory: 0, wants: 0, savings: 0, loans: 0 };
+  for (const m of months) {
+    for (const k of STATUS_KEYS) byStatus[k] += m.byStatus[k];
+    for (const k of KIND_KEYS) byKind[k] += m.byKind[k];
+  }
+  finishStatuses(byStatus);
+  const expenses = sum((m) => m.expenses);
+  const rows = categoryYearRows(year, monthsWithData, expenses);
+  const avgIncome = avg((m) => m.income);
+  const limitsSum = rows.reduce((total, r) => {
+    const c = categories.find((x) => x.id === r.categoryId);
+    return c && !c.archived && c.kind !== 'savings' ? total + (r.limitNow ?? 0) : total;
+  }, 0);
+  const economy = rows.reduce((total, r) => {
+    const c = categories.find((x) => x.id === r.categoryId);
+    const over = c && !c.archived && r.avgMinusLimit !== null ? Math.max(0, r.avgMinusLimit) : 0;
+    return c && (c.kind === 'mandatory' || c.kind === 'wants') ? total + over : total;
+  }, 0);
+  const savingsTarget = roundAway((avgIncome * settings.savingsNormBp) / 10_000);
+  const buffer = avgIncome - savingsTarget - limitsSum;
   return {
     year,
     months,
     income,
-    expenses: sum((m) => m.expenses),
+    expenses,
     savings: sum((m) => m.savings),
     free: sum((m) => m.free),
-    monthsWithData: filled.length,
-    avgIncome: avg((m) => m.income),
+    monthsWithData,
+    avgIncome,
     avgExpenses: avg((m) => m.expenses),
     avgSavings: avg((m) => m.savings),
     avgFree: avg((m) => m.free),
     savingsRate: income === 0 ? null : sum((m) => m.savings) / income,
-    byStatus: emptyStatuses(),
-    byKind: { mandatory: 0, wants: 0, savings: 0, loans: 0 },
-    categories: categoryYearRows(year),
+    byStatus,
+    byKind,
+    categories: rows,
     balance: {
-      avgIncome: avg((m) => m.income),
-      savingsTarget: Math.round(avg((m) => m.income) * 0.14),
-      limitsSum: categoryYearRows(year).reduce((sum, c) => sum + (c.limitNow ?? 0), 0),
-      buffer: 0,
-      bufferRate: null,
-      economy: 0
+      avgIncome,
+      savingsTarget,
+      limitsSum,
+      buffer,
+      bufferRate: avgIncome === 0 ? null : buffer / avgIncome,
+      economy
     }
   };
 }
 
-function categoryYearRows(year: number): CategoryYearRowDto[] {
+function categoryYearRows(
+  year: number,
+  monthsWithData: number,
+  expenses: number
+): CategoryYearRowDto[] {
   const month = `${String(year)}-12`;
-  return categories.map((c) => {
+  return categories.flatMap((c) => {
     const rows = transactions.filter(
       (t) => t.categoryId === c.id && t.month.startsWith(String(year))
     );
     const total = rows.reduce((sum, t) => sum + t.amount, 0);
-    const months = new Set(rows.map((t) => t.month)).size;
-    const avg = months === 0 ? 0 : Math.round(total / months);
+    if (c.archived && total === 0) return [];
+    const avg = roundAway(total / monthsWithData);
     const limitNow = limitFor(c.id, month);
-    return {
-      categoryId: c.id,
-      total,
-      avg,
-      limitNow,
-      avgMinusLimit: limitNow === null ? null : avg - limitNow,
-      shareInExpenses: null
-    };
+    const isSavings = c.kind === 'savings';
+    return [
+      {
+        categoryId: c.id,
+        total,
+        avg,
+        limitNow,
+        avgMinusLimit: limitNow === null || isSavings ? null : avg - limitNow,
+        shareInExpenses: isSavings || expenses === 0 ? null : total / expenses
+      }
+    ];
   });
 }
 
@@ -553,6 +634,13 @@ export const budgetHandlers = {
     ]);
     return null;
   },
+  limits_unset: (args: { categoryId: number; validFrom: string }) => {
+    const rest = (limitHistory.get(args.categoryId) ?? []).filter(
+      (e) => e.validFrom !== args.validFrom
+    );
+    limitHistory.set(args.categoryId, [...rest, { validFrom: args.validFrom, amount: null }]);
+    return null;
+  },
   limits_clear: (args: { categoryId: number; validFrom: string }) => {
     const rest = (limitHistory.get(args.categoryId) ?? []).filter(
       (e) => e.validFrom !== args.validFrom
@@ -564,7 +652,6 @@ export const budgetHandlers = {
     [...(limitHistory.get(args.categoryId) ?? [])].sort((a, b) =>
       a.validFrom.localeCompare(b.validFrom)
     ),
-  savings_rates_list: () => savingsRates,
   savings_rate_set: (args: { categoryId: number; validFrom: string; rateBp: number }) => {
     clearMockFixedPlan(args.categoryId);
     savingsRates = [
@@ -700,9 +787,12 @@ export const budgetHandlers = {
     mockSearch(args.query, args.requestId, { transactions, incomes, categories, tags }),
 
   tx_list: (args: { month: string }) => transactions.filter((t) => t.month === args.month),
-  tx_create: (args: { input: TransactionInput }) => {
+  tx_create: (args: { requestId: string; input: TransactionInput }) => {
+    const seen = createdByRequest.get(args.requestId);
+    if (seen) return seen;
     const row: TransactionDto = { ...args.input, id: nextId++, tagIds: [] };
     transactions = [...transactions, row];
+    createdByRequest.set(args.requestId, row);
     return row;
   },
   tx_update: (args: { id: number; patch: TransactionPatchDto_Deserialize }) => {
@@ -762,6 +852,7 @@ export const budgetHandlers = {
     return row;
   },
 
+  query_parse: (args: { query: string }) => mockQueryParse(args.query),
   tx_search: (args: { query: string; requestId: number }) =>
     mockTransactionList(args.query, args.requestId, { transactions, incomes, categories, tags }),
   incomes_search: (args: { query: string; requestId: number }) =>
@@ -773,21 +864,6 @@ export const budgetHandlers = {
     tags = [...tags, row];
     return row;
   },
-  tags_rename: (args: { id: number; name: string }) => {
-    const row = tags.find((t) => t.id === args.id);
-    if (!row) return notFound('tag', args.id);
-    const renamed: TagDto = { ...row, name: args.name.trim() };
-    tags = tags.map((t) => (t.id === args.id ? renamed : t));
-    return renamed;
-  },
-  tags_delete: (args: { id: number }) => {
-    tags = tags.filter((t) => t.id !== args.id);
-    transactions = transactions.map((t) => ({
-      ...t,
-      tagIds: t.tagIds.filter((id) => id !== args.id)
-    }));
-    return null;
-  },
   tx_tags_set: (args: { id: number; tagIds: number[] }) => {
     if (!transactions.some((t) => t.id === args.id)) return notFound('transaction', args.id);
     transactions = transactions.map((t) => (t.id === args.id ? { ...t, tagIds: args.tagIds } : t));
@@ -795,10 +871,17 @@ export const budgetHandlers = {
   },
 
   filters_list: () => [...savedFilters].sort((a, b) => a.name.localeCompare(b.name, 'ru')),
-  filters_save: (args: { name: string; query: string }) => {
+  filters_save: (args: { name: string; query: string; screen: FilterScreenDto }) => {
     const name = args.name.trim();
-    const same = savedFilters.find((f) => f.name.toLowerCase() === name.toLowerCase());
-    const row: SavedFilterDto = { id: same?.id ?? nextId++, name, query: args.query.trim() };
+    const same = savedFilters.find(
+      (f) => f.screen === args.screen && f.name.toLowerCase() === name.toLowerCase()
+    );
+    const row: SavedFilterDto = {
+      id: same?.id ?? nextId++,
+      name,
+      query: args.query.trim(),
+      screen: args.screen
+    };
     savedFilters = [...savedFilters.filter((f) => f.id !== row.id), row];
     return row;
   },

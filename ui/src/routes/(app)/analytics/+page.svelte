@@ -52,6 +52,19 @@
     </EmptyState>
   {:else if vm.loading && vm.cards.length === 0}
     <Skeleton height="360px" />
+  {:else if vm.dashboards.length === 0}
+    <EmptyState
+      title="Дашбордов нет"
+      hint="Стандартный дашборд «Мой бюджет» содержит 9 графиков: доходы и расходы, сбережения, траты по статусам и категориям, лимиты."
+    >
+      {#snippet actions()}
+        <Button
+          onclick={() => {
+            void vm.createDefaultDashboard();
+          }}>Создать стандартный</Button
+        >
+      {/snippet}
+    </EmptyState>
   {:else if vm.cards.length === 0}
     <EmptyState
       title="На дашборде пока нет графиков"

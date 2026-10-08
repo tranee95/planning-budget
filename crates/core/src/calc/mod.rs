@@ -193,7 +193,7 @@ pub struct Ledger<'a> {
     kinds: BTreeMap<CategoryId, CategoryKind>,
     by_category: BTreeMap<(YearMonth, CategoryId), StatusAmounts>,
     months: BTreeMap<YearMonth, MonthTotals>,
-    limit_history: BTreeMap<CategoryId, BTreeMap<YearMonth, Money>>,
+    limit_history: BTreeMap<CategoryId, BTreeMap<YearMonth, Option<Money>>>,
     savings_rate_history: BTreeMap<CategoryId, BTreeMap<YearMonth, PlanEntry>>,
 }
 
@@ -287,7 +287,8 @@ impl<'a> Ledger<'a> {
             }
         }
 
-        let mut limit_history: BTreeMap<CategoryId, BTreeMap<YearMonth, Money>> = BTreeMap::new();
+        let mut limit_history: BTreeMap<CategoryId, BTreeMap<YearMonth, Option<Money>>> =
+            BTreeMap::new();
         for entry in &data.limits {
             limit_history
                 .entry(entry.category_id)

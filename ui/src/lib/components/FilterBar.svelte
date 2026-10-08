@@ -4,6 +4,7 @@
   import X from '@lucide/svelte/icons/x';
   import { errorText } from '$lib/i18n/errors';
   import { formatMoney } from '$lib/format';
+  import type { FilterScreenDto } from '$lib/api/bindings';
   import type { QueryFilter } from '$lib/filters/query-filter.svelte';
   import { savedFilters } from '$lib/stores/saved-filters.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
@@ -15,12 +16,15 @@
     filter: QueryFilter;
     /** Что за таблица: попадает в подпись поля и в строку «Найдено». */
     subject: 'трат' | 'доходов';
+    /** Экран: сохранённые фильтры показываются и создаются по экранам. */
+    screen: FilterScreenDto;
     placeholder: string;
   };
 
-  let { filter, subject, placeholder }: Props = $props();
+  let { filter, subject, screen, placeholder }: Props = $props();
 
   const fieldId = $props.id();
+  const screenFilters = $derived(savedFilters.items.filter((f) => f.screen === screen));
   let naming = $state(false);
   let name = $state('');
 
@@ -34,7 +38,7 @@
     const text = filter.applied;
     if (text === '' || name.trim() === '') return;
     try {
-      await savedFilters.save(name, text);
+      await savedFilters.save(name, text, screen);
       naming = false;
       name = '';
       toasts.push({ message: 'Фильтр сохранён' });
@@ -134,9 +138,9 @@
     {#if filter.meta.truncated}· показаны не все: уточните запрос{/if}
   </p>
 {/if}
-{#if savedFilters.items.length > 0}
+{#if screenFilters.length > 0}
   <ul class="saved" aria-label="Сохранённые фильтры">
-    {#each savedFilters.items as item (item.id)}
+    {#each screenFilters as item (item.id)}
       <li>
         <button
           type="button"

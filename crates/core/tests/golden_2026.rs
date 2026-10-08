@@ -428,9 +428,11 @@ fn overview_of_a_single_accumulation_equals_the_accumulation() {
     let ledger = Ledger::new(&data).unwrap();
     let id = sole_savings(&data);
     let fact = ledger.accumulation_fact(id, YEAR).unwrap();
-    let forecast = ledger.accumulation_forecast(id, YEAR, current()).unwrap();
+    // Раздел считает планы и средние на декабрь года просмотра.
+    let december = YearMonth::new(YEAR, 12).unwrap();
+    let forecast = ledger.accumulation_forecast(id, YEAR, december).unwrap();
 
-    let overview = ledger.savings_overview(YEAR, current()).unwrap();
+    let overview = ledger.savings_overview(YEAR).unwrap();
     assert_eq!(overview.items.len(), 1);
     assert_eq!(overview.items[0].fact, fact);
     assert_eq!(overview.items[0].forecast, forecast);

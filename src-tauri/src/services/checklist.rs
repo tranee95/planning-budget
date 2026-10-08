@@ -535,20 +535,143 @@ fn recovery_code_during_an_unfinished_rekey_works_while_the_database_kept_its_ke
 }
 
 #[test]
-fn recovery_code_after_the_database_was_rekeyed_gives_a_clear_error_not_wrong_password() {
+fn recovery_code_after_the_database_was_rekeyed_still_opens_the_data() {
     let (_dir, state) = fresh();
     let code = vault::create(&state, &pw(PASSWORD), t0(), Some(FAST)).unwrap();
     interrupt_rekey_after_database(&state, PASSWORD);
     state.lock();
 
-    // Остаточный риск старый код разворачивает старый DEK, новый слот под забытым паролем.
-    let err =
-        vault::unlock_recovery(&state, &pw(&code), &pw("another long password"), t0()).unwrap_err();
+    // Старый код открывает старый DEK, а тот — новый, под которым уже лежит база.
+    let new = pw("another long password");
+    let issued = vault::unlock_recovery(&state, &pw(&code), &new, t0()).unwrap();
+    assert!(state.is_unlocked());
+    assert!(!state.vault().rekey_pending().unwrap());
+    // Старый код после доведения не действует, взамен выдан новый.
+    let issued = issued.expect("a fresh recovery code is issued");
+    assert_ne!(issued.as_str(), code.as_str());
+    assert!(state.recovery_save_allowed());
+
+    state.lock();
+    assert!(vault::unlock(&state, &new, t0()).unwrap().is_none());
+    state.lock();
+    let again = pw("yet another password");
+    assert!(vault::unlock_recovery(&state, &pw(&code), &again, t0()).is_err());
+    vault::unlock_recovery(&state, &pw(&issued), &again, t0()).unwrap();
+}
+
+#[test]
+fn password_unlock_after_an_interrupted_rekey_issues_a_working_recovery_code() {
+    let (_dir, state) = fresh();
+    let old = vault::create(&state, &pw(PASSWORD), t0(), Some(FAST)).unwrap();
+    interrupt_rekey_after_database(&state, PASSWORD);
+    state.lock();
+
+    let issued = vault::unlock(&state, &pw(PASSWORD), t0())
+        .unwrap()
+        .expect("a fresh recovery code is issued");
+    assert!(state.recovery_save_allowed());
+    state.lock();
     assert!(
-        matches!(&err, AppError::Conflict { message_key } if message_key == "errors.vault.rekey_interrupted"),
-        "{err:?}"
+        vault::unlock(&state, &pw(PASSWORD), t0())
+            .unwrap()
+            .is_none()
     );
+
+    state.lock();
+    assert!(vault::unlock_recovery(&state, &pw(&old), &pw("yet another password"), t0()).is_err());
+    vault::unlock_recovery(&state, &pw(&issued), &pw("yet another password"), t0()).unwrap();
+}
+
+// Новый recovery-код записывается в vault.json только после удачного входа.
+#[test]
+fn failed_session_start_keeps_the_old_recovery_code_until_a_retry_succeeds() {
+    let (_dir, state) = fresh();
+    let old = vault::create(&state, &pw(PASSWORD), t0(), Some(FAST)).unwrap();
+    interrupt_rekey_after_database(&state, PASSWORD);
+    // Чтение настроек при входе падает: таблицы с нужным именем нет.
+    state
+        .with_session_sync(|db| {
+            db.conn()
+                .execute_batch("ALTER TABLE settings RENAME TO settings_away")
+                .map_err(|_| AppError::Internal {
+                    correlation_id: "test".into(),
+                })
+        })
+        .unwrap();
+    state.lock();
+
+    assert!(vault::unlock(&state, &pw(PASSWORD), t0()).is_err());
     assert!(!state.is_unlocked());
+    assert!(
+        state.vault().rekey_pending().unwrap(),
+        "slots are not replaced when the session did not start"
+    );
+    assert!(!state.recovery_save_allowed());
+
+    // Возвращаем таблицу ключом из недоведённого слота и входим повторно.
+    let next = state
+        .vault()
+        .pending_rekey_dek(&pw(PASSWORD))
+        .unwrap()
+        .unwrap();
+    planning_budget_storage::Db::open(&state.paths().db(), next.as_bytes())
+        .unwrap()
+        .conn()
+        .execute_batch("ALTER TABLE settings_away RENAME TO settings")
+        .unwrap();
+    let issued = vault::unlock(&state, &pw(PASSWORD), t0())
+        .unwrap()
+        .expect("the retry issues the new code");
+    assert!(!state.vault().rekey_pending().unwrap());
+    state.lock();
+    assert!(vault::unlock_recovery(&state, &pw(&old), &pw("yet another password"), t0()).is_err());
+    vault::unlock_recovery(&state, &pw(&issued), &pw("yet another password"), t0()).unwrap();
+}
+
+#[test]
+fn reset_erases_the_keys_even_when_the_database_file_cannot_be_removed() {
+    let (dir, state) = fresh();
+    vault::create(&state, &pw(PASSWORD), t0(), Some(FAST)).unwrap();
+    state.lock();
+    // Файл базы подменён непустой папкой: remove_file на ней падает.
+    let db = state.paths().db();
+    let moved = dir.path().join("budget.db.moved");
+    fs::rename(&db, &moved).unwrap();
+    fs::create_dir(&db).unwrap();
+    fs::write(db.join("keep"), b"x").unwrap();
+
+    let err = vault::reset(&state, &pw(PASSWORD), "удалить все данные", t0()).unwrap_err();
+    assert!(matches!(err, AppError::Io { .. }), "{err:?}");
+    // Ключи стёрты первыми: без них данные недоступны, хотя файл остался.
+    assert!(!vault::status(&state, t0()).unwrap().exists);
+    assert!(!dir.path().join("vault.json").exists());
+    assert!(moved.exists());
+}
+
+#[test]
+fn failed_rekey_closes_the_session_and_the_next_unlock_keeps_the_data() {
+    let (_dir, state) = fresh();
+    vault::create(&state, &pw(PASSWORD), t0(), Some(FAST)).unwrap();
+    // Второе соединение не даёт выйти из WAL: `journal_mode=DELETE` падает до `PRAGMA rekey`.
+    let dek = raw_store(&state).unlock(&pw(PASSWORD), t0()).unwrap();
+    let blocker = planning_budget_storage::Db::open(&state.paths().db(), dek.as_bytes()).unwrap();
+
+    let err = vault::rekey(&state, &pw(PASSWORD), t0()).unwrap_err();
+    assert!(!matches!(err, AppError::Locked), "{err:?}");
+    assert!(!state.is_unlocked(), "a failed rekey closes the session");
+    assert!(
+        raw_store(&state).rekey_pending().unwrap(),
+        "the new slots stay: they may hold the only copy of the key"
+    );
+    drop(blocker);
+
+    vault::unlock(&state, &pw(PASSWORD), t0()).unwrap();
+    assert!(!raw_store(&state).rekey_pending().unwrap());
+    assert!(
+        setting(&state, "security.autolock_minutes")
+            .unwrap()
+            .is_some()
+    );
 }
 
 #[test]
@@ -603,4 +726,21 @@ fn concurrent_status_calls_do_not_disturb_a_vault_write() {
 
     assert_only_documented_files(dir.path(), "параллельные status и запись");
     vault::unlock(&state, &pw(PASSWORD), t0() + chrono::Duration::seconds(120)).unwrap();
+}
+
+#[test]
+fn panic_text_from_the_session_worker_never_reaches_the_log() {
+    let captured = global_capture();
+    let secret = "panic-secret-Coffee-Shop-4242";
+
+    let (_dir, state) = fresh();
+    vault::create(&state, &pw(PASSWORD), t0(), Some(FAST)).unwrap();
+    let res: Result<(), AppError> =
+        tauri::async_runtime::block_on(state.with_session(move |_| panic!("{secret}")));
+    assert!(matches!(res, Err(AppError::Internal { .. })));
+
+    let log = String::from_utf8_lossy(&captured.0.lock().unwrap_or_else(PoisonError::into_inner))
+        .into_owned();
+    assert!(log.contains("worker panicked"), "факт паники в журнале");
+    assert!(!log.contains(secret), "текст паники в журнале");
 }

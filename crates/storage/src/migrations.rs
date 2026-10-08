@@ -16,6 +16,8 @@ const SCRIPTS: &[&str] = &[
     include_str!("../migrations/007_debts.sql"),
     include_str!("../migrations/008_savings_params.sql"),
     include_str!("../migrations/009_drop_bonds_settings.sql"),
+    include_str!("../migrations/010_saved_filter_screen.sql"),
+    include_str!("../migrations/011_limit_tombstone.sql"),
 ];
 
 /// Только вперёд: старые файлы не редактируются, схема меняется новой миграцией.
@@ -100,6 +102,83 @@ mod tests {
             .collect::<Result<_, _>>()
             .unwrap();
         assert_eq!(rows, vec![("2026-03".to_owned(), 1, 2000)]);
+    }
+
+    #[test]
+    fn migration_010_gives_existing_saved_filters_the_expenses_screen() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        register_functions(&conn).unwrap();
+        migrations().to_version(&mut conn, 9).unwrap();
+        conn.execute_batch(
+            "INSERT INTO saved_filters (id, name, query, created_at)
+                 VALUES (1, 'Лента', 'лента', 'x'), (2, 'Подарки', '#подарки', 'x');",
+        )
+        .unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        let rows: Vec<(i64, String, String, String)> = conn
+            .prepare("SELECT id, name, query, screen FROM saved_filters ORDER BY id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        let expected = |id: i64, name: &str, query: &str| {
+            (id, name.to_owned(), query.to_owned(), "expenses".to_owned())
+        };
+        assert_eq!(
+            rows,
+            vec![
+                expected(1, "Лента", "лента"),
+                expected(2, "Подарки", "#подарки")
+            ]
+        );
+        assert!(
+            conn.execute(
+                "INSERT INTO saved_filters (name, query, created_at, screen) VALUES ('a', 'b', 'x', 'nope')",
+                [],
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn migration_011_keeps_limits_and_allows_a_no_limit_row() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        register_functions(&conn).unwrap();
+        migrations().to_version(&mut conn, 10).unwrap();
+        conn.execute_batch(
+            "INSERT INTO categories (id, name, kind, color, sort_order, created_at, updated_at)
+                 VALUES (1, 'Продукты', 'mandatory', '#3AA567', 0, 'x', 'x');
+             INSERT INTO category_limits (category_id, valid_from, amount) VALUES (1, '2026-01', 900000);",
+        )
+        .unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        conn.execute(
+            "INSERT INTO category_limits (category_id, valid_from, amount) VALUES (1, '2026-05', NULL)",
+            [],
+        )
+        .unwrap();
+        let rows: Vec<(String, Option<i64>)> = conn
+            .prepare("SELECT valid_from, amount FROM category_limits ORDER BY valid_from")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(
+            rows,
+            vec![
+                ("2026-01".to_owned(), Some(900_000)),
+                ("2026-05".to_owned(), None)
+            ]
+        );
+        assert!(
+            conn.execute(
+                "INSERT INTO category_limits (category_id, valid_from, amount) VALUES (1, '2026-06', -1)",
+                [],
+            )
+            .is_err()
+        );
     }
 
     /// Данные версии 5 с тратами, процентом плана и настройками облигаций.

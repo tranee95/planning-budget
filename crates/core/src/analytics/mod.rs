@@ -17,6 +17,7 @@ pub use spec::{
 
 pub use standard::{Placement, standard_dashboard};
 
+use crate::calc::Ledger;
 use crate::error::CoreError;
 use crate::model::{DataSet, TxId};
 use crate::period::YearMonth;
@@ -82,7 +83,27 @@ pub fn compute(
     ctx: &Context<'_>,
 ) -> Result<ChartData, AnalyticsError> {
     spec.validate()?;
-    engine::Engine::new(data, spec, ctx)?.run()
+    let ledger = Ledger::new(data)?;
+    engine::Engine::new(data, spec, ctx, &ledger)?.run()
+}
+
+/// Считает несколько графиков над одним набором данных и одним `Ledger`. Набор может быть шире
+/// периода любого графика: результат равен одиночному `compute` на наборе, покрывающем период
+/// графика. Ошибка описания или расчёта одного графика не мешает остальным; ошибка самого
+/// `Ledger` (общая для всех) возвращается сразу.
+pub fn compute_many(
+    data: &DataSet,
+    specs: &[&ChartSpec],
+    ctx: &Context<'_>,
+) -> Result<Vec<Result<ChartData, AnalyticsError>>, AnalyticsError> {
+    let ledger = Ledger::new(data)?;
+    Ok(specs
+        .iter()
+        .map(|spec| {
+            spec.validate()?;
+            engine::Engine::new(data, spec, ctx, &ledger)?.run()
+        })
+        .collect())
 }
 
 /// Месяцы периода описания. Пустого периода не бывает: всегда есть хотя бы один месяц.

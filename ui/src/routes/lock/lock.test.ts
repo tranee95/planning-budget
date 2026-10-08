@@ -1,6 +1,6 @@
 import { clearMocks } from '@tauri-apps/api/mocks';
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import { resetMockVault } from '$lib/api/mock/handlers';
+import { failMockMigration, resetMockVault } from '$lib/api/mock/handlers';
 import { installMocks } from '$lib/api/mock/install';
 import { session } from '$lib/stores/session.svelte';
 import { LockVm } from './lock.svelte';
@@ -11,6 +11,7 @@ beforeEach(() => {
   session.phase = 'locked';
   session.retryUntil = 0;
   session.recoveryCode = null;
+  session.migrationFailed = false;
 });
 
 afterEach(() => {
@@ -37,6 +38,29 @@ it('разблокировка недоступна с пустым пароле
   session.retryUntil = Date.now() + 5000;
   expect(vm.waiting).toBe(true);
   expect(vm.canUnlock).toBe(false);
+});
+
+it('перенос данных: повтор снимает предупреждение и обновляет фазу', async () => {
+  failMockMigration();
+  await session.boot();
+  expect(session.migrationFailed).toBe(true);
+  const vm = new LockVm();
+  await vm.retryMigration();
+  expect(vm.migrationError).toBeNull();
+  expect(session.migrationFailed).toBe(false);
+  expect(session.phase).toBe('locked');
+});
+
+it('перенос данных: неудачный повтор оставляет предупреждение и показывает ошибку', async () => {
+  failMockMigration(true);
+  await session.boot();
+  const vm = new LockVm();
+  await vm.retryMigration();
+  expect(vm.migrationError).toBe(
+    'Перенос данных из прежней папки снова не удался. Прежние данные не изменены.'
+  );
+  expect(session.migrationFailed).toBe(true);
+  expect(vm.busy).toBe(false);
 });
 
 it('неверный пароль: ошибка и встряска, фаза остаётся locked', async () => {

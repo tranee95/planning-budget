@@ -292,3 +292,36 @@ fn copy_rows_skip_savings_categories() {
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].category_id, FOOD);
 }
+
+fn plan_with(income: i64, expenses: i64, savings: i64, repayments: i64) -> MonthPlan {
+    MonthPlan {
+        month: ym("2026-09"),
+        locked: false,
+        income: rub(income),
+        plan_expenses: rub(expenses),
+        plan_savings: rub(savings),
+        plan_repayments: rub(repayments),
+        unallocated: rub(income - expenses - savings - repayments),
+        rows: Vec::new(),
+        unplanned: Money::ZERO,
+        borrowed: Money::ZERO,
+        saved: Money::ZERO,
+    }
+}
+
+#[test]
+fn balance_tells_empty_balanced_unallocated_and_over_apart() {
+    use planning_budget_core::calc::PlanBalance;
+
+    assert_eq!(plan_with(0, 0, 0, 0).balance(), PlanBalance::Empty);
+    assert_eq!(plan_with(100, 60, 30, 10).balance(), PlanBalance::Balanced);
+    assert_eq!(
+        plan_with(100, 60, 20, 10).balance(),
+        PlanBalance::Unallocated
+    );
+    assert_eq!(plan_with(100, 80, 20, 10).balance(), PlanBalance::Over);
+    // План без дохода — не «пусто»: он превышает доход.
+    assert_eq!(plan_with(0, 10, 0, 0).balance(), PlanBalance::Over);
+    // Доход без плана — всё не распределено.
+    assert_eq!(plan_with(100, 0, 0, 0).balance(), PlanBalance::Unallocated);
+}

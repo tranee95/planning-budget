@@ -1,6 +1,5 @@
 //! Раздел «Сбережения».
 
-use chrono::Local;
 use tauri::{AppHandle, State};
 
 use crate::AppError;
@@ -17,7 +16,7 @@ pub async fn savings_overview(
     year: u16,
 ) -> Result<SavingsOverviewDto, AppError> {
     state
-        .with_session(move |db| service::overview(db, year, Local::now().date_naive()))
+        .with_session(move |db| service::overview(db, year))
         .await
 }
 

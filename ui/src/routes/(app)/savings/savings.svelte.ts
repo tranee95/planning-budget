@@ -1,6 +1,6 @@
 import { getContext, setContext } from 'svelte';
 import type { AccumulationDto, SavingsOverviewDto } from '$lib/api/bindings';
-import { onDataChanged } from '$lib/api/data-events';
+import { LoadStamp, onDataChanged } from '$lib/api/data-events';
 import { categoriesApi, savingsApi } from '$lib/api/data';
 import { parsePercentBp } from '$lib/category-colors';
 import { currentMonth } from '$lib/format';
@@ -40,6 +40,7 @@ export class SavingsVm {
   data = $state.raw<SavingsOverviewDto | null>(null);
   selectedId = $state<number | null>(null);
   loading = $state(true);
+  #stamp = new LoadStamp();
   error = $state('');
   draft = $state<ParamsDraft>(emptyDraft());
   paramsError = $state('');
@@ -69,6 +70,7 @@ export class SavingsVm {
    * перезагрузка (смена года, событие данных) не стирала то, что пользователь набирает.
    */
   async load(options: { refillDraft?: boolean } = {}): Promise<void> {
+    this.#stamp.mark();
     const generation = ++this.#generation;
     this.loading = true;
     this.error = '';
@@ -173,7 +175,8 @@ export class SavingsVm {
 
   /** Пересчёт при изменении записей и настроек. Возвращает cleanup. */
   connect(): () => void {
-    return onDataChanged(() => {
+    return onDataChanged((change) => {
+      if (this.#stamp.isFresh(change)) return;
       void this.load();
     });
   }

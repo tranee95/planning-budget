@@ -19,6 +19,12 @@ pub async fn vault_status(app: AppHandle) -> Result<VaultStatusDto, AppError> {
 
 #[tauri::command]
 #[specta::specta]
+pub async fn vault_retry_migration(app: AppHandle) -> Result<VaultStatusDto, AppError> {
+    blocking(&app, |state| service::retry_migration(state, Utc::now())).await
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn vault_create(app: AppHandle, password: Secret) -> Result<RecoveryCodeDto, AppError> {
     blocking(&app, move |state| {
         let code = service::create(state, password.secret(), Utc::now(), None)?;
@@ -31,9 +37,12 @@ pub async fn vault_create(app: AppHandle, password: Secret) -> Result<RecoveryCo
 
 #[tauri::command]
 #[specta::specta]
-pub async fn vault_unlock(app: AppHandle, password: Secret) -> Result<(), AppError> {
+pub async fn vault_unlock(
+    app: AppHandle,
+    password: Secret,
+) -> Result<Option<RecoveryCodeDto>, AppError> {
     blocking(&app, move |state| {
-        service::unlock(state, password.secret(), Utc::now())
+        service::unlock(state, password.secret(), Utc::now()).map(issued_code)
     })
     .await
 }
@@ -44,11 +53,19 @@ pub async fn vault_unlock_recovery(
     app: AppHandle,
     code: Secret,
     new_password: Secret,
-) -> Result<(), AppError> {
+) -> Result<Option<RecoveryCodeDto>, AppError> {
     blocking(&app, move |state| {
         service::unlock_recovery(state, code.secret(), new_password.secret(), Utc::now())
+            .map(issued_code)
     })
     .await
+}
+
+/// Новый код приходит, только если вход довёл до конца прерванный перевыпуск ключа.
+fn issued_code(code: Option<zeroize::Zeroizing<String>>) -> Option<RecoveryCodeDto> {
+    code.map(|c| RecoveryCodeDto {
+        recovery_code: c.to_string(),
+    })
 }
 
 #[tauri::command]

@@ -1,5 +1,5 @@
 import type { EChartsCoreOption } from 'echarts/core';
-import type { ChartDataDto, ChartSpecDto } from '$lib/api/bindings';
+import type { ChartDataDto, ChartOptionsDto, ChartSpecDto } from '$lib/api/bindings';
 import {
   isForecast,
   isPrevious,
@@ -21,15 +21,27 @@ export type ChartEnv = {
 const MAX_MARKED_POINTS = 12;
 const PREVIOUS_OPACITY = 0.5;
 
+/** Что нужно для отрисовки: тип и параметры. Остальные поля `ChartSpecDto` относятся к запросу. */
+export type ChartView = { type: ChartSpecDto['type']; options: ChartOptionsDto };
+
+export const PLAIN_OPTIONS: ChartOptionsDto = {
+  showLimit: false,
+  topN: null,
+  sort: 'natural',
+  cumulative: false,
+  comparePrevPeriod: false,
+  percent: false
+};
+
 type Orientation = 'vertical' | 'horizontal';
 
-function orientation(spec: ChartSpecDto): Orientation {
+function orientation(spec: ChartView): Orientation {
   return spec.type === 'hbar' ? 'horizontal' : 'vertical';
 }
 
 function seriesOption(
   data: ChartDataDto,
-  spec: ChartSpecDto,
+  spec: ChartView,
   env: ChartEnv
 ): Record<string, unknown>[] {
   const horizontal = orientation(spec) === 'horizontal';
@@ -144,11 +156,7 @@ function donutOption(data: ChartDataDto, env: ChartEnv): Record<string, unknown>
   };
 }
 
-export function toEcharts(
-  data: ChartDataDto,
-  spec: ChartSpecDto,
-  env: ChartEnv
-): EChartsCoreOption {
+export function toEcharts(data: ChartDataDto, spec: ChartView, env: ChartEnv): EChartsCoreOption {
   const { css } = env;
   const duration = env.reducedMotion ? 0 : 800;
   const tooltip = {

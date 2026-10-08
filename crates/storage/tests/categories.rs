@@ -222,13 +222,34 @@ fn limit_history_upserts_and_clears() {
     let history = db.limit_history(id).unwrap();
     assert_eq!(history.len(), seeded_len + 1);
     let last = history.last().unwrap();
-    assert_eq!((last.valid_from, last.amount), (ym("2026-11"), rub(9500)));
+    assert_eq!(
+        (last.valid_from, last.amount),
+        (ym("2026-11"), Some(rub(9500)))
+    );
     db.limit_clear(id, ym("2026-11")).unwrap();
     assert!(matches!(
         db.limit_clear(id, ym("2026-11")),
         Err(StorageError::NotFound)
     ));
     assert_eq!(db.limit_history(id).unwrap().len(), seeded_len);
+}
+
+#[test]
+fn limit_unset_writes_a_no_limit_row_and_limit_set_overwrites_it() {
+    let (_dir, mut db) = seeded();
+    let id = id_of(&db, "Продукты");
+    db.limit_set(id, ym("2026-10"), rub(9000)).unwrap();
+    db.limit_unset(id, ym("2026-11")).unwrap();
+    let last = db.limit_history(id).unwrap().pop().unwrap();
+    assert_eq!((last.valid_from, last.amount), (ym("2026-11"), None));
+    db.limit_unset(id, ym("2026-11")).unwrap();
+    db.limit_set(id, ym("2026-11"), rub(100)).unwrap();
+    assert_eq!(
+        db.limit_history(id).unwrap().pop().unwrap().amount,
+        Some(rub(100))
+    );
+    let savings = id_of(&db, "Сбережения");
+    assert!(db.limit_unset(savings, ym("2026-11")).is_err());
 }
 
 #[test]

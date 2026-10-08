@@ -64,6 +64,15 @@ impl IdleTimer {
             .unwrap_or_else(PoisonError::into_inner) = Moment::now();
     }
 
+    /// Задаёт отметку активности явно: тесты состарят её, не дожидаясь часов.
+    #[cfg(test)]
+    pub fn touch_at(&self, at: Moment) {
+        *self
+            .last_activity
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = at;
+    }
+
     pub fn set_minutes(&self, minutes: u32) {
         self.minutes.store(minutes, Ordering::Relaxed);
     }

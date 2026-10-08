@@ -21,10 +21,6 @@ fn income_error(id: IncomeId) -> impl Fn(StorageError) -> AppError {
     move |e| AppError::from_storage(e, "income", id.0)
 }
 
-fn tag_error(id: TagId) -> impl Fn(StorageError) -> AppError {
-    move |e| AppError::from_storage(e, "tag", id.0)
-}
-
 fn optional_date(value: Option<&String>, field: &str) -> Result<Option<NaiveDate>, AppError> {
     value.map(|d| parse_date(d, field)).transpose()
 }
@@ -217,15 +213,6 @@ pub fn tags_list(db: &Db) -> Result<Vec<TagDto>, AppError> {
 pub fn tag_create(db: &mut Db, name: &str) -> Result<TagDto, AppError> {
     let tag = db.tag_create(name)?;
     Ok((&tag).into())
-}
-
-pub fn tag_rename(db: &mut Db, id: TagId, name: &str) -> Result<TagDto, AppError> {
-    let tag = db.tag_rename(id, name).map_err(tag_error(id))?;
-    Ok((&tag).into())
-}
-
-pub fn tag_delete(db: &mut Db, id: TagId) -> Result<(), AppError> {
-    db.tag_delete(id).map_err(tag_error(id))
 }
 
 /// Месяцы, затронутые правкой: до и после (если запись перенесли в другой месяц).

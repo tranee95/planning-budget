@@ -38,6 +38,8 @@ class SessionStore {
   retryUntil = $state(0);
   /** Код после `vault_create`: показывается один раз и очищается подтверждением. */
   recoveryCode = $state<string | null>(null);
+  /** Перенос данных из папки прежнего идентификатора не удался: экран входа предлагает повторить. */
+  migrationFailed = $state(false);
 
   constructor() {
     onBackendLocked(() => {
@@ -48,6 +50,14 @@ class SessionStore {
   async boot(): Promise<void> {
     const status = await vaultApi.status();
     this.#setRetry(status.retryAfterMs);
+    this.migrationFailed = status.migrationFailed;
+    this.phase = !status.exists ? 'setup' : status.locked ? 'locked' : 'unlocked';
+  }
+
+  /** Повторяет перенос; при успехе фаза обновляется (после переноса сейф уже существует). */
+  async retryMigration(): Promise<void> {
+    const status = await vaultApi.retryMigration();
+    this.migrationFailed = status.migrationFailed;
     this.phase = !status.exists ? 'setup' : status.locked ? 'locked' : 'unlocked';
   }
 
@@ -64,8 +74,9 @@ class SessionStore {
   }
 
   async unlock(password: string): Promise<void> {
+    let issued: string | null;
     try {
-      await vaultApi.unlock(password);
+      issued = (await vaultApi.unlock(password))?.recoveryCode ?? null;
     } catch (e) {
       if (
         e instanceof ApiError &&
@@ -76,6 +87,8 @@ class SessionStore {
       throw e;
     }
     this.retryUntil = 0;
+    // Вход довёл до конца прерванный перевыпуск ключа: старый код не действует, показываем новый.
+    this.recoveryCode = issued;
     this.phase = 'unlocked';
   }
 
@@ -86,7 +99,8 @@ class SessionStore {
   }
 
   async unlockWithRecovery(code: string, newPassword: string): Promise<void> {
-    await vaultApi.unlockRecovery(code, newPassword);
+    const issued = await vaultApi.unlockRecovery(code, newPassword);
+    this.recoveryCode = issued?.recoveryCode ?? null;
     this.retryUntil = 0;
     this.phase = 'unlocked';
   }

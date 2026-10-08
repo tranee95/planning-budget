@@ -5,8 +5,8 @@ use tauri::State;
 
 use crate::AppError;
 use crate::dto::{
-    CategoryUsageDto, IncomeSearchDto, Int53, SavedFilterDto, SearchResultDto, TitleSuggestionDto,
-    TransactionSearchDto,
+    CategoryUsageDto, FilterScreenDto, IncomeSearchDto, Int53, QueryParseDto, SavedFilterDto,
+    SearchResultDto, TitleSuggestionDto, TransactionSearchDto,
 };
 use crate::services::search as service;
 use crate::state::AppState;
@@ -26,6 +26,13 @@ pub async fn search(
     state
         .with_session(move |db| service::run(db, &query, request_id, year))
         .await
+}
+
+/// Разбор строки запроса для чипов (фильтр графика). Данных бюджета не читает.
+#[tauri::command]
+#[specta::specta]
+pub async fn query_parse(query: String) -> Result<QueryParseDto, AppError> {
+    Ok(service::query_parse(&query, current_year()))
 }
 
 #[tauri::command]
@@ -66,9 +73,10 @@ pub async fn filters_save(
     state: State<'_, AppState>,
     name: String,
     query: String,
+    screen: FilterScreenDto,
 ) -> Result<SavedFilterDto, AppError> {
     state
-        .with_session(move |db| service::filter_save(db, &name, &query, Utc::now()))
+        .with_session(move |db| service::filter_save(db, &name, &query, screen, Utc::now()))
         .await
 }
 

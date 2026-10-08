@@ -193,7 +193,7 @@ fn accumulations_are_independent_and_totals_add_up() {
     // «Облигации» растут на купонах: баланс выше внесённых 16 000 ₽.
     assert!(bonds.dec_balance > rub(16_000));
 
-    let overview = ledger.savings_overview(2026, ym("2026-03")).unwrap();
+    let overview = ledger.savings_overview(2026).unwrap();
     assert_eq!(overview.items.len(), 3);
     let sum: i64 = overview
         .items
@@ -216,17 +216,11 @@ fn accumulations_are_independent_and_totals_add_up() {
 fn archived_accumulation_without_balance_is_left_out_of_the_overview() {
     let mut data = base();
     data.categories[1].archived = true;
-    let overview = Ledger::new(&data)
-        .unwrap()
-        .savings_overview(2026, ym("2026-03"))
-        .unwrap();
+    let overview = Ledger::new(&data).unwrap().savings_overview(2026).unwrap();
     assert_eq!(overview.items.len(), 2);
 
     deposit(&mut data, "2026-01", TRIP, 5_000);
-    let overview = Ledger::new(&data)
-        .unwrap()
-        .savings_overview(2026, ym("2026-03"))
-        .unwrap();
+    let overview = Ledger::new(&data).unwrap().savings_overview(2026).unwrap();
     assert_eq!(
         overview.items.len(),
         3,
@@ -235,12 +229,81 @@ fn archived_accumulation_without_balance_is_left_out_of_the_overview() {
 }
 
 #[test]
+fn year_before_initial_month_shows_zero_balance_and_forecast_from_zero() {
+    let mut data = base();
+    let params = data.savings_params.get_mut(&BONDS).unwrap();
+    params.initial_balance = rub(100_000);
+    params.initial_month = ym("2027-03");
+    let overview = Ledger::new(&data).unwrap().savings_overview(2026).unwrap();
+    let bonds = overview
+        .items
+        .iter()
+        .find(|i| i.category_id == BONDS)
+        .unwrap();
+    assert_eq!(bonds.fact.dec_balance, Money::ZERO);
+    assert_eq!(bonds.forecast.start_balance, Money::ZERO);
+}
+
+#[test]
+fn plan_is_taken_in_december_of_the_viewed_year() {
+    let mut data = base();
+    // С октября «Облигации» — 10 % вместо 8 %; доходов в октябре–декабре нет.
+    data.savings_rates.push(SavingsRateEntry {
+        category_id: BONDS,
+        valid_from: ym("2026-10"),
+        rate: BasisPoints(1000),
+        fixed_amount: None,
+    });
+    let ledger = Ledger::new(&data).unwrap();
+    let overview = ledger.savings_overview(2026).unwrap();
+    let bonds = overview
+        .items
+        .iter()
+        .find(|i| i.category_id == BONDS)
+        .unwrap();
+    assert_eq!(bonds.plan_rate, BasisPoints(1000));
+    // Средний доход года — 100 000 ₽ (три месяца с доходом), процент берётся на декабрь.
+    assert_eq!(bonds.plan, rub(10_000));
+    // В декабре дохода нет: месячный план — только фиксированная сумма «Отпуска».
+    assert_eq!(overview.month_plan, rub(5_000));
+}
+
+#[test]
+fn overview_items_match_the_standalone_forecast() {
+    let mut data = base();
+    deposit(&mut data, "2026-01", BONDS, 8_000);
+    deposit(&mut data, "2026-02", CUSHION, 3_000);
+    let ledger = Ledger::new(&data).unwrap();
+    let overview = ledger.savings_overview(2026).unwrap();
+    for item in &overview.items {
+        let forecast = ledger
+            .accumulation_forecast(item.category_id, 2026, ym("2026-12"))
+            .unwrap();
+        assert_eq!(item.forecast, forecast);
+    }
+}
+
+#[test]
+fn effective_rate_is_rate_after_tax_in_basis_points() {
+    let data = base();
+    let overview = Ledger::new(&data).unwrap().savings_overview(2026).unwrap();
+    let rate = |c: CategoryId| {
+        overview
+            .items
+            .iter()
+            .find(|i| i.category_id == c)
+            .unwrap()
+            .effective_rate
+    };
+    // 16 % × (1 − 13 %) = 13,92 %.
+    assert_eq!(rate(BONDS), BasisPoints(1392));
+    assert_eq!(rate(CUSHION), BasisPoints(0));
+}
+
+#[test]
 fn scenario_a_uses_the_plan_of_each_accumulation() {
     let data = base();
-    let overview = Ledger::new(&data)
-        .unwrap()
-        .savings_overview(2026, ym("2026-03"))
-        .unwrap();
+    let overview = Ledger::new(&data).unwrap().savings_overview(2026).unwrap();
     let a = |c: CategoryId| {
         overview
             .items

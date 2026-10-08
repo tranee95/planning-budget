@@ -3,6 +3,7 @@ import type {
   IncomeDto,
   IncomeSearchDto,
   QueryHintSpanDto,
+  QueryParseDto,
   SearchResultDto,
   TagDto,
   TokenSpanDto,
@@ -91,6 +92,12 @@ function parseQuery(query: string): Parsed {
     parsed.spans.push({ start, end: start + len, kind, negated: false });
   }
   return parsed;
+}
+
+/** Разбор для чипов фильтра графика: те же токены, что у поиска, без выборки. */
+export function mockQueryParse(query: string): QueryParseDto {
+  const { spans, hints } = parseQuery(query);
+  return { spans, hints };
 }
 
 const sum = (items: { amount: number }[]): number => items.reduce((s, i) => s + i.amount, 0);

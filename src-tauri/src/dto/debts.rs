@@ -98,6 +98,15 @@ pub struct SchedulePaymentDto {
     pub amount: i64,
 }
 
+/// Ответ `debt_schedule_preview`: строки графика и их сумма (считает Rust).
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SchedulePreviewDto {
+    pub rows: Vec<SchedulePaymentDto>,
+    #[specta(type = specta_typescript::Number)]
+    pub total: i64,
+}
+
 /// Новый долг; сумма графика должна равняться сумме долга.
 #[derive(Debug, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]

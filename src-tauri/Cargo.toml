@@ -26,6 +26,7 @@ specta = "2.0.0-rc"
 specta-typescript = "0.0.12"
 tauri = { version = "2.11.6", features = [] }
 tauri-plugin-dialog = "2"
+tauri-plugin-single-instance = "2"
 tauri-plugin-window-state = "2.4.1"
 tauri-specta = { version = "2.0.0-rc", features = ["typescript", "derive"] }
 thiserror = "2.0.21"
@@ -38,5 +39,7 @@ zeroize = "1.9.0"
 tauri-build = { version = "2.6.3", features = [] }
 
 [dev-dependencies]
+planning-budget-vault = { workspace = true, features = ["weak-kdf"] }
 rusqlite = "0.40.2"
+tauri = { version = "2.11.6", features = ["test"] }
 tempfile = "3.27.0"

@@ -63,7 +63,7 @@ impl From<IncomeStatusDto> for IncomeStatus {
     }
 }
 
-#[derive(Debug, Serialize, Type)]
+#[derive(Debug, Clone, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionDto {
     #[specta(type = specta_typescript::Number)]

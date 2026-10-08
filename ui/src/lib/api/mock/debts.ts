@@ -9,6 +9,7 @@ import type {
   DebtsOverviewDto,
   PlanRepaymentDto,
   SchedulePaymentDto,
+  SchedulePreviewDto,
   TransactionDto
 } from '../bindings';
 import { shiftMonth } from '$lib/format';
@@ -75,7 +76,16 @@ function validSchedule(
   );
 }
 
-function preview(amount: number, taken: string, kind: DebtScheduleKindDto): SchedulePaymentDto[] {
+function preview(amount: number, taken: string, kind: DebtScheduleKindDto): SchedulePreviewDto {
+  const rows = previewRows(amount, taken, kind);
+  return { rows, total: rows.reduce((sum, r) => sum + r.amount, 0) };
+}
+
+function previewRows(
+  amount: number,
+  taken: string,
+  kind: DebtScheduleKindDto
+): SchedulePaymentDto[] {
   if (kind.kind === 'single') {
     if (kind.month < taken || amount <= 0) throw new Error('schedule');
     return [{ month: kind.month, amount }];

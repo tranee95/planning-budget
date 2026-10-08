@@ -120,7 +120,7 @@ impl Db {
             out.push(LimitEntry {
                 category_id: CategoryId(row.get(0)?),
                 valid_from: parse_month(&valid_from)?,
-                amount: Money::from_kopecks(row.get(2)?),
+                amount: row.get::<_, Option<i64>>(2)?.map(Money::from_kopecks),
             });
         }
         Ok(out)

@@ -103,31 +103,7 @@ impl Db {
                 }
             }
         }
-        let dashboards: i64 = tx.query_row("SELECT count(*) FROM dashboards", [], |r| r.get(0))?;
-        if dashboards == 0 {
-            tx.execute(
-                "INSERT INTO dashboards (name, sort_order, is_default) VALUES (?1, 0, 1)",
-                [STANDARD_DASHBOARD_NAME],
-            )?;
-            let dashboard_id = tx.last_insert_rowid();
-            let mut insert_chart = tx.prepare_cached(
-                "INSERT INTO charts (dashboard_id, spec, x, y, w, h, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)",
-            )?;
-            for chart in standard_dashboard() {
-                let spec =
-                    serde_json::to_string(&chart.spec).map_err(|_| StorageError::SeedAsset)?;
-                insert_chart.execute(params![
-                    dashboard_id,
-                    spec,
-                    chart.x,
-                    chart.y,
-                    chart.w,
-                    chart.h,
-                    stamp
-                ])?;
-            }
-        }
+        insert_standard_dashboard(&tx, &stamp)?;
         {
             let mut insert_setting =
                 tx.prepare_cached("INSERT OR IGNORE INTO settings (key, value) VALUES (?1, ?2)")?;
@@ -138,6 +114,55 @@ impl Db {
         tx.commit()?;
         Ok(())
     }
+
+    /// Добавляет стандартный дашборд по явному действию пользователя. Нужен хранилищам,
+    /// созданным до, и тем, где дашбордов не осталось: сам сид его не возвращает.
+    ///
+    /// # Errors
+    /// `Conflict`, если дашборд уже есть; ошибка SQLite.
+    pub fn seed_standard_dashboard(&mut self, now: DateTime<Utc>) -> Result<(), StorageError> {
+        let stamp = now.to_rfc3339_opts(SecondsFormat::Secs, true);
+        let tx = self.conn.transaction()?;
+        if !insert_standard_dashboard(&tx, &stamp)? {
+            return Err(StorageError::Conflict("dashboard.exists"));
+        }
+        tx.commit()?;
+        Ok(())
+    }
+}
+
+/// Вставляет стандартный дашборд, если таблица `dashboards` пуста; иначе ничего не меняет.
+/// Возвращает `true`, если дашборд добавлен.
+fn insert_standard_dashboard(
+    tx: &rusqlite::Transaction<'_>,
+    stamp: &str,
+) -> Result<bool, StorageError> {
+    let dashboards: i64 = tx.query_row("SELECT count(*) FROM dashboards", [], |r| r.get(0))?;
+    if dashboards != 0 {
+        return Ok(false);
+    }
+    tx.execute(
+        "INSERT INTO dashboards (name, sort_order, is_default) VALUES (?1, 0, 1)",
+        [STANDARD_DASHBOARD_NAME],
+    )?;
+    let dashboard_id = tx.last_insert_rowid();
+    let mut insert_chart = tx.prepare_cached(
+        "INSERT INTO charts (dashboard_id, spec, x, y, w, h, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)",
+    )?;
+    for chart in standard_dashboard() {
+        let spec = serde_json::to_string(&chart.spec).map_err(|_| StorageError::SeedAsset)?;
+        insert_chart.execute(params![
+            dashboard_id,
+            spec,
+            chart.x,
+            chart.y,
+            chart.w,
+            chart.h,
+            stamp
+        ])?;
+    }
+    Ok(true)
 }
 
 #[cfg(test)]

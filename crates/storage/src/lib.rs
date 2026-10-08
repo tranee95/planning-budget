@@ -29,7 +29,7 @@ pub use incomes::{IncomePatch, IncomeRecord, IncomeUpdate, NewIncome};
 pub use legacy::LegacyReport;
 pub use month_plans::{PlanWizardInput, SavingsPlanInput};
 pub use records::RecordSource;
-pub use saved_filters::SavedFilter;
+pub use saved_filters::{FilterScreen, SavedFilter};
 pub use search::{CategoryHit, Group, IncomeHit, MonthHit, SearchResult, TransactionHit};
 pub use search_list::{IncomeList, LIST_LIMIT, TransactionList};
 pub use suggest::TitleSuggestion;
@@ -151,9 +151,28 @@ impl Db {
     /// Ошибка означает, что файл остался под старым ключом: всё, что может упасть,
     /// выполняется до `PRAGMA rekey`, а сама перешифровка идёт одной транзакцией.
     pub fn rekey(&mut self, new_key: &[u8; 32]) -> Result<(), StorageError> {
-        self.conn
-            .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_| Ok(()))?;
-        self.conn.pragma_update(None, "journal_mode", "DELETE")?;
+        // Во второй раз за сессию SQLCipher отвечает на TRUNCATE «table is locked»; соединение
+        // единственное, поэтому обычный сброс переносит в файл все кадры WAL.
+        if self
+            .conn
+            .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_| Ok(()))
+            .is_err()
+        {
+            // Первый столбец — «занято»: ненулевое значение значит, что часть кадров осталась в WAL.
+            let busy: i64 = self
+                .conn
+                .query_row("PRAGMA wal_checkpoint(PASSIVE)", [], |r| r.get(0))?;
+            if busy != 0 {
+                return Err(StorageError::Invalid("rekey.wal_busy"));
+            }
+        }
+        let mode: String = self
+            .conn
+            .query_row("PRAGMA journal_mode = DELETE", [], |r| r.get(0))?;
+        if !mode.eq_ignore_ascii_case("delete") {
+            // Остаться в WAL нельзя: перешифровка оставила бы часть страниц под старым ключом.
+            return Err(StorageError::Invalid("rekey.journal_mode"));
+        }
         {
             let hex = Zeroizing::new(HEXLOWER.encode(new_key));
             let value = Zeroizing::new(format!("x'{}'", hex.as_str()));

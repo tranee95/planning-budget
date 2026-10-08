@@ -4,7 +4,7 @@ use chrono::{DateTime, NaiveDate, Utc};
 use planning_budget_core::YearMonth;
 use planning_budget_core::analytics::{
     AnalyticsError, ChartData, ChartSpec, Context, Options, PeriodSpec, SpecError, Unit, compute,
-    period_bounds,
+    compute_many, period_bounds,
 };
 use planning_budget_storage::{CardPlacement, ChartCard, Dashboard, Db};
 use std::collections::BTreeMap;
@@ -13,7 +13,7 @@ use super::{month_of, parse_month};
 use crate::AppError;
 use crate::dto::{
     CardPlacementDto, ChartCardDto, ChartDataDto, ChartOptionsDto, ChartPeriodDto, ChartRefLineDto,
-    ChartSeriesDto, ChartSpecDto, ChartUnitDto, DashboardDto,
+    ChartRunDto, ChartSeriesDto, ChartSpecDto, ChartUnitDto, DashboardDto,
 };
 
 pub(crate) fn spec_from_dto(dto: &ChartSpecDto) -> Result<ChartSpec, AppError> {
@@ -145,15 +145,7 @@ pub fn run(db: &Db, spec: &ChartSpecDto, today: NaiveDate) -> Result<ChartDataDt
     let spec = spec_from_dto(spec)?;
     spec.validate().map_err(spec_error)?;
     let today = month_of(today)?;
-    let (from, to) = match period_bounds(spec.period, today) {
-        Some((from, to)) if spec.options.compare_prev_period => {
-            let months = from.iter_to(to).count();
-            let back = (0..months).try_fold(from, |m, _| m.pred()).unwrap_or(from);
-            (back, to)
-        }
-        Some(bounds) => bounds,
-        None => (YearMonth::new(1970, 1)?, YearMonth::new(9999, 12)?),
-    };
+    let (from, to) = load_bounds(&spec, today)?;
     let data = db.dataset(from, to)?;
     let tx_tags = if spec.uses_tags(today.year()) {
         db.tx_tag_names(from, to)?
@@ -164,11 +156,103 @@ pub fn run(db: &Db, spec: &ChartSpecDto, today: NaiveDate) -> Result<ChartDataDt
         today,
         tx_tags: &tx_tags,
     };
-    let chart = compute(&data, &spec, &ctx).map_err(|e| match e {
+    let chart = compute(&data, &spec, &ctx).map_err(analytics_error)?;
+    Ok(chart.into())
+}
+
+/// Месяцы, которые нужно загрузить для графика: период и предыдущий, если он нужен для сравнения.
+fn load_bounds(spec: &ChartSpec, today: YearMonth) -> Result<(YearMonth, YearMonth), AppError> {
+    Ok(match period_bounds(spec.period, today) {
+        Some((from, to)) if spec.options.compare_prev_period => {
+            let months = from.iter_to(to).count();
+            let back = (0..months).try_fold(from, |m, _| m.pred()).unwrap_or(from);
+            (back, to)
+        }
+        Some(bounds) => bounds,
+        None => (YearMonth::new(1970, 1)?, YearMonth::new(9999, 12)?),
+    })
+}
+
+/// Сколько графиков считается за один пакетный вызов (дашборд — единицы, предел против мусора).
+const MAX_RUN_MANY: usize = 64;
+
+/// Считает несколько графиков одним набором данных на самый широкий период и одним `Ledger`.
+/// Результат каждого графика равен `run`; недопустимое описание даёт ключ причины у своего
+/// графика, остальные считаются. Ошибки хранилища и расчёта по-прежнему отменяют весь вызов.
+pub fn run_many(
+    db: &Db,
+    specs: &[ChartSpecDto],
+    today: NaiveDate,
+) -> Result<Vec<ChartRunDto>, AppError> {
+    if specs.len() > MAX_RUN_MANY {
+        return Err(AppError::invalid_field("chart.too_many_specs", "specs"));
+    }
+    let today = month_of(today)?;
+    let mut out: Vec<ChartRunDto> = specs
+        .iter()
+        .map(|_| ChartRunDto {
+            data: None,
+            error_key: None,
+        })
+        .collect();
+    let mut valid: Vec<(usize, ChartSpec)> = Vec::new();
+    for (i, dto) in specs.iter().enumerate() {
+        match spec_from_dto(dto).and_then(|spec| spec.validate().map_err(spec_error).map(|()| spec))
+        {
+            Ok(spec) => valid.push((i, spec)),
+            Err(AppError::Validation { message_key, .. }) => {
+                if let Some(slot) = out.get_mut(i) {
+                    slot.error_key = Some(message_key);
+                }
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    if valid.is_empty() {
+        return Ok(out);
+    }
+
+    let mut from = YearMonth::new(9999, 12)?;
+    let mut to = YearMonth::new(1970, 1)?;
+    for (_, spec) in &valid {
+        let (f, t) = load_bounds(spec, today)?;
+        from = from.min(f);
+        to = to.max(t);
+    }
+    let data = db.dataset(from, to)?;
+    let tx_tags = if valid.iter().any(|(_, s)| s.uses_tags(today.year())) {
+        db.tx_tag_names(from, to)?
+    } else {
+        BTreeMap::new()
+    };
+    let ctx = Context {
+        today,
+        tx_tags: &tx_tags,
+    };
+    let refs: Vec<&ChartSpec> = valid.iter().map(|(_, s)| s).collect();
+    let results = compute_many(&data, &refs, &ctx).map_err(analytics_error)?;
+    for ((i, _), result) in valid.iter().zip(results) {
+        let Some(slot) = out.get_mut(*i) else {
+            continue;
+        };
+        match result {
+            Ok(chart) => slot.data = Some(chart.into()),
+            Err(AnalyticsError::Spec(e)) => {
+                if let AppError::Validation { message_key, .. } = spec_error(e) {
+                    slot.error_key = Some(message_key);
+                }
+            }
+            Err(AnalyticsError::Core(e)) => return Err(e.into()),
+        }
+    }
+    Ok(out)
+}
+
+fn analytics_error(e: AnalyticsError) -> AppError {
+    match e {
         AnalyticsError::Spec(e) => spec_error(e),
         AnalyticsError::Core(e) => e.into(),
-    })?;
-    Ok(chart.into())
+    }
 }
 
 fn card_dto(card: ChartCard) -> Result<ChartCardDto, AppError> {
@@ -197,6 +281,17 @@ fn dashboard_dto(d: Dashboard) -> DashboardDto {
 
 pub fn dashboard_create(db: &mut Db, name: &str) -> Result<DashboardDto, AppError> {
     Ok(dashboard_dto(db.dashboard_create(name)?))
+}
+
+pub fn dashboard_create_default(db: &mut Db, now: DateTime<Utc>) -> Result<DashboardDto, AppError> {
+    db.seed_standard_dashboard(now)?;
+    db.dashboards()?
+        .into_iter()
+        .next()
+        .map(dashboard_dto)
+        .ok_or_else(|| AppError::Conflict {
+            message_key: "errors.dashboard.exists".into(),
+        })
 }
 
 pub fn dashboard_rename(db: &mut Db, id: i64, name: &str) -> Result<(), AppError> {

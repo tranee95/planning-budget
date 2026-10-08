@@ -3,6 +3,7 @@ import { call } from './call';
 
 export const vaultApi = {
   status: () => call(commands.vaultStatus()),
+  retryMigration: () => call(commands.vaultRetryMigration()),
   create: (password: string) => call(commands.vaultCreate(password)),
   unlock: (password: string) => call(commands.vaultUnlock(password)),
   unlockRecovery: (code: string, newPassword: string) =>

@@ -506,3 +506,70 @@ fn change_password_during_pending_rekey_keeps_the_new_dek_reachable() {
     let dek = store.unlock(&pw(new), t0()).unwrap();
     assert_eq!(dek.as_bytes(), plan.new_dek.as_bytes());
 }
+
+#[test]
+fn old_recovery_code_reaches_the_new_dek_while_rekey_is_pending() {
+    let (_dir, store, created) = new_vault();
+    let old_code = SecretString::from(created.recovery_code.display().to_string());
+    let plan = store.begin_rekey(&pw(PASSWORD), t0()).unwrap();
+
+    let new_dek = store
+        .pending_rekey_dek_via_recovery(&old_code)
+        .unwrap()
+        .unwrap();
+    assert_eq!(new_dek.as_bytes(), plan.new_dek.as_bytes());
+    // Без перевыпуска ответа нет, а чужой код не подходит.
+    store.abort_rekey().unwrap();
+    assert!(
+        store
+            .pending_rekey_dek_via_recovery(&old_code)
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[test]
+fn recovery_reset_during_pending_rekey_moves_both_keys_to_the_new_password() {
+    let (_dir, store, created) = new_vault();
+    let old_code = SecretString::from(created.recovery_code.display().to_string());
+    let plan = store.begin_rekey(&pw(PASSWORD), t0()).unwrap();
+
+    let new = "forgotten and replaced";
+    let dek = store
+        .reset_password_with_recovery(&old_code, &pw(new))
+        .unwrap();
+    assert_eq!(dek.as_bytes(), created.dek.as_bytes());
+    let next = store.pending_rekey_dek(&pw(new)).unwrap().unwrap();
+    assert_eq!(next.as_bytes(), plan.new_dek.as_bytes());
+    assert!(matches!(
+        store.pending_rekey_dek(&pw(PASSWORD)).unwrap_err(),
+        VaultError::WrongPassword
+    ));
+}
+
+#[test]
+fn wrong_recovery_code_does_not_reach_the_pending_dek() {
+    let (_dir, store, _created) = new_vault();
+    store.begin_rekey(&pw(PASSWORD), t0()).unwrap();
+    let other = SecretString::from(budget_vault_other_code());
+    assert!(matches!(
+        store.pending_rekey_dek_via_recovery(&other).unwrap_err(),
+        VaultError::WrongRecoveryCode
+    ));
+}
+
+#[test]
+fn finishing_with_a_fresh_code_makes_the_new_code_work_and_the_old_one_not() {
+    let (_dir, store, created) = new_vault();
+    let old_code = SecretString::from(created.recovery_code.display().to_string());
+    let plan = store.begin_rekey(&pw(PASSWORD), t0()).unwrap();
+
+    let fresh = store.finish_rekey_with_new_code(&plan.new_dek).unwrap();
+    assert!(!store.rekey_pending().unwrap());
+    let fresh = SecretString::from(fresh.display().to_string());
+    let dek = store.unlock_recovery(&fresh).unwrap();
+    assert_eq!(dek.as_bytes(), plan.new_dek.as_bytes());
+    assert!(store.unlock_recovery(&old_code).is_err());
+    let dek = store.unlock(&pw(PASSWORD), t0()).unwrap();
+    assert_eq!(dek.as_bytes(), plan.new_dek.as_bytes());
+}

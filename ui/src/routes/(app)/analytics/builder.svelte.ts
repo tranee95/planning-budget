@@ -1,6 +1,7 @@
 import { getContext, setContext } from 'svelte';
 import type { ChartDataDto, ChartSpecDto, ChartTypeDto } from '$lib/api/bindings';
-import { analyticsApi } from '$lib/api/data';
+import type { QueryHintSpanDto, TokenSpanDto } from '$lib/api/bindings';
+import { analyticsApi, searchApi } from '$lib/api/data';
 import { errorText } from '$lib/i18n/errors';
 import { ApiError } from '$lib/api/call';
 import { unavailable, variants, withSeries, type Variant } from '$lib/charts/variants';
@@ -14,6 +15,13 @@ export type Preview =
   | { status: 'loading' }
   | { status: 'ready'; data: ChartDataDto }
   | { status: 'error'; message: string };
+
+/** Разбор строки фильтра: по ней рисуются чипы токенов и подсказки. */
+export type FilterChips = {
+  query: string;
+  spans: TokenSpanDto[];
+  hints: QueryHintSpanDto[];
+};
 
 export type BuilderMode = { kind: 'create' } | { kind: 'edit'; cardId: number };
 
@@ -64,6 +72,8 @@ export class BuilderVm {
   /** Причина, по которой недопустим сам черновик. */
   problem = $state<string | null>(null);
   saving = $state(false);
+  /** Чипы токенов текущего фильтра; `null`, пока фильтр пуст. */
+  filterChips = $state.raw<FilterChips | null>(null);
 
   #timer: ReturnType<typeof setTimeout> | undefined;
   #generation = 0;
@@ -91,6 +101,7 @@ export class BuilderVm {
     this.preview = { status: 'loading' };
     this.reasons = {};
     this.problem = null;
+    this.filterChips = null;
     this.open = true;
     this.#schedule(0);
   }
@@ -135,8 +146,23 @@ export class BuilderVm {
     }, delay);
   }
 
+  async #parseFilter(generation: number, query: string): Promise<void> {
+    if (query.trim() === '') {
+      this.filterChips = null;
+      return;
+    }
+    try {
+      const { spans, hints } = await searchApi.parse(query);
+      if (generation === this.#generation) this.filterChips = { query, spans, hints };
+    } catch {
+      // Чипы — подсказка: ошибка разбора не мешает превью, его причину покажет `analytics_check`.
+      if (generation === this.#generation) this.filterChips = null;
+    }
+  }
+
   async #refresh(generation: number): Promise<void> {
     const spec = this.draft;
+    void this.#parseFilter(generation, spec.filter);
     const all: Variant[] = [{ id: 'self', spec }, ...variants(spec)];
     try {
       const checked = await analyticsApi.check(all.map((v) => v.spec));

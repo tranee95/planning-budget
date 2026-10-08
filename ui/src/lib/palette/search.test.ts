@@ -117,13 +117,21 @@ test('группы: траты с итогом, затем команды; пу�
     null,
     [command],
     ['лента статус:план'],
-    [{ id: 3, name: 'Крупное', query: 'сумма>10000' }]
+    [
+      { id: 3, name: 'Крупное', query: 'сумма>10000', screen: 'expenses' },
+      { id: 4, name: 'Зарплата', query: 'зарплата', screen: 'incomes' }
+    ]
   );
   expect(idle.map((g) => g.id)).toEqual(['recent', 'saved', 'commands']);
   expect(idle[1]?.entries[0]?.target).toEqual({
     type: 'table',
     screen: 'expenses',
     query: 'сумма>10000'
+  });
+  expect(idle[1]?.entries[1]?.target).toEqual({
+    type: 'table',
+    screen: 'incomes',
+    query: 'зарплата'
   });
   expect(idle[0]?.entries[0]?.target).toEqual({ type: 'recent', query: 'лента статус:план' });
 });

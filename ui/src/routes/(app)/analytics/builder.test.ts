@@ -98,3 +98,24 @@ it('close отменяет отложенное превью', async () => {
   expect(vm.open).toBe(false);
   expect(vm.preview.status).toBe('loading');
 });
+
+it('фильтр: строка разбирается на чипы, пустой фильтр чипов не даёт', async () => {
+  const vm = new BuilderVm();
+  vm.beginCreate();
+  await settled(vm);
+  expect(vm.filterChips).toBeNull();
+
+  vm.change({ filter: 'статус:оплачено #кофе' });
+  await expect.poll(() => vm.filterChips?.spans.length).toBe(2);
+  expect(vm.filterChips?.query).toBe('статус:оплачено #кофе');
+
+  vm.change({ filter: '' });
+  await expect.poll(() => vm.filterChips).toBeNull();
+});
+
+it('фильтр: подсказка о неизвестном значении приходит вместе с чипами', async () => {
+  const vm = new BuilderVm();
+  vm.beginCreate();
+  vm.change({ filter: 'статус:несуществует' });
+  await expect.poll(() => vm.filterChips?.hints.length).toBe(1);
+});

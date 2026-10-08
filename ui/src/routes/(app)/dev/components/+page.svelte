@@ -1,7 +1,7 @@
 <script lang="ts">
   import Plus from '@lucide/svelte/icons/plus';
   import { SvelteSet } from 'svelte/reactivity';
-  import type { ChartDataDto, ChartSpecDto, TxStatusDto } from '$lib/api/bindings';
+  import type { ChartDataDto, TxStatusDto } from '$lib/api/bindings';
   import Button from '$lib/components/Button.svelte';
   import Card from '$lib/components/Card.svelte';
   import Chart from '$lib/components/Chart.svelte';
@@ -32,26 +32,6 @@
   import { formatMoney } from '$lib/format';
   import { toasts } from '$lib/stores/toasts.svelte';
 
-  const chartSpec = (patch: Partial<ChartSpecDto>): ChartSpecDto => ({
-    version: 1,
-    title: 'Пример графика',
-    type: 'bar',
-    metric: 'spent',
-    groupBy: 'month',
-    seriesBy: null,
-    metrics: [],
-    period: { preset: 'ytd' },
-    filter: '',
-    options: {
-      showLimit: false,
-      topN: null,
-      sort: 'natural',
-      cumulative: false,
-      comparePrevPeriod: false,
-      percent: false
-    },
-    ...patch
-  });
   const months = ['Июль', 'Август', 'Сентябрь'];
   const stackedData: ChartDataDto = {
     categories: months,
@@ -290,17 +270,17 @@
 <div class="grid">
   <Card title="График: столбцы по статусам">
     <div class="plot">
-      <Chart data={stackedData} spec={chartSpec({ type: 'stacked_bar', seriesBy: 'status' })} />
+      <Chart data={stackedData} type="stacked_bar" title="Статусы по месяцам" />
     </div>
   </Card>
   <Card title="График: норма сбережений">
     <div class="plot">
-      <Chart data={rateData} spec={chartSpec({ type: 'line', metric: 'savings_rate' })} />
+      <Chart data={rateData} type="line" title="Норма сбережений" />
     </div>
   </Card>
   <Card title="График: структура по типам">
     <div class="plot">
-      <Chart data={donutData} spec={chartSpec({ type: 'donut', groupBy: 'kind' })} />
+      <Chart data={donutData} type="donut" title="Расходы по типам" />
     </div>
   </Card>
 </div>

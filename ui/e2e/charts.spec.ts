@@ -10,7 +10,7 @@ test('график: canvas рисуется, подписи и таблица д
   page.on('pageerror', (e) => problems.push(e.message));
 
   await page.goto('/dev/components?vault=open');
-  const plot = page.getByRole('img', { name: 'Пример графика' }).first();
+  const plot = page.getByRole('img', { name: 'Статусы по месяцам' }).first();
   await plot.scrollIntoViewIfNeeded();
   await expect(plot.locator('canvas')).toBeVisible();
 
@@ -20,7 +20,7 @@ test('график: canvas рисуется, подписи и таблица д
 
   // Легенда и скрытая таблица дублируют данные не цветом.
   await expect(page.getByText('Оплачено').first()).toBeVisible();
-  await expect(page.getByRole('table', { name: 'Пример графика' }).first()).toBeAttached();
+  await expect(page.getByRole('table', { name: 'Статусы по месяцам' }).first()).toBeAttached();
 
   // Тултип открывается по наведению и содержит значение в ru-RU.
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -31,7 +31,7 @@ test('график: canvas рисуется, подписи и таблица д
 
 test('график: смена темы перекрашивает canvas без перезагрузки', async ({ page }) => {
   await page.goto('/dev/components?vault=open');
-  const plot = page.getByRole('img', { name: 'Пример графика' }).first();
+  const plot = page.getByRole('img', { name: 'Статусы по месяцам' }).first();
   await plot.scrollIntoViewIfNeeded();
   const canvas = plot.locator('canvas');
   await expect(canvas).toBeVisible();

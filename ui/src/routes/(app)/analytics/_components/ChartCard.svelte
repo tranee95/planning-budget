@@ -88,7 +88,15 @@
     {:else if ready.categories.length === 0}
       <EmptyState title="Нет данных за период" hint="Измените период или фильтр графика." />
     {:else}
-      <Chart data={ready} spec={card.spec} {categoryColors} {ondrill} />
+      <Chart
+        data={ready}
+        type={card.spec.type}
+        title={card.spec.title}
+        options={card.spec.options}
+        spec={card.spec}
+        {categoryColors}
+        {ondrill}
+      />
     {/if}
   </div>
 </section>

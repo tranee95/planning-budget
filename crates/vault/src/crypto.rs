@@ -20,6 +20,10 @@ const AAD_PREFIX: &str = "planning-budget-vault-v1|";
 const CALIBRATION_FLOOR: Duration = Duration::from_millis(250);
 const CALIBRATION_TARGET_MICROS: u128 = 500_000;
 const MAX_T: u32 = 8;
+/// Потолок памяти при калибровке: на быстрой машине память растёт после упора в `MAX_T`,
+/// но не дальше, чтобы разблокировка не съедала слишком много ОЗУ слабого соседа по данным.
+const MAX_CALIBRATED_M_KIB: u32 = 256 * 1024;
+const MIB_KIB: u128 = 1024;
 /// Верхние границы при чтении `vault.json`: подделанный файл не должен
 /// заставлять Argon2 съесть всю память или время.
 const MAX_M_KIB: u32 = 1 << 20;
@@ -64,8 +68,18 @@ impl KdfParams {
         p: 1,
     };
 
+    /// Рабочая сборка отвергает `m_kib` и `t` ниже значений по умолчанию:
+    /// подделанный `vault.json` не должен ослаблять перебор пароля. Только
+    /// feature `weak-kdf` (тесты) пропускает облегчённые параметры.
     pub(crate) fn validate(self) -> Result<(), VaultError> {
-        let ok = self.p >= 1
+        self.validate_bounds(!cfg!(feature = "weak-kdf"))
+    }
+
+    fn validate_bounds(self, enforce_floor: bool) -> Result<(), VaultError> {
+        let floor_ok =
+            !enforce_floor || (self.m_kib >= Self::DEFAULT.m_kib && self.t >= Self::DEFAULT.t);
+        let ok = floor_ok
+            && self.p >= 1
             && self.p <= MAX_P
             && self.t >= 1
             && self.t <= MAX_T
@@ -75,9 +89,11 @@ impl KdfParams {
     }
 }
 
-/// Подбирает `t`, чтобы одно вычисление KEK занимало 300–700 мс.
+/// Подбирает параметры, чтобы одно вычисление KEK занимало около 500 мс.
 ///
-/// Если уже `t = 3` даёт ≥ 250 мс, остаются параметры по умолчанию.
+/// Если уже `t = 3` при 64 МиБ даёт ≥ 250 мс, остаются параметры по умолчанию. Иначе растёт `t`
+/// (до `MAX_T`), а когда и он не добирает до цели, — память `m_kib` (до `MAX_CALIBRATED_M_KIB`):
+/// память дороже для атакующего, чем время.
 pub fn calibrate() -> Result<KdfParams, VaultError> {
     let base = KdfParams::DEFAULT;
     let started = Instant::now();
@@ -86,12 +102,31 @@ pub fn calibrate() -> Result<KdfParams, VaultError> {
     if elapsed >= CALIBRATION_FLOOR {
         return Ok(base);
     }
-    let per_pass = (elapsed.as_micros() / u128::from(base.t)).max(1);
-    let t = (CALIBRATION_TARGET_MICROS / per_pass).clamp(u128::from(base.t), u128::from(MAX_T));
-    Ok(KdfParams {
-        t: u32::try_from(t).unwrap_or(MAX_T),
+    Ok(scale_to_target(elapsed.as_micros(), base))
+}
+
+/// Параметры по времени одного вычисления с `base`. Время считается линейным по `t` и `m_kib`.
+fn scale_to_target(base_micros: u128, base: KdfParams) -> KdfParams {
+    let per_pass = (base_micros / u128::from(base.t)).max(1);
+    let t_needed = CALIBRATION_TARGET_MICROS / per_pass;
+    if t_needed <= u128::from(MAX_T) {
+        return KdfParams {
+            t: u32::try_from(t_needed.max(u128::from(base.t))).unwrap_or(MAX_T),
+            ..base
+        };
+    }
+    // Время при `MAX_T` проходах и памяти по умолчанию; во сколько раз можно увеличить память.
+    let at_max_t = per_pass * u128::from(MAX_T);
+    let base_mib = u128::from(base.m_kib) / MIB_KIB;
+    let m_mib = (base_mib * CALIBRATION_TARGET_MICROS / at_max_t).max(base_mib);
+    let m_kib = u32::try_from(m_mib * MIB_KIB)
+        .unwrap_or(MAX_CALIBRATED_M_KIB)
+        .min(MAX_CALIBRATED_M_KIB);
+    KdfParams {
+        m_kib,
+        t: MAX_T,
         ..base
-    })
+    }
 }
 
 pub(crate) fn derive_kek(
@@ -219,5 +254,60 @@ mod b64 {
         BASE64
             .decode(text.as_bytes())
             .map_err(serde::de::Error::custom)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn floor_rejects_weak_params_and_keeps_defaults_and_calibrated() {
+        let weak = KdfParams {
+            m_kib: 8,
+            t: 1,
+            p: 1,
+        };
+        assert!(weak.validate_bounds(true).is_err());
+        assert!(weak.validate_bounds(false).is_ok());
+        let low_m = KdfParams {
+            m_kib: 32 * 1024,
+            ..KdfParams::DEFAULT
+        };
+        assert!(low_m.validate_bounds(true).is_err());
+        let low_t = KdfParams {
+            t: 2,
+            ..KdfParams::DEFAULT
+        };
+        assert!(low_t.validate_bounds(true).is_err());
+        assert!(KdfParams::DEFAULT.validate_bounds(true).is_ok());
+        let calibrated = KdfParams {
+            t: MAX_T,
+            ..KdfParams::DEFAULT
+        };
+        assert!(calibrated.validate_bounds(true).is_ok());
+        let big_memory = KdfParams {
+            m_kib: MAX_CALIBRATED_M_KIB,
+            t: MAX_T,
+            p: 1,
+        };
+        assert!(big_memory.validate_bounds(true).is_ok());
+    }
+
+    #[test]
+    fn calibration_raises_t_first_then_memory_up_to_the_cap() {
+        let base = KdfParams::DEFAULT;
+        // 150 мс при t = 3: 50 мс на проход, до 500 мс хватает t = 10 → упор в MAX_T, память растёт.
+        let slow = scale_to_target(150_000, base);
+        assert_eq!(
+            (slow.t, slow.m_kib),
+            (MAX_T, 64 * 1024 * 500 / 400 / 1024 * 1024)
+        );
+        // 240 мс при t = 3: 80 мс на проход, хватает t = 6 без роста памяти.
+        let mid = scale_to_target(240_000, base);
+        assert_eq!((mid.t, mid.m_kib), (6, base.m_kib));
+        // Очень быстрая машина: память упирается в потолок.
+        let fast = scale_to_target(10_000, base);
+        assert_eq!((fast.t, fast.m_kib), (MAX_T, MAX_CALIBRATED_M_KIB));
     }
 }

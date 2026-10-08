@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { createRawSnippet } from 'svelte';
 import { beforeEach, expect, test, vi } from 'vitest';
 import type { PaletteCommand } from '$lib/palette/filter';
+import Combobox from './Combobox.svelte';
 import ComboboxInModal from './ComboboxInModal.test-helper.svelte';
 import CommandPalette from './CommandPalette.svelte';
 import DataTable from './DataTable.svelte';
@@ -173,6 +174,65 @@ test('Combobox: Esc внутри Modal закрывает только спис�
   expect(onclose).not.toHaveBeenCalled();
   await user.keyboard('{Escape}');
   expect(onclose).toHaveBeenCalledOnce();
+});
+
+const fruit = [
+  { value: 'a', label: 'Яблоко' },
+  { value: 'b', label: 'Банан' }
+];
+
+test('Combobox: без onclear пункта «Не выбрано» нет', async () => {
+  render(Combobox, {
+    props: { id: 'c', label: 'Плод', options: fruit, value: 'a', onchange: vi.fn() }
+  });
+  await user.click(screen.getByRole('combobox'));
+  expect(screen.queryByRole('option', { name: 'Не выбрано' })).not.toBeInTheDocument();
+  expect(screen.getAllByRole('option')).toHaveLength(2);
+});
+
+test('Combobox: «Не выбрано» первым пунктом, выбор клавиатурой и мышью вызывает onclear', async () => {
+  const onchange = vi.fn();
+  const onclear = vi.fn();
+  render(Combobox, {
+    props: { id: 'c', label: 'Плод', options: fruit, value: 'a', onchange, onclear }
+  });
+  const box = screen.getByRole('combobox');
+  await user.click(box);
+  const options = screen.getAllByRole('option');
+  expect(options.map((o) => o.textContent.trim())).toEqual(['Не выбрано', 'Яблоко', 'Банан']);
+  await user.keyboard('{Enter}');
+  expect(onclear).toHaveBeenCalledOnce();
+  expect(onchange).not.toHaveBeenCalled();
+
+  await user.click(box);
+  await user.pointer({
+    keys: '[MouseLeft]',
+    target: screen.getByRole('option', { name: 'Не выбрано' })
+  });
+  expect(onclear).toHaveBeenCalledTimes(2);
+});
+
+test('Combobox: пункт «Не выбрано» отмечен при value = null и скрыт при поиске', async () => {
+  const onclear = vi.fn();
+  render(Combobox, {
+    props: {
+      id: 'c',
+      label: 'Плод',
+      options: fruit,
+      value: null,
+      onchange: vi.fn(),
+      onclear,
+      clearLabel: 'Без плода'
+    }
+  });
+  await user.click(screen.getByRole('combobox'));
+  expect(screen.getByRole('option', { name: 'Без плода' })).toHaveAttribute(
+    'aria-selected',
+    'true'
+  );
+  await user.keyboard('бан');
+  expect(screen.queryByRole('option', { name: 'Без плода' })).not.toBeInTheDocument();
+  expect(screen.getByRole('option', { name: 'Банан' })).toBeInTheDocument();
 });
 
 test('DataTable: клавиши из кнопки в ячейке не выбирают строку', async () => {

@@ -93,7 +93,7 @@ export function buildGroups(
       title: 'Сохранённые фильтры',
       entries: saved.map((f) => ({
         key: `saved:${String(f.id)}`,
-        target: { type: 'table', screen: 'expenses', query: f.query },
+        target: { type: 'table', screen: f.screen, query: f.query },
         label: f.name,
         meta: f.query
       }))

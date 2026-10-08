@@ -5,9 +5,7 @@ use planning_budget_core::CategoryId;
 use tauri::{AppHandle, State};
 
 use crate::AppError;
-use crate::dto::{
-    CategoryDto, CategoryInput, CategoryPatchDto, Int53, LimitEntryDto, SavingsRateDto,
-};
+use crate::dto::{CategoryDto, CategoryInput, CategoryPatchDto, Int53, LimitEntryDto};
 use crate::events::{ChangeScope, data_changed};
 use crate::services::categories as service;
 use crate::state::AppState;
@@ -134,6 +132,21 @@ pub async fn limits_set(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn limits_unset(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    category_id: Int53,
+    valid_from: String,
+) -> Result<(), AppError> {
+    state
+        .with_session(move |db| service::limits_unset(db, CategoryId(category_id.0), &valid_from))
+        .await?;
+    data_changed(&app, ChangeScope::Limits, Vec::new());
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn limits_clear(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -156,14 +169,6 @@ pub async fn limits_history(
     state
         .with_session(move |db| service::limits_history(db, CategoryId(category_id.0)))
         .await
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn savings_rates_list(
-    state: State<'_, AppState>,
-) -> Result<Vec<SavingsRateDto>, AppError> {
-    state.with_session(|db| service::savings_rates(db)).await
 }
 
 #[tauri::command]

@@ -104,7 +104,7 @@ pub fn load_seed(bytes: &[u8]) -> Result<DataSet, CoreError> {
             limits.push(LimitEntry {
                 category_id: id,
                 valid_from: seed.limits_valid_from,
-                amount: Money::from_kopecks(amount),
+                amount: Some(Money::from_kopecks(amount)),
             });
         }
         by_name.insert(c.name.clone(), id);

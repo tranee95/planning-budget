@@ -110,7 +110,7 @@ pub struct SavingsOverviewDto {
     /// Сумма балансов накоплений на конец декабря.
     #[specta(type = specta_typescript::Number)]
     pub total_balance: i64,
-    /// План сбережений на текущий месяц (сумма планов накоплений).
+    /// План сбережений на декабрь года просмотра (сумма планов накоплений).
     #[specta(type = specta_typescript::Number)]
     pub month_plan: i64,
     pub total_scenarios: Vec<ForecastScenarioDto>,

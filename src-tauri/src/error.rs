@@ -60,6 +60,14 @@ impl AppError {
         tracing::error!(%correlation_id, context, error = %cause, "internal error");
         Self::Internal { correlation_id }
     }
+
+    /// Внутренняя ошибка из-за аварийного завершения рабочего потока.
+    ///
+    /// В лог идёт только факт («паника» или «отмена»): `Display` у `JoinError` содержит
+    /// текст паники, а он может нести данные бюджета.
+    pub fn worker_failed(error: &tauri::Error) -> Self {
+        Self::internal("session worker", &worker_failure_cause(error))
+    }
 }
 
 impl From<StorageError> for AppError {
@@ -129,5 +137,14 @@ impl From<planning_budget_import::ImportError> for AppError {
 impl From<planning_budget_core::CoreError> for AppError {
     fn from(e: planning_budget_core::CoreError) -> Self {
         Self::internal("core", &e)
+    }
+}
+
+/// Причина сбоя рабочего потока без текста паники.
+pub(crate) fn worker_failure_cause(error: &tauri::Error) -> &'static str {
+    match error {
+        tauri::Error::JoinError(join) if join.is_panic() => "worker panicked",
+        tauri::Error::JoinError(_) => "worker cancelled",
+        _ => "worker failed",
     }
 }

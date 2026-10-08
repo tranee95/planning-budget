@@ -27,6 +27,15 @@ impl BondRates {
         let monthly = (1.0 + effective).powf(1.0 / 12.0) - 1.0;
         Self { effective, monthly }
     }
+
+    /// Эффективная ставка в базисных пунктах, округлена до целого.
+    pub fn effective_bp(&self) -> BasisPoints {
+        #[allow(
+            clippy::cast_possible_truncation,
+            reason = "INVARIANT: ставка — доли единицы, значение в пределах i32; приведение насыщает"
+        )]
+        BasisPoints((self.effective * 10_000.0).round() as i32)
+    }
 }
 
 /// Месяц фактического накопления.
@@ -92,6 +101,13 @@ impl Ledger<'_> {
         contribution: impl Fn(YearMonth) -> Result<Money, CoreError>,
     ) -> Result<BondsFact, CoreError> {
         let end = YearMonth::new(year, 12)?;
+        if initial_month > end {
+            // До `initial_month` накопления нет: стартовый баланс ещё не внесён.
+            return Ok(BondsFact {
+                months: Vec::new(),
+                dec_balance: Money::ZERO,
+            });
+        }
 
         let mut balance = initial_balance.as_f64();
         let mut deposited = initial_balance;

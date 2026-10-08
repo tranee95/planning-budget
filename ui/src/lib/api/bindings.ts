@@ -10,9 +10,14 @@ export const commands = {
 	/**  Версия приложения. Пока единственная команда: нужна, чтобы `AppError` попал в биндинги. */
 	appVersion: () => typedError<string, AppError>(__TAURI_INVOKE("app_version")),
 	vaultStatus: () => typedError<VaultStatusDto, AppError>(__TAURI_INVOKE("vault_status")),
+	vaultRetryMigration: () => typedError<VaultStatusDto, AppError>(__TAURI_INVOKE("vault_retry_migration")),
 	vaultCreate: (password: Secret) => typedError<RecoveryCodeDto, AppError>(__TAURI_INVOKE("vault_create", { password })),
-	vaultUnlock: (password: Secret) => typedError<null, AppError>(__TAURI_INVOKE("vault_unlock", { password })),
-	vaultUnlockRecovery: (code: Secret, newPassword: Secret) => typedError<null, AppError>(__TAURI_INVOKE("vault_unlock_recovery", { code, newPassword })),
+	vaultUnlock: (password: Secret) => typedError<{
+	recoveryCode: string,
+} | null, AppError>(__TAURI_INVOKE("vault_unlock", { password })),
+	vaultUnlockRecovery: (code: Secret, newPassword: Secret) => typedError<{
+	recoveryCode: string,
+} | null, AppError>(__TAURI_INVOKE("vault_unlock_recovery", { code, newPassword })),
 	vaultChangePassword: (oldPassword: Secret, newPassword: Secret) => typedError<null, AppError>(__TAURI_INVOKE("vault_change_password", { oldPassword, newPassword })),
 	/**  Перевыпуск ключа шифрования: нужен открытый сейф. Возвращает новый recovery-код. */
 	vaultRekey: (password: Secret) => typedError<RecoveryCodeDto, AppError>(__TAURI_INVOKE("vault_rekey", { password })),
@@ -37,14 +42,14 @@ export const commands = {
 	categoriesDelete: (id: Int53) => typedError<null, AppError>(__TAURI_INVOKE("categories_delete", { id })),
 	categoriesReorder: (ids: Int53[]) => typedError<CategoryDto[], AppError>(__TAURI_INVOKE("categories_reorder", { ids })),
 	limitsSet: (categoryId: Int53, validFrom: string, amount: Int53) => typedError<null, AppError>(__TAURI_INVOKE("limits_set", { categoryId, validFrom, amount })),
+	limitsUnset: (categoryId: Int53, validFrom: string) => typedError<null, AppError>(__TAURI_INVOKE("limits_unset", { categoryId, validFrom })),
 	limitsClear: (categoryId: Int53, validFrom: string) => typedError<null, AppError>(__TAURI_INVOKE("limits_clear", { categoryId, validFrom })),
 	limitsHistory: (categoryId: Int53) => typedError<LimitEntryDto[], AppError>(__TAURI_INVOKE("limits_history", { categoryId })),
-	savingsRatesList: () => typedError<SavingsRateDto[], AppError>(__TAURI_INVOKE("savings_rates_list")),
 	savingsRateSet: (categoryId: Int53, validFrom: string, rateBp: number) => typedError<null, AppError>(__TAURI_INVOKE("savings_rate_set", { categoryId, validFrom, rateBp })),
 	savingsOverrideSet: (month: string, categoryId: Int53, rateBp: number) => typedError<null, AppError>(__TAURI_INVOKE("savings_override_set", { month, categoryId, rateBp })),
 	savingsOverrideClear: (month: string, categoryId: Int53) => typedError<null, AppError>(__TAURI_INVOKE("savings_override_clear", { month, categoryId })),
 	txList: (month: string) => typedError<TransactionDto[], AppError>(__TAURI_INVOKE("tx_list", { month })),
-	txCreate: (input: TransactionInput) => typedError<TransactionDto, AppError>(__TAURI_INVOKE("tx_create", { input })),
+	txCreate: (requestId: string, input: TransactionInput) => typedError<TransactionDto, AppError>(__TAURI_INVOKE("tx_create", { requestId, input })),
 	txUpdate: (id: Int53, patch: TransactionPatchDto_Deserialize) => typedError<TxUpdateResultDto, AppError>(__TAURI_INVOKE("tx_update", { id, patch })),
 	txSetStatus: (id: Int53, status: TxStatusDto) => typedError<TxUpdateResultDto, AppError>(__TAURI_INVOKE("tx_set_status", { id, status })),
 	txDelete: (id: Int53) => typedError<TransactionDto, AppError>(__TAURI_INVOKE("tx_delete", { id })),
@@ -52,25 +57,27 @@ export const commands = {
 	txTagsSet: (id: Int53, tagIds: Int53[]) => typedError<TransactionDto, AppError>(__TAURI_INVOKE("tx_tags_set", { id, tagIds })),
 	tagsList: () => typedError<TagDto[], AppError>(__TAURI_INVOKE("tags_list")),
 	tagsCreate: (name: string) => typedError<TagDto, AppError>(__TAURI_INVOKE("tags_create", { name })),
-	tagsRename: (id: Int53, name: string) => typedError<TagDto, AppError>(__TAURI_INVOKE("tags_rename", { id, name })),
-	tagsDelete: (id: Int53) => typedError<null, AppError>(__TAURI_INVOKE("tags_delete", { id })),
 	incomesList: (month: string) => typedError<IncomeDto[], AppError>(__TAURI_INVOKE("incomes_list", { month })),
 	incomesCreate: (input: IncomeInput) => typedError<IncomeDto, AppError>(__TAURI_INVOKE("incomes_create", { input })),
 	incomesUpdate: (id: Int53, patch: IncomePatchDto_Deserialize) => typedError<IncomeUpdateResultDto, AppError>(__TAURI_INVOKE("incomes_update", { id, patch })),
 	incomesDelete: (id: Int53) => typedError<IncomeDto, AppError>(__TAURI_INVOKE("incomes_delete", { id })),
 	incomesRestore: (id: Int53) => typedError<IncomeDto, AppError>(__TAURI_INVOKE("incomes_restore", { id })),
 	search: (query: string, requestId: number) => typedError<SearchResultDto, AppError>(__TAURI_INVOKE("search", { query, requestId })),
+	/**  Разбор строки запроса для чипов (фильтр графика). Данных бюджета не читает. */
+	queryParse: (query: string) => typedError<QueryParseDto, AppError>(__TAURI_INVOKE("query_parse", { query })),
 	txSearch: (query: string, requestId: number) => typedError<TransactionSearchDto, AppError>(__TAURI_INVOKE("tx_search", { query, requestId })),
 	incomesSearch: (query: string, requestId: number) => typedError<IncomeSearchDto, AppError>(__TAURI_INVOKE("incomes_search", { query, requestId })),
 	filtersList: () => typedError<SavedFilterDto[], AppError>(__TAURI_INVOKE("filters_list")),
-	filtersSave: (name: string, query: string) => typedError<SavedFilterDto, AppError>(__TAURI_INVOKE("filters_save", { name, query })),
+	filtersSave: (name: string, query: string, screen: FilterScreenDto) => typedError<SavedFilterDto, AppError>(__TAURI_INVOKE("filters_save", { name, query, screen })),
 	filtersDelete: (id: Int53) => typedError<null, AppError>(__TAURI_INVOKE("filters_delete", { id })),
 	txSuggest: (query: string) => typedError<TitleSuggestionDto[], AppError>(__TAURI_INVOKE("tx_suggest", { query })),
 	txCategoryUsage: () => typedError<CategoryUsageDto[], AppError>(__TAURI_INVOKE("tx_category_usage")),
 	analyticsRun: (spec: ChartSpecDto) => typedError<ChartDataDto, AppError>(__TAURI_INVOKE("analytics_run", { spec })),
+	analyticsRunMany: (specs: ChartSpecDto[]) => typedError<ChartRunDto[], AppError>(__TAURI_INVOKE("analytics_run_many", { specs })),
 	analyticsCheck: (specs: ChartSpecDto[]) => typedError<(string | null)[], AppError>(__TAURI_INVOKE("analytics_check", { specs })),
 	dashboardsList: () => typedError<DashboardDto[], AppError>(__TAURI_INVOKE("dashboards_list")),
 	dashboardsCreate: (name: string) => typedError<DashboardDto, AppError>(__TAURI_INVOKE("dashboards_create", { name })),
+	dashboardsCreateDefault: () => typedError<DashboardDto, AppError>(__TAURI_INVOKE("dashboards_create_default")),
 	dashboardsRename: (id: Int53, name: string) => typedError<null, AppError>(__TAURI_INVOKE("dashboards_rename", { id, name })),
 	dashboardsDelete: (id: Int53) => typedError<null, AppError>(__TAURI_INVOKE("dashboards_delete", { id })),
 	chartsList: (dashboardId: Int53) => typedError<ChartCardDto[], AppError>(__TAURI_INVOKE("charts_list", { dashboardId })),
@@ -94,7 +101,7 @@ export const commands = {
 	/**  Отметить строку графика оплаченной или вернуть её в план. */
 	debtPaymentSetStatus: (paymentId: Int53, status: DebtPaymentStatusDto, paidDate: string | null) => typedError<DebtDto, AppError>(__TAURI_INVOKE("debt_payment_set_status", { paymentId, status, paidDate })),
 	/**  Быстрый график погашения: считает Rust, данные не читаются, но сессия нужна. */
-	debtSchedulePreview: (amount: Int53, takenMonth: string, kind: DebtScheduleKindDto) => typedError<SchedulePaymentDto[], AppError>(__TAURI_INVOKE("debt_schedule_preview", { amount, takenMonth, kind })),
+	debtSchedulePreview: (amount: Int53, takenMonth: string, kind: DebtScheduleKindDto) => typedError<SchedulePreviewDto, AppError>(__TAURI_INVOKE("debt_schedule_preview", { amount, takenMonth, kind })),
 	planMonth: (month: string) => typedError<MonthPlanDto, AppError>(__TAURI_INVOKE("plan_month", { month })),
 	/**  «План готов»: фиксирует плановые суммы месяца. */
 	planLock: (month: string) => typedError<MonthPlanDto, AppError>(__TAURI_INVOKE("plan_lock", { month })),
@@ -297,6 +304,15 @@ export type ChartRefLineDto = {
 	to: number | null,
 };
 
+/**
+ *  Результат одного графика пакетного расчёта: либо данные, либо ключ причины
+ *  (`errors.chart.<причина>`), чтобы один недопустимый график не ронял остальные.
+ */
+export type ChartRunDto = {
+	data: ChartDataDto | null,
+	errorKey: string | null,
+};
+
 export type ChartSeriesByDto = "status" | "kind" | "category" | "metric";
 
 export type ChartSeriesDto = {
@@ -434,6 +450,9 @@ export type DebtsOverviewDto = {
 	paymentsPaid: number,
 };
 
+/**  Экран сохранённого фильтра: «Расходы» или «Доходы». */
+export type FilterScreenDto = "expenses" | "incomes";
+
 export type ForecastKindDto = "a" | "b" | "c";
 
 export type ForecastScenarioDto = {
@@ -559,7 +578,8 @@ export type LegacyTotalsDto = {
 
 export type LimitEntryDto = {
 	validFrom: string,
-	amount: number,
+	/**  `None` — «лимита нет с этого месяца». */
+	amount: number | null,
 };
 
 export type LimitLevelDto = "ok" | "warn" | "over";
@@ -725,6 +745,12 @@ export type QueryHintSpanDto = {
 	hint: QueryHintDto,
 };
 
+/**  Разбор строки запроса без выборки данных: чипы токенов и подсказки. */
+export type QueryParseDto = {
+	spans: TokenSpanDto[],
+	hints: QueryHintSpanDto[],
+};
+
 /**  Recovery-код показывается один раз сразу после создания. */
 export type RecoveryCodeDto = {
 	recoveryCode: string,
@@ -740,6 +766,7 @@ export type SavedFilterDto = {
 	id: number,
 	name: string,
 	query: string,
+	screen: FilterScreenDto,
 };
 
 /**  Месяц фактического накопления. */
@@ -760,7 +787,7 @@ export type SavingsOverviewDto = {
 	items: AccumulationDto[],
 	/**  Сумма балансов накоплений на конец декабря. */
 	totalBalance: number,
-	/**  План сбережений на текущий месяц (сумма планов накоплений). */
+	/**  План сбережений на декабрь года просмотра (сумма планов накоплений). */
 	monthPlan: number,
 	totalScenarios: ForecastScenarioDto[],
 	totalForecastChart: ChartDataDto,
@@ -777,17 +804,16 @@ export type SavingsParamsDto = {
 /**  Как задан план накопления в месяц. */
 export type SavingsPlanKindDto = "percent" | "fixed";
 
-/**  Строка истории процента плана сбережений. */
-export type SavingsRateDto = {
-	categoryId: number,
-	validFrom: string,
-	rateBp: number,
-};
-
 /**  Строка графика на входе: месяц и сумма. */
 export type SchedulePaymentDto = {
 	month: string,
 	amount: number,
+};
+
+/**  Ответ `debt_schedule_preview`: строки графика и их сумма (считает Rust). */
+export type SchedulePreviewDto = {
+	rows: SchedulePaymentDto[],
+	total: number,
 };
 
 /**  Ответ палитры. `request_id` возвращается как есть: UI отбрасывает устаревшие ответы. */
@@ -983,6 +1009,8 @@ export type VaultStatusDto = {
 	locked: boolean,
 	/**  Сколько мс ещё ждать до следующей попытки входа; `0` — можно вводить. */
 	retryAfterMs: number,
+	/**  Перенос данных из папки прежнего идентификатора не удался: его можно повторить. */
+	migrationFailed: boolean,
 };
 
 /**  Ожидаемое поступление в мастере первого месяца. */

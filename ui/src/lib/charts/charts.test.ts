@@ -3,7 +3,7 @@ import type { ChartDataDto, ChartSpecDto } from '$lib/api/bindings';
 import { resolveColor } from './colors';
 import { drillQuery } from './drill';
 import { formatAxis, formatValue } from './format';
-import { toEcharts, type ChartEnv } from './toEcharts';
+import { PLAIN_OPTIONS, toEcharts, type ChartEnv } from './toEcharts';
 
 const vars: Record<string, string> = {
   '--paid-bar': '#paid',
@@ -120,6 +120,11 @@ describe('toEcharts', () => {
       xAxis: { type: 'value' },
       series: [{ label: { show: true } }]
     });
+  });
+
+  it('draws from a plain view without a query spec', () => {
+    const option = toEcharts(data(), { type: 'hbar', options: PLAIN_OPTIONS }, env);
+    expect(option).toMatchObject({ yAxis: { type: 'category' }, xAxis: { type: 'value' } });
   });
 
   it('draws lines with markers only for short series and dashes the previous period', () => {

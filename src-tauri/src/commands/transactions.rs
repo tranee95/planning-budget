@@ -1,7 +1,7 @@
 //! Траты и теги.
 
 use chrono::Utc;
-use planning_budget_core::{TagId, TxId};
+use planning_budget_core::TxId;
 use tauri::{AppHandle, State};
 
 use crate::AppError;
@@ -29,10 +29,13 @@ pub async fn tx_list(
 pub async fn tx_create(
     app: AppHandle,
     state: State<'_, AppState>,
+    request_id: String,
     input: TransactionInput,
 ) -> Result<TransactionDto, AppError> {
     let dto = state
-        .with_session(move |db| service::tx_create(db, input, Utc::now()))
+        .with_session_once(request_id, move |db| {
+            service::tx_create(db, input, Utc::now())
+        })
         .await?;
     data_changed(&app, ChangeScope::Transactions, vec![dto.month.clone()]);
     Ok(dto)
@@ -136,33 +139,4 @@ pub async fn tags_create(
         .await?;
     data_changed(&app, ChangeScope::Tags, Vec::new());
     Ok(dto)
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn tags_rename(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    id: Int53,
-    name: String,
-) -> Result<TagDto, AppError> {
-    let dto = state
-        .with_session(move |db| service::tag_rename(db, TagId(id.0), &name))
-        .await?;
-    data_changed(&app, ChangeScope::Tags, Vec::new());
-    Ok(dto)
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn tags_delete(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    id: Int53,
-) -> Result<(), AppError> {
-    state
-        .with_session(move |db| service::tag_delete(db, TagId(id.0)))
-        .await?;
-    data_changed(&app, ChangeScope::Tags, Vec::new());
-    Ok(())
 }

@@ -92,7 +92,7 @@ struct Assembled {
 pub(super) struct Engine<'a> {
     data: &'a DataSet,
     spec: &'a ChartSpec,
-    ledger: Ledger<'a>,
+    ledger: &'a Ledger<'a>,
     matcher: Matcher,
     txs: Vec<FilteredTx<'a>>,
     incomes: Vec<&'a Income>,
@@ -204,13 +204,29 @@ impl<'a> Engine<'a> {
         data: &'a DataSet,
         spec: &'a ChartSpec,
         ctx: &Context<'a>,
+        ledger: &'a Ledger<'a>,
     ) -> Result<Self, AnalyticsError> {
-        let ledger = Ledger::new(data)?;
+        let months = period_months(data, spec.period, ctx.today);
+        // Набор данных может быть шире периода (он общий для нескольких графиков): записи вне
+        // периода и предыдущего периода для сравнения не фильтруем и не считаем.
+        let first = months.first().copied().unwrap_or(ctx.today);
+        let last = months.last().copied().unwrap_or(ctx.today);
+        let from = if spec.options.compare_prev_period {
+            (0..months.len())
+                .try_fold(first, |m, _| m.pred())
+                .unwrap_or(first)
+        } else {
+            first
+        };
         let matcher = Matcher::new(query::parse(&spec.filter, ctx.today.year()).filter, data);
         let categories: BTreeMap<CategoryId, &Category> =
             data.categories.iter().map(|c| (c.id, c)).collect();
         let mut txs = Vec::new();
-        for tx in &data.transactions {
+        for tx in data
+            .transactions
+            .iter()
+            .filter(|tx| from <= tx.month && tx.month <= last)
+        {
             let category = categories
                 .get(&tx.category_id)
                 .ok_or(CoreError::CategoryNotFound(tx.category_id.0))?;
@@ -219,7 +235,11 @@ impl<'a> Engine<'a> {
                 txs.push(FilteredTx { tx, category, tags });
             }
         }
-        let incomes = data.incomes.iter().filter(|i| matcher.income(i)).collect();
+        let incomes = data
+            .incomes
+            .iter()
+            .filter(|i| from <= i.month && i.month <= last && matcher.income(i))
+            .collect();
 
         let mut sorted: Vec<&Category> = data.categories.iter().collect();
         sorted.sort_by_key(|c| (c.sort_order, c.id));
@@ -232,7 +252,7 @@ impl<'a> Engine<'a> {
             matcher,
             txs,
             incomes,
-            months: period_months(data, spec.period, ctx.today),
+            months,
             metrics: spec.effective_metrics()?,
             category_order,
         })

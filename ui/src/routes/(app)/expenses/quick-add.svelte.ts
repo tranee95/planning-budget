@@ -44,6 +44,8 @@ export class QuickAddVm {
   date = $state('');
   status = $state<TxStatusDto>('paid');
   saving = $state(false);
+  /** Один id на попытку сохранить: повторная отправка той же траты не создаст дубль. */
+  #requestId = crypto.randomUUID();
 
   #expenses: ExpensesVm;
 
@@ -136,7 +138,7 @@ export class QuickAddVm {
     const title = this.title.trim();
     this.saving = true;
     try {
-      const created = await transactionsApi.create({
+      const created = await transactionsApi.create(this.#requestId, {
         month: this.#expenses.month,
         date: this.date === '' ? null : this.date,
         categoryId,
@@ -145,6 +147,7 @@ export class QuickAddVm {
         status: this.status,
         comment: null
       });
+      this.#requestId = crypto.randomUUID();
       this.#expenses.trackCreated(created);
       toasts.push({ message: `Добавлено: ${title}, ${formatMoney(amount)}` });
       await this.#expenses.load(this.#expenses.month);

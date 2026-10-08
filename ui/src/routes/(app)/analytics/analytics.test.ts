@@ -1,6 +1,6 @@
 import { clearMocks } from '@tauri-apps/api/mocks';
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import { resetMockDashboards } from '$lib/api/mock/dashboards';
+import { emptyMockDashboards, resetMockDashboards } from '$lib/api/mock/dashboards';
 import { installMocks } from '$lib/api/mock/install';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { undoStack } from '$lib/stores/undo.svelte';
@@ -30,6 +30,26 @@ it('load: основной дашборд, девять карточек и да
   expect(vm.layout).toHaveLength(9);
   expect([...vm.data.values()].every((d) => d.status === 'ready')).toBe(true);
   expect(vm.loading).toBe(false);
+});
+
+it('без дашбордов load ничего не создаёт, createDefault добавляет стандартный', async () => {
+  emptyMockDashboards();
+  const vm = await loaded();
+  expect(vm.dashboards).toHaveLength(0);
+  expect(vm.cards).toHaveLength(0);
+  expect(vm.activeId).toBeNull();
+
+  expect(await vm.createDefaultDashboard()).toBe(true);
+  expect(vm.active?.name).toBe('Мой бюджет');
+  expect(vm.cards).toHaveLength(9);
+  expect([...vm.data.values()].every((d) => d.status === 'ready')).toBe(true);
+});
+
+it('createDefault при существующем дашборде: ошибка в тосте, список не меняется', async () => {
+  const vm = await loaded();
+  expect(await vm.createDefaultDashboard()).toBe(false);
+  expect(vm.dashboards).toHaveLength(1);
+  expect(toasts.items).toHaveLength(1);
 });
 
 it('commit: перенос карточки сохраняется и прижимает остальные', async () => {

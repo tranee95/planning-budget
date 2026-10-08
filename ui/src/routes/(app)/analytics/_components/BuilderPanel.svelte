@@ -19,6 +19,7 @@
     Button,
     Chart,
     EmptyState,
+    PaletteChips,
     Select,
     Sheet,
     Skeleton,
@@ -237,6 +238,16 @@
       placeholder="тип:желания -кат:займы"
       hint="Язык поиска: кат:, тип:, статус:, сумма>, #тег, период:. Источник не поддерживается."
     />
+    {#if builder.filterChips}
+      <PaletteChips
+        query={builder.filterChips.query}
+        spans={builder.filterChips.spans}
+        hints={builder.filterChips.hints}
+        onremove={(filter: string) => {
+          builder.change({ filter });
+        }}
+      />
+    {/if}
 
     <fieldset>
       <legend>Опции</legend>
@@ -281,7 +292,13 @@
         {#if builder.preview.data.categories.length === 0}
           <EmptyState title="Нет данных за период" hint="Измените период или фильтр." />
         {:else}
-          <Chart data={builder.preview.data} spec={draft} {categoryColors} />
+          <Chart
+            data={builder.preview.data}
+            type={draft.type}
+            title={draft.title}
+            options={draft.options}
+            {categoryColors}
+          />
         {/if}
       {:else if builder.preview.status === 'error'}
         <p class="problem" role="alert">{problem ?? builder.preview.message}</p>

@@ -88,18 +88,9 @@ pub struct CategoryPatchDto {
 #[serde(rename_all = "camelCase")]
 pub struct LimitEntryDto {
     pub valid_from: String,
-    #[specta(type = specta_typescript::Number)]
-    pub amount: i64,
-}
-
-/// Строка истории процента плана сбережений.
-#[derive(Debug, Serialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct SavingsRateDto {
-    #[specta(type = specta_typescript::Number)]
-    pub category_id: i64,
-    pub valid_from: String,
-    pub rate_bp: i32,
+    /// `None` — «лимита нет с этого месяца».
+    #[specta(type = Option<specta_typescript::Number>)]
+    pub amount: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Type)]

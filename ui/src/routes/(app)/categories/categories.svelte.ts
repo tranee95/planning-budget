@@ -8,7 +8,7 @@ import {
   type LimitRowDto,
   type SettingsDto
 } from '$lib/api/bindings';
-import { onDataChanged } from '$lib/api/data-events';
+import { LoadStamp, onDataChanged } from '$lib/api/data-events';
 import { categoriesApi, settingsApi, summaryApi } from '$lib/api/data';
 import { CATEGORY_COLORS, parsePercentBp } from '$lib/category-colors';
 import { errorText } from '$lib/i18n/errors';
@@ -69,6 +69,9 @@ export class CategoriesVm {
 
   #month = '';
   #req = 0;
+  #stamp = new LoadStamp();
+  /** Идёт серия собственных команд: события от них не нужны, экран перечитается сам. */
+  #writes = 0;
 
   get month(): string {
     return this.#month;
@@ -107,6 +110,7 @@ export class CategoriesVm {
   );
 
   async load(month: string): Promise<void> {
+    this.#stamp.mark();
     const req = ++this.#req;
     this.#month = month;
     this.loading = true;
@@ -183,6 +187,7 @@ export class CategoriesVm {
     }
     this.fieldError = null;
     this.saving = true;
+    this.#writes++;
     try {
       const note = d.note.trim() === '' ? null : d.note.trim();
       let id: number;
@@ -200,6 +205,14 @@ export class CategoriesVm {
       if (!isSavings && d.limit !== null && d.limit > 0 && d.limit !== row?.limit) {
         await categoriesApi.setLimit(id, this.#month, d.limit);
       }
+      // Пустое поле у категории с лимитом: лимита нет с начала месяца экрана.
+      if (!isSavings && d.limit === null && row?.limit != null) {
+        await categoriesApi.unsetLimit(id, this.#month);
+      }
+      // Пустой процент: план сбережений с начала месяца экрана равен нулю.
+      if (isSavings && d.rate.trim() === '' && row?.rateBp != null && row.rateBp > 0) {
+        await categoriesApi.setSavingsRate(id, this.#month, 0);
+      }
       if (rateBp !== null && rateBp !== row?.rateBp) {
         await categoriesApi.setSavingsRate(id, this.#month, rateBp);
       }
@@ -211,24 +224,32 @@ export class CategoriesVm {
       return true;
     } catch (e) {
       this.fieldError = errorText(e);
+      // Часть команд могла пройти (категория создана, лимит нет): события во время серии
+      // отброшены, поэтому экран перечитывается сам.
+      void this.load(this.#month);
       return false;
     } finally {
+      this.#writes--;
       this.saving = false;
     }
   }
 
   /** Убирает переопределение процента на выбранный месяц: снова действует общий процент. */
   async clearMonthRate(id: number): Promise<void> {
+    this.#writes++;
     try {
       await categoriesApi.clearSavingsOverride(this.#month, id);
       await this.load(this.#month);
       toasts.push({ message: 'Процент месяца сброшен' });
     } catch (e) {
       toasts.push({ kind: 'error', message: errorText(e) });
+    } finally {
+      this.#writes--;
     }
   }
 
   async setArchived(id: number, archived: boolean): Promise<void> {
+    this.#writes++;
     try {
       await (archived ? categoriesApi.archive(id) : categoriesApi.unarchive(id));
       await this.load(this.#month);
@@ -236,6 +257,8 @@ export class CategoriesVm {
       toasts.push({ message: archived ? 'Категория в архиве' : 'Категория возвращена' });
     } catch (e) {
       toasts.push({ kind: 'error', message: errorText(e) });
+    } finally {
+      this.#writes--;
     }
   }
 
@@ -264,16 +287,22 @@ export class CategoriesVm {
       const c = byId.get(id);
       return c ? [c] : [];
     });
+    this.#writes++;
     try {
       this.items = await categoriesApi.reorder(ids);
+      // Ответ команды уже содержит новый порядок: событие о нём перечитывать не нужно.
+      this.#stamp.mark();
     } catch (e) {
       this.items = prev;
       toasts.push({ kind: 'error', message: errorText(e) });
+    } finally {
+      this.#writes--;
     }
   }
 
   connect(): () => void {
-    return onDataChanged(() => {
+    return onDataChanged((change) => {
+      if (this.#writes > 0 || this.#stamp.isFresh(change)) return;
       if (this.#month !== '') void this.load(this.#month);
     });
   }

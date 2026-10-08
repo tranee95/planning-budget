@@ -5,6 +5,7 @@
   import { session } from '$lib/stores/session.svelte';
   import ForgotForm from './_components/ForgotForm.svelte';
   import LockShell from './_components/LockShell.svelte';
+  import MigrationNotice from './_components/MigrationNotice.svelte';
   import RecoveryCodeView from './_components/RecoveryCodeView.svelte';
   import SetupForm from './_components/SetupForm.svelte';
   import UnlockForm from './_components/UnlockForm.svelte';
@@ -30,6 +31,9 @@
     title="Создайте пароль"
     subtitle="Данные шифруются и остаются только на этом устройстве."
   >
+    {#if session.migrationFailed}
+      <MigrationNotice {vm} />
+    {/if}
     <SetupForm {vm} />
   </LockShell>
 {:else if vm.view === 'forgot'}
@@ -45,6 +49,9 @@
     title="С возвращением"
     subtitle="Данные зашифрованы и хранятся только на этом устройстве"
   >
+    {#if session.migrationFailed}
+      <MigrationNotice {vm} />
+    {/if}
     <UnlockForm {vm} />
     {#snippet footer()}
       {#if prefs.current?.autolockMinutes != null}

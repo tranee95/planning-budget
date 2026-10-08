@@ -10,7 +10,7 @@ import {
   type SettingsDto,
   type YearSummaryDto
 } from '$lib/api/bindings';
-import { onDataChanged } from '$lib/api/data-events';
+import { LoadStamp, onDataChanged } from '$lib/api/data-events';
 import { debtsApi, planApi, settingsApi, summaryApi } from '$lib/api/data';
 import { formatMoney, formatMonth, formatPercent, today } from '$lib/format';
 import { errorText } from '$lib/i18n/errors';
@@ -39,6 +39,7 @@ export class OverviewVm {
 
   #month = '';
   #req = 0;
+  #stamp = new LoadStamp();
   #seriesReq = 0;
 
   get month(): string {
@@ -105,6 +106,7 @@ export class OverviewVm {
   });
 
   async load(month: string): Promise<void> {
+    this.#stamp.mark();
     const req = ++this.#req;
     this.#month = month;
     this.loading = true;
@@ -187,8 +189,10 @@ export class OverviewVm {
 
   /** Подписки экрана; страница вызывает в `onMount`, возвращает cleanup. */
   connect(): () => void {
-    return onDataChanged(({ months }) => {
+    return onDataChanged((change) => {
+      if (this.#stamp.isFresh(change)) return;
       const year = this.#month.slice(0, 4);
+      const { months } = change;
       const affects = months.length === 0 || months.some((m) => m.startsWith(year));
       if (affects && this.#month !== '') void this.load(this.#month);
     });

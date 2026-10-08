@@ -21,6 +21,11 @@ serde_json = "1.0.151"
 thiserror = "2.0.21"
 zeroize = "1.9.0"
 
+[features]
+# Только для тестов: пропускает облегчённые параметры Argon2id.
+weak-kdf = []
+
 [dev-dependencies]
+planning-budget-vault = { path = ".", features = ["weak-kdf"] }
 tempfile = "3.27.0"
 

@@ -47,12 +47,14 @@ impl Db {
                 )?;
             }
             for l in &data.limits {
-                insert_limit(
-                    &tx,
-                    l.category_id.0,
-                    &l.valid_from.to_string(),
-                    l.amount.kopecks(),
-                )?;
+                if let Some(amount) = l.amount {
+                    insert_limit(
+                        &tx,
+                        l.category_id.0,
+                        &l.valid_from.to_string(),
+                        amount.kopecks(),
+                    )?;
+                }
             }
             for r in &data.savings_rates {
                 insert_rate(

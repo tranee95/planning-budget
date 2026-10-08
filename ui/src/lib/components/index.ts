@@ -29,6 +29,7 @@ export { default as Combobox } from './Combobox.svelte';
 export { default as DataTable } from './DataTable.svelte';
 export type { Column } from './table';
 export { default as FilterBar } from './FilterBar.svelte';
+export { default as PaletteChips } from './PaletteChips.svelte';
 export { default as Chart } from './Chart.svelte';
 export { default as ChartTable } from './ChartTable.svelte';
 export { default as SimpleTable } from './SimpleTable.svelte';

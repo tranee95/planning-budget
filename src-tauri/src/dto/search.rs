@@ -1,7 +1,8 @@
 //! Поиск и фильтры.
 
 use planning_budget_core::query::{QueryErrorKind, TokenKind};
-use serde::Serialize;
+use planning_budget_storage::{FilterScreen, SavedFilter};
+use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use super::{IncomeDto, IncomeStatusDto, TransactionDto, TxStatusDto};
@@ -157,6 +158,14 @@ pub struct SearchResultDto {
     pub months: Vec<MonthHitDto>,
 }
 
+/// Разбор строки запроса без выборки данных: чипы токенов и подсказки.
+#[derive(Debug, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct QueryParseDto {
+    pub spans: Vec<TokenSpanDto>,
+    pub hints: Vec<QueryHintSpanDto>,
+}
+
 /// Полный список трат по запросу для таблицы «Расходы»; `total` и `sum` — по всем
 /// совпадениям, `truncated` — строк больше, чем отдано.
 #[derive(Debug, Serialize, Type)]
@@ -187,6 +196,32 @@ pub struct IncomeSearchDto {
     pub items: Vec<IncomeDto>,
 }
 
+/// Экран сохранённого фильтра: «Расходы» или «Доходы».
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "lowercase")]
+pub enum FilterScreenDto {
+    Expenses,
+    Incomes,
+}
+
+impl From<FilterScreen> for FilterScreenDto {
+    fn from(screen: FilterScreen) -> Self {
+        match screen {
+            FilterScreen::Expenses => Self::Expenses,
+            FilterScreen::Incomes => Self::Incomes,
+        }
+    }
+}
+
+impl From<FilterScreenDto> for FilterScreen {
+    fn from(screen: FilterScreenDto) -> Self {
+        match screen {
+            FilterScreenDto::Expenses => Self::Expenses,
+            FilterScreenDto::Incomes => Self::Incomes,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SavedFilterDto {
@@ -194,6 +229,18 @@ pub struct SavedFilterDto {
     pub id: i64,
     pub name: String,
     pub query: String,
+    pub screen: FilterScreenDto,
+}
+
+impl From<SavedFilter> for SavedFilterDto {
+    fn from(f: SavedFilter) -> Self {
+        Self {
+            id: f.id,
+            name: f.name,
+            query: f.query,
+            screen: f.screen.into(),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Type)]

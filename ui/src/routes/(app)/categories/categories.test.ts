@@ -1,5 +1,7 @@
+import { emit } from '@tauri-apps/api/event';
 import { clearMocks } from '@tauri-apps/api/mocks';
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { COALESCE_MS } from '$lib/api/data-events';
 import { resetMockBudget } from '$lib/api/mock/budget';
 import { installMocks } from '$lib/api/mock/install';
 import { categoriesApi } from '$lib/api/data';
@@ -38,6 +40,27 @@ it('сохранение нового лимита действует с нач�
   expect(vm.rows.find((r) => r.category.id === 1)?.limit).toBe(3_500_000);
   await vm.load('2026-08');
   expect(vm.rows.find((r) => r.category.id === 1)?.limit).toBe(3_000_000);
+});
+
+it('пустое поле лимита убирает его с начала месяца, прошлые месяцы не меняются', async () => {
+  const vm = new CategoriesVm();
+  await vm.load('2026-09');
+  vm.select(1);
+  vm.draft.limit = null;
+  expect(await vm.save()).toBe(true);
+  expect(vm.rows.find((r) => r.category.id === 1)?.limit).toBeNull();
+  await vm.load('2026-08');
+  expect(vm.rows.find((r) => r.category.id === 1)?.limit).toBe(3_000_000);
+});
+
+it('пустой процент сбережений обнуляет план с начала месяца', async () => {
+  const vm = new CategoriesVm();
+  await vm.load('2026-09');
+  vm.select(4);
+  expect(vm.rows.find((r) => r.category.id === 4)?.rateBp).toBe(1400);
+  vm.draft.rate = '';
+  expect(await vm.save()).toBe(true);
+  expect(vm.rows.find((r) => r.category.id === 4)?.rateBp).toBe(0);
 });
 
 it('пустое название не сохраняется', async () => {
@@ -113,4 +136,68 @@ it('неверный процент месяца не создаёт катег�
   expect(await vm.save()).toBe(false);
   await vm.load('2026-09');
   expect(vm.items.map((c) => c.name)).not.toContain('Копилка');
+});
+
+it('сохранение с несколькими командами не вызывает лишних перечитываний по событиям', async () => {
+  const settle = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const vm = new CategoriesVm();
+  const off = vm.connect();
+  await vm.load('2026-09');
+  await settle(20);
+  vm.select(1);
+  vm.draft.name = 'Продукты и дом';
+  vm.draft.limit = 3_500_000;
+  const list = vi.spyOn(categoriesApi, 'list');
+  // Событие первой команды сбрасывается по таймеру, пока вторая ещё выполняется.
+  const update = categoriesApi.update.bind(categoriesApi);
+  vi.spyOn(categoriesApi, 'update').mockImplementation(async (...args) => {
+    const result = await update(...args);
+    await emit('data-changed', { scope: 'categories', months: [] });
+    await settle(COALESCE_MS * 2);
+    return result;
+  });
+  expect(await vm.save()).toBe(true);
+  await settle(COALESCE_MS * 3);
+  expect(list).toHaveBeenCalledTimes(1);
+  off();
+  vi.restoreAllMocks();
+});
+
+it('стор активных категорий: события во время загрузки дают одну повторную', async () => {
+  const settle = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  await categories.load();
+  const off = categories.watch();
+  await settle(20);
+  const list = categoriesApi.list.bind(categoriesApi);
+  const spy = vi.spyOn(categoriesApi, 'list').mockImplementation(async (...args) => {
+    await settle(COALESCE_MS * 4);
+    return list(...args);
+  });
+  for (let i = 0; i < 3; i++) {
+    await emit('data-changed', { scope: 'categories', months: [] });
+    await settle(COALESCE_MS * 1.5);
+  }
+  await settle(COALESCE_MS * 12);
+  expect(spy).toHaveBeenCalledTimes(2);
+  off();
+  vi.restoreAllMocks();
+});
+
+it('сбой на середине сохранения: экран перечитывается и повторное сохранение обновляет созданную категорию', async () => {
+  const vm = new CategoriesVm();
+  const off = vm.connect();
+  await vm.load('2026-09');
+  vm.startCreate();
+  vm.draft.name = 'Хобби';
+  vm.draft.kind = 'wants';
+  vm.draft.limit = 100_000;
+  const setLimit = vi.spyOn(categoriesApi, 'setLimit').mockRejectedValueOnce(new Error('boom'));
+  expect(await vm.save()).toBe(false);
+  await new Promise((r) => setTimeout(r, 30));
+  expect(vm.items.some((c) => c.name === 'Хобби')).toBe(true);
+
+  expect(await vm.save()).toBe(true);
+  expect(vm.items.filter((c) => c.name === 'Хобби')).toHaveLength(1);
+  setLimit.mockRestore();
+  off();
 });

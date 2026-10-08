@@ -36,8 +36,6 @@
       return { value: month, label: formatMonth(month) };
     })
   );
-
-  const scheduleTotal = $derived(vm.schedule.reduce((sum, r) => sum + r.amount, 0));
 </script>
 
 <Sheet
@@ -146,7 +144,7 @@
               </li>
             {/each}
           </ul>
-          <p class="total">Сумма графика: <b class="num">{formatMoney(scheduleTotal)}</b></p>
+          <p class="total">Сумма графика: <b class="num">{formatMoney(vm.scheduleTotal)}</b></p>
         {/if}
       </section>
     {/if}

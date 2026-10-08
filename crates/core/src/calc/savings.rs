@@ -12,8 +12,11 @@ use crate::period::YearMonth;
 pub struct Accumulation {
     pub category_id: CategoryId,
     pub params: SavingsParams,
-    /// План взноса в месяце `current` (процент от дохода месяца или фиксированная сумма).
+    /// План взноса в месяце расчёта (декабрь года просмотра): процент от среднего дохода года
+    /// или фиксированная сумма.
     pub plan: Money,
+    /// Годовая ставка после налога на купон, `rate × (1 − tax)`, в базисных пунктах.
+    pub effective_rate: BasisPoints,
     /// Действующая на `current` строка плана: процент от дохода (при `plan_fixed = None`) …
     pub plan_rate: BasisPoints,
     /// … либо фиксированная сумма.
@@ -22,12 +25,23 @@ pub struct Accumulation {
     pub forecast: BondsForecast,
 }
 
+/// Величины года, общие для прогнозов всех накоплений.
+struct ForecastContext {
+    months_with_data: u32,
+    avg_income: Money,
+    economy: Money,
+    /// Сумма планов неархивных накоплений: по ней делится экономия от лимитов (сценарий B).
+    plan_sum: Money,
+}
+
 /// Раздел «Сбережения»: накопления и итоги по ним.
 #[derive(Clone, PartialEq, Debug)]
 pub struct SavingsOverview {
     pub items: Vec<Accumulation>,
     /// Сумма балансов накоплений на конец декабря года.
     pub total_balance: Money,
+    /// План сбережений месяца расчёта (декабрь года просмотра) по всем категориям-сбережениям.
+    pub month_plan: Money,
     /// Прогноз по всем накоплениям: суммы вкладов, итогов и точек линии.
     pub total_forecast: [ForecastScenario; 3],
 }
@@ -84,6 +98,35 @@ impl Ledger<'_> {
         }
     }
 
+    /// Общее для прогнозов всех накоплений года: считается один раз.
+    fn forecast_context(
+        &self,
+        year: u16,
+        current: YearMonth,
+    ) -> Result<ForecastContext, CoreError> {
+        let summary = self.year_summary(year, current)?;
+        let balance = self.balance_for(&summary, current)?;
+        let mut plan_sum = Money::ZERO;
+        for category in self
+            .data()
+            .categories
+            .iter()
+            .filter(|c| c.kind == CategoryKind::Savings && !c.archived)
+        {
+            plan_sum = plan_sum.checked_add(self.typical_plan(
+                category.id,
+                current,
+                balance.avg_income,
+            )?)?;
+        }
+        Ok(ForecastContext {
+            months_with_data: summary.months_with_data,
+            avg_income: balance.avg_income,
+            economy: balance.economy,
+            plan_sum,
+        })
+    }
+
     /// Прогноз накопления на 60 месяцев.
     pub fn accumulation_forecast(
         &self,
@@ -91,29 +134,27 @@ impl Ledger<'_> {
         year: u16,
         current: YearMonth,
     ) -> Result<BondsForecast, CoreError> {
+        let start_balance = self.accumulation_fact(category, year)?.dec_balance;
+        let context = self.forecast_context(year, current)?;
+        self.forecast_with(&context, category, year, current, start_balance)
+    }
+
+    fn forecast_with(
+        &self,
+        context: &ForecastContext,
+        category: CategoryId,
+        year: u16,
+        current: YearMonth,
+        start_balance: Money,
+    ) -> Result<BondsForecast, CoreError> {
         let params = self.params_or_default(category, year)?;
         let rates = BondRates::new(params.annual_rate, params.tax);
-        let start_balance = self.accumulation_fact(category, year)?.dec_balance;
-        let summary = self.year_summary(year, current)?;
-        let balance = self.balance_for(&summary, current)?;
-
-        let plan = self.typical_plan(category, current, balance.avg_income)?;
-        let mut plan_sum = Money::ZERO;
-        for id in self
-            .data()
-            .categories
-            .iter()
-            .filter(|c| c.kind == CategoryKind::Savings && !c.archived)
-            .map(|c| c.id)
-        {
-            plan_sum =
-                plan_sum.checked_add(self.typical_plan(id, current, balance.avg_income)?)?;
-        }
-        let economy_share = match plan.ratio(plan_sum) {
-            Some(share) => balance.economy.mul_ratio(share)?,
+        let plan = self.typical_plan(category, current, context.avg_income)?;
+        let economy_share = match plan.ratio(context.plan_sum) {
+            Some(share) => context.economy.mul_ratio(share)?,
             None => Money::ZERO,
         };
-        let divisor = i64::from(summary.months_with_data);
+        let divisor = i64::from(context.months_with_data);
         let actual = self
             .category_year_total(year, current, category)?
             .div_round(divisor)?;
@@ -131,12 +172,11 @@ impl Ledger<'_> {
     }
 
     /// Накопления года `year`: у каждого факт и прогноз, плюс общие итоги. Архивные категории входят,
-    /// только если на них остался баланс.
-    pub fn savings_overview(
-        &self,
-        year: u16,
-        current: YearMonth,
-    ) -> Result<SavingsOverview, CoreError> {
+    /// только если на них остался баланс. Планы и средние считаются на декабрь `year`: одинаково для
+    /// прошлого, текущего и будущего года, независимо от сегодняшней даты.
+    pub fn savings_overview(&self, year: u16) -> Result<SavingsOverview, CoreError> {
+        let current = YearMonth::new(year, 12)?;
+        let context = self.forecast_context(year, current)?;
         let mut items = Vec::new();
         for category in self
             .data()
@@ -149,16 +189,21 @@ impl Ledger<'_> {
                 continue;
             }
             let params = self.params_or_default(category.id, year)?;
-            let summary = self.year_summary(year, current)?;
-            let balance = self.balance_for(&summary, current)?;
             let entry = self.plan_entry(current, category.id);
             items.push(Accumulation {
                 category_id: category.id,
                 params,
                 plan_rate: entry.map_or(BasisPoints(0), |e| e.rate),
                 plan_fixed: entry.and_then(|e| e.fixed),
-                plan: self.typical_plan(category.id, current, balance.avg_income)?,
-                forecast: self.accumulation_forecast(category.id, year, current)?,
+                plan: self.typical_plan(category.id, current, context.avg_income)?,
+                effective_rate: BondRates::new(params.annual_rate, params.tax).effective_bp(),
+                forecast: self.forecast_with(
+                    &context,
+                    category.id,
+                    year,
+                    current,
+                    fact.dec_balance,
+                )?,
                 fact,
             });
         }
@@ -204,6 +249,7 @@ impl Ledger<'_> {
         Ok(SavingsOverview {
             items,
             total_balance,
+            month_plan: self.savings_plan(current)?,
             total_forecast: [a?, b?, c?],
         })
     }

@@ -28,7 +28,9 @@ const vault = {
   exists: vaultParam !== 'new',
   locked: vaultParam !== 'open',
   failed: 0,
-  retryUntil: 0
+  retryUntil: 0,
+  migrationFailed: new URLSearchParams(globalThis.location.search).get('migration') === 'failed',
+  migrationRetryFails: false
 };
 
 /** Возвращает мок сейфа в исходное состояние: хранилище есть, закрыто, задержки нет (для тестов). */
@@ -37,6 +39,14 @@ export function resetMockVault(exists = true): void {
   vault.locked = true;
   vault.failed = 0;
   vault.retryUntil = 0;
+  vault.migrationFailed = false;
+  vault.migrationRetryFails = false;
+}
+
+/** Перенос данных из прежней папки не удался; `retryFails` — повтор тоже закончится ошибкой. */
+export function failMockMigration(retryFails = false): void {
+  vault.migrationFailed = true;
+  vault.migrationRetryFails = retryFails;
 }
 
 let prefs: Prefs = {
@@ -81,8 +91,21 @@ export const handlers = {
   vault_status: (): VaultStatusDto => ({
     exists: vault.exists,
     locked: vault.locked,
-    retryAfterMs: retryAfterMs()
+    retryAfterMs: retryAfterMs(),
+    migrationFailed: vault.migrationFailed
   }),
+  vault_retry_migration: (): VaultStatusDto | Promise<never> => {
+    if (vault.migrationRetryFails) {
+      return reject({ code: 'Io', messageKey: 'errors.io.migration' });
+    }
+    vault.migrationFailed = false;
+    return {
+      exists: vault.exists,
+      locked: vault.locked,
+      retryAfterMs: retryAfterMs(),
+      migrationFailed: false
+    };
+  },
   vault_create: (args: { password: string }) => {
     if (Array.from(args.password).length < 10) {
       return reject({

@@ -94,6 +94,7 @@
     <FilterBar
       filter={vm.filter}
       subject="трат"
+      screen="expenses"
       placeholder="Поиск по тратам: лента статус:оплачено сумма>5000 период:июн..сен #тег"
     />
   {/if}

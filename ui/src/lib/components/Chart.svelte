@@ -1,15 +1,19 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { ChartDataDto, ChartSpecDto } from '$lib/api/bindings';
+  import type { ChartDataDto, ChartOptionsDto, ChartSpecDto } from '$lib/api/bindings';
   import { cssReader, resolveColor, type CategoryColors } from '$lib/charts/colors';
   import { drillQuery } from '$lib/charts/drill';
   import { formatValue } from '$lib/charts/format';
-  import { toEcharts } from '$lib/charts/toEcharts';
+  import { PLAIN_OPTIONS, toEcharts } from '$lib/charts/toEcharts';
   import ChartTable from './ChartTable.svelte';
 
   type Props = {
     data: ChartDataDto;
-    spec: ChartSpecDto;
+    type: ChartSpecDto['type'];
+    title: string;
+    options?: ChartOptionsDto;
+    /** Запрос графика: нужен только для перехода к записям по клику (карточки аналитики). */
+    spec?: ChartSpecDto;
     /** Цвета категорий по id: токен `category:<id>` берёт цвет из данных. */
     categoryColors?: CategoryColors;
     /** Клик по столбцу, сектору или точке; параметр — запрос для «Расходов». */
@@ -18,15 +22,23 @@
 
   type Instance = import('echarts/core').ECharts;
 
-  let { data, spec, categoryColors = new Map(), ondrill }: Props = $props();
+  let {
+    data,
+    type,
+    title,
+    options = PLAIN_OPTIONS,
+    spec,
+    categoryColors = new Map(),
+    ondrill
+  }: Props = $props();
 
   let host = $state<HTMLDivElement>();
   let chart: Instance | undefined;
   let visible = $state(false);
 
-  const plotted = $derived(spec.type !== 'table' && spec.type !== 'kpi');
+  const plotted = $derived(type !== 'table' && type !== 'kpi');
   const legend = $derived(
-    spec.type === 'donut'
+    type === 'donut'
       ? data.categories.map((name, i) => ({ name, token: data.categoryTokens[i] ?? '' }))
       : data.series.length > 1
         ? data.series.map((s) => ({ name: s.name, token: s.color }))
@@ -51,7 +63,11 @@
   /** Цвета canvas берутся из CSS при каждой сборке: смена темы требует новой сборки. */
   function render(): void {
     chart?.setOption(
-      toEcharts(data, spec, { css: cssReader(), categoryColors, reducedMotion: reducedMotion() }),
+      toEcharts(
+        data,
+        { type, options },
+        { css: cssReader(), categoryColors, reducedMotion: reducedMotion() }
+      ),
       { notMerge: true }
     );
   }
@@ -68,7 +84,8 @@
       if (cancelled) return;
       const instance = echarts.init(node, undefined, { renderer: 'canvas' });
       instance.on('click', (params) => {
-        if (params.componentType !== 'series' || ondrill === undefined) return;
+        if (params.componentType !== 'series' || ondrill === undefined || spec === undefined)
+          return;
         const query = drillQuery(spec, data, params.dataIndex, params.seriesIndex ?? 0);
         if (query !== null) ondrill(query);
       });
@@ -107,15 +124,15 @@
 </script>
 
 <figure>
-  {#if spec.type === 'kpi'}
+  {#if type === 'kpi'}
     <p class="kpi">{headline}</p>
-  {:else if spec.type === 'table'}
-    <ChartTable {data} caption={spec.title} />
+  {:else if type === 'table'}
+    <ChartTable {data} caption={title} />
   {:else}
-    <ChartTable {data} caption={spec.title} hidden />
+    <ChartTable {data} caption={title} hidden />
   {/if}
   <!-- Узел остаётся в разметке при любом типе: наблюдатели и экземпляр ECharts привязаны к нему один раз. -->
-  <div bind:this={host} class="plot" hidden={!plotted} role="img" aria-label={spec.title}></div>
+  <div bind:this={host} class="plot" hidden={!plotted} role="img" aria-label={title}></div>
   {#if legend.length > 0}
     <ul class="legend">
       {#each legend as item, index (index)}

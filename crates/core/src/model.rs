@@ -101,7 +101,8 @@ pub struct Tag {
 pub struct LimitEntry {
     pub category_id: CategoryId,
     pub valid_from: YearMonth,
-    pub amount: Money,
+    /// `None` — лимита нет с `valid_from` (до следующей строки).
+    pub amount: Option<Money>,
 }
 
 /// Строка истории плана накопления: действует с `valid_from` до следующей строки. План — процент

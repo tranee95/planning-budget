@@ -125,6 +125,12 @@ export function resetMockDashboards(): void {
 }
 resetMockDashboards();
 
+/** Хранилище, созданное до: дашбордов нет. */
+export function emptyMockDashboards(): void {
+  dashboards = [];
+  cards = [];
+}
+
 function notFound(entity: string, id: number): Promise<never> {
   // IPC отдаёт AppError значением, а не Error
   // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
@@ -164,12 +170,30 @@ function mockReason(spec: ChartSpecDto): string | null {
 export const dashboardHandlers = {
   analytics_check: (args: { specs: ChartSpecDto[] }) => args.specs.map(mockReason),
   analytics_run: (args: { spec: ChartSpecDto }) => mockAnalyticsRun(args.spec),
+  analytics_run_many: (args: { specs: ChartSpecDto[] }) =>
+    args.specs.map((spec) => {
+      const errorKey = mockReason(spec);
+      return errorKey === null
+        ? { data: mockAnalyticsRun(spec), errorKey: null }
+        : { data: null, errorKey };
+    }),
   dashboards_list: () => dashboards,
   dashboards_create: (args: { name: string }) => {
     const name = args.name.trim();
     if (name === '') return invalid('dashboard.name_empty');
     const row: DashboardDto = { id: nextId++, name, isDefault: false };
     dashboards = [...dashboards, row];
+    return row;
+  },
+  dashboards_create_default: () => {
+    if (dashboards.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+      return Promise.reject({ code: 'Conflict', messageKey: 'errors.dashboard.exists' });
+    }
+    const row: DashboardDto = { id: nextId++, name: 'Мой бюджет', isDefault: true };
+    dashboards = [row];
+    cards = standardCards(row.id, nextId);
+    nextId += cards.length;
     return row;
   },
   dashboards_rename: (args: { id: number; name: string }) => {

@@ -1,11 +1,10 @@
 //! Раздел «Сбережения» поверх `core::calc` и хранилища.
 
-use chrono::NaiveDate;
-use planning_budget_core::calc::{Accumulation, BondRates, ForecastScenario, Ledger, Scenario};
+use planning_budget_core::calc::{Accumulation, ForecastScenario, Ledger, Scenario};
 use planning_budget_core::{BasisPoints, CategoryId, Money, SavingsParams, YearMonth};
 use planning_budget_storage::Db;
 
-use super::{month_of, parse_month};
+use super::parse_month;
 use crate::AppError;
 use crate::dto::{
     AccumulationDto, ChartDataDto, ChartSeriesDto, ChartUnitDto, ForecastKindDto,
@@ -127,9 +126,6 @@ fn params_dto(p: &SavingsParams) -> SavingsParamsDto {
 }
 
 fn accumulation_dto(a: &Accumulation, year: u16) -> Result<AccumulationDto, AppError> {
-    let rates = BondRates::new(a.params.annual_rate, a.params.tax);
-    let effective_bp = Money::from_kopecks_f64(rates.effective * 10_000.0)
-        .map_err(planning_budget_core::CoreError::from)?;
     let months: Vec<SavingsMonthDto> = a
         .fact
         .months
@@ -156,7 +152,7 @@ fn accumulation_dto(a: &Accumulation, year: u16) -> Result<AccumulationDto, AppE
         plan_fixed: a.plan_fixed.map(Money::kopecks),
         plan: a.plan.kopecks(),
         balance: a.fact.dec_balance.kopecks(),
-        effective_rate_bp: i32::try_from(effective_bp.kopecks()).unwrap_or(i32::MAX),
+        effective_rate_bp: a.effective_rate.0,
         fact_chart: fact_chart(&months, &parsed),
         months,
         forecast_chart: forecast_chart(year, &a.forecast.scenarios)?,
@@ -166,9 +162,8 @@ fn accumulation_dto(a: &Accumulation, year: u16) -> Result<AccumulationDto, AppE
 
 /// Накопления года `year`: у каждого факт и прогноз, плюс общие итоги и готовые графики.
 /// Накопление идёт от своего стартового месяца, поэтому данные читаются с самого раннего из них
-/// (или с января года, если он раньше) по декабрь.
-pub fn overview(db: &Db, year: u16, today: NaiveDate) -> Result<SavingsOverviewDto, AppError> {
-    let current = month_of(today)?;
+/// (или с января года, если он раньше) по декабрь. Планы считаются на декабрь года просмотра.
+pub fn overview(db: &Db, year: u16) -> Result<SavingsOverviewDto, AppError> {
     let first = YearMonth::first_of_year(year)?;
     let earliest = db
         .savings_params()?
@@ -178,7 +173,7 @@ pub fn overview(db: &Db, year: u16, today: NaiveDate) -> Result<SavingsOverviewD
         .unwrap_or(first);
     let data = db.dataset(earliest.min(first), YearMonth::new(year, 12)?)?;
     let ledger = Ledger::new(&data)?;
-    let report = ledger.savings_overview(year, current)?;
+    let report = ledger.savings_overview(year)?;
     let items = report
         .items
         .iter()
@@ -189,7 +184,7 @@ pub fn overview(db: &Db, year: u16, today: NaiveDate) -> Result<SavingsOverviewD
         first_year: earliest.year().min(year),
         items,
         total_balance: report.total_balance.kopecks(),
-        month_plan: ledger.savings_plan(current)?.kopecks(),
+        month_plan: report.month_plan.kopecks(),
         total_scenarios: report.total_forecast.iter().map(scenario_dto).collect(),
         total_forecast_chart: forecast_chart(year, &report.total_forecast)?,
     })

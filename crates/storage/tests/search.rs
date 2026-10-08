@@ -8,7 +8,9 @@
 use chrono::{DateTime, TimeZone, Utc};
 use planning_budget_core::query::{Filter, parse};
 use planning_budget_core::{CategoryId, IncomeStatus, Money, TxStatus, YearMonth};
-use planning_budget_storage::{Db, NewIncome, NewTransaction, RecordSource, SearchResult};
+use planning_budget_storage::{
+    Db, FilterScreen, NewIncome, NewTransaction, RecordSource, SearchResult,
+};
 use tempfile::TempDir;
 
 const KEY: [u8; 32] = [6; 32];
@@ -365,14 +367,15 @@ fn income_list_ignores_expense_only_filters() {
 fn saved_filters_upsert_by_name_and_validate() {
     let (_d, mut db) = fixture();
     let first = db
-        .saved_filter_save(" Крупное ", "сумма>10000", now())
+        .saved_filter_save(" Крупное ", "сумма>10000", FilterScreen::Expenses, now())
         .unwrap();
     assert_eq!(first.name, "Крупное");
     let again = db
-        .saved_filter_save("крупное", "сумма>20000", now())
+        .saved_filter_save("крупное", "сумма>20000", FilterScreen::Expenses, now())
         .unwrap();
     assert_eq!(again.id, first.id);
-    db.saved_filter_save("Подарки", "#подарки", now()).unwrap();
+    db.saved_filter_save("Подарки", "#подарки", FilterScreen::Expenses, now())
+        .unwrap();
     let all = db.saved_filters().unwrap();
     assert_eq!(
         all.iter()
@@ -381,11 +384,11 @@ fn saved_filters_upsert_by_name_and_validate() {
         [("крупное", "сумма>20000"), ("Подарки", "#подарки")]
     );
     assert!(matches!(
-        db.saved_filter_save(" ", "x", now()),
+        db.saved_filter_save(" ", "x", FilterScreen::Expenses, now()),
         Err(planning_budget_storage::StorageError::Invalid(_))
     ));
     assert!(matches!(
-        db.saved_filter_save("a", "  ", now()),
+        db.saved_filter_save("a", "  ", FilterScreen::Expenses, now()),
         Err(planning_budget_storage::StorageError::Invalid(_))
     ));
     db.saved_filter_delete(first.id).unwrap();
@@ -393,6 +396,26 @@ fn saved_filters_upsert_by_name_and_validate() {
         db.saved_filter_delete(first.id),
         Err(planning_budget_storage::StorageError::NotFound)
     ));
+}
+
+#[test]
+fn saved_filters_with_the_same_name_live_separately_per_screen() {
+    let (_d, mut db) = fixture();
+    let exp = db
+        .saved_filter_save("Крупное", "сумма>100", FilterScreen::Expenses, now())
+        .unwrap();
+    let inc = db
+        .saved_filter_save("крупное", "сумма>500", FilterScreen::Incomes, now())
+        .unwrap();
+    assert_ne!(exp.id, inc.id);
+    assert_eq!(inc.screen, FilterScreen::Incomes);
+    let all = db.saved_filters().unwrap();
+    assert_eq!(all.len(), 2);
+    let again = db
+        .saved_filter_save("Крупное", "сумма>900", FilterScreen::Incomes, now())
+        .unwrap();
+    assert_eq!(again.id, inc.id);
+    assert_eq!(db.saved_filters().unwrap().len(), 2);
 }
 
 #[test]

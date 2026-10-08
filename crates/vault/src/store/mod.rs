@@ -2,18 +2,23 @@
 
 use std::path::PathBuf;
 
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use secrecy::{ExposeSecret, SecretString};
 
 use crate::crypto::{self, Dek, KdfParams, KeySlot, random_array};
 use crate::error::VaultError;
-use crate::file::{NextKeys, VaultDir, VaultFile};
+use crate::file::{VaultDir, VaultFile};
 use crate::recovery::{self, RecoveryCode};
 
 /// Минимальная длина пароля в символах.
 pub const MIN_PASSWORD_CHARS: usize = 10;
-const FREE_ATTEMPTS: u32 = 3;
-const MAX_BACKOFF_SECS: u64 = 60;
+
+mod backoff;
+mod rekey;
+mod restore;
+
+pub use backoff::backoff_secs;
+use backoff::retry_after;
 
 /// Результат `create`: DEK для открытия БД и recovery-код, который
 /// показывается пользователю один раз.
@@ -35,20 +40,6 @@ pub struct RekeyPlan {
 pub struct VaultStatus {
     pub exists: bool,
     pub retry_after_secs: u64,
-}
-
-/// Задержка после `failed_attempts` неудач подряд: `2^(n−3)` с после третьей, максимум 60 с.
-#[must_use]
-pub fn backoff_secs(failed_attempts: u32) -> u64 {
-    if failed_attempts < FREE_ATTEMPTS {
-        return 0;
-    }
-    let exp = failed_attempts - FREE_ATTEMPTS;
-    if exp >= 6 {
-        MAX_BACKOFF_SECS
-    } else {
-        (1u64 << exp).min(MAX_BACKOFF_SECS)
-    }
 }
 
 /// Сейф в каталоге данных приложения.
@@ -147,118 +138,10 @@ impl VaultStore {
         self.dir.save(&file)
     }
 
-    /// Перевыпуск ключа, шаг 1: проверяет пароль, создаёт новый DEK и новый recovery-код
-    /// и записывает их слоты в `vault.json` рядом со старыми (блок `next`).
-    /// Старый пароль и код продолжают работать, пока шаг 3 не заменит слоты.
-    pub fn begin_rekey(
-        &self,
-        password: &SecretString,
-        now: DateTime<Utc>,
-    ) -> Result<RekeyPlan, VaultError> {
-        let (mut file, _old) = self.verify_password(password, now)?;
-        if file.next.is_some() {
-            // Слоты прошлого перевыпуска могут быть единственной копией ключа, под которым
-            // уже лежит база. Перезаписывать их нельзя: сначала вход доводит дело до конца.
-            return Err(VaultError::RekeyPending);
-        }
-        let new_dek = Dek::random()?;
-        let recovery_code = RecoveryCode::generate()?;
-        let pw = KeySlot::wrap(
-            password.expose_secret().as_bytes(),
-            &file.vault_id,
-            file.params(),
-            &new_dek,
-        )?;
-        let rc = KeySlot::wrap(
-            recovery_code.secret(),
-            &file.vault_id,
-            file.params(),
-            &new_dek,
-        )?;
-        file.next = Some(NextKeys { pw, rc });
-        self.dir.save(&file)?;
-        Ok(RekeyPlan {
-            new_dek,
-            recovery_code,
-        })
-    }
-
-    /// Шаг 3, после успешного `rekey` базы: новые слоты становятся основными,
-    /// старые стираются — старый пароль и старый код больше ничего не разворачивают.
-    pub fn finish_rekey(&self) -> Result<(), VaultError> {
-        let mut file = self.dir.load_for_update()?;
-        if let Some(next) = file.next.take() {
-            file.pw = next.pw;
-            file.rc = next.rc;
-            self.dir.save(&file)?;
-        }
-        Ok(())
-    }
-
-    /// Откат шага 1, если база не перешифровалась.
-    pub fn abort_rekey(&self) -> Result<(), VaultError> {
-        let mut file = self.dir.load_for_update()?;
-        if file.next.take().is_some() {
-            self.dir.save(&file)?;
-        }
-        Ok(())
-    }
-
-    /// Есть ли недоведённый перевыпуск (процесс прервался после шага 1).
-    pub fn rekey_pending(&self) -> Result<bool, VaultError> {
-        Ok(self.dir.load()?.next.is_some())
-    }
-
-    /// Новый DEK из недоведённого перевыпуска. Нужен, когда база уже под новым ключом,
-    /// а основные слоты ещё старые. Счётчик неудачных попыток не меняется.
-    pub fn pending_rekey_dek(&self, password: &SecretString) -> Result<Option<Dek>, VaultError> {
-        let file = self.dir.load_for_update()?;
-        let Some(next) = &file.next else {
-            return Ok(None);
-        };
-        next.pw
-            .unwrap(
-                password.expose_secret().as_bytes(),
-                &file.vault_id,
-                file.params(),
-                VaultError::WrongPassword,
-            )
-            .map(Some)
-    }
-
     /// Удаляет `vault.json`: после этого данные не открыть ни паролем, ни recovery-кодом.
     /// Вызывающий отвечает за подтверждение пользователя (`vault_reset`).
     pub fn destroy(&self) -> Result<(), VaultError> {
         self.dir.destroy()
-    }
-
-    /// Вход по recovery-коду. Код на 128 бит перебору не поддаётся,
-    /// поэтому счётчик попыток не ведётся.
-    pub fn unlock_recovery(&self, code: &SecretString) -> Result<Dek, VaultError> {
-        let file = self.dir.load_for_update()?;
-        unwrap_with_recovery(&file, code)
-    }
-
-    /// «Забыл пароль»: recovery-код открывает DEK, слот `pw` пишется заново
-    /// под новый пароль, счётчик неудач сбрасывается.
-    pub fn reset_password_with_recovery(
-        &self,
-        code: &SecretString,
-        new: &SecretString,
-    ) -> Result<Dek, VaultError> {
-        check_new_password(new)?;
-        let mut file = self.dir.load_for_update()?;
-        let dek = unwrap_with_recovery(&file, code)?;
-        file.pw = KeySlot::wrap(
-            new.expose_secret().as_bytes(),
-            &file.vault_id,
-            file.params(),
-            &dek,
-        )?;
-        file.failed_attempts = 0;
-        file.last_failed_at = None;
-        self.dir.save(&file)?;
-        Ok(dek)
     }
 
     fn verify_password(
@@ -322,25 +205,6 @@ fn check_new_password(password: &SecretString) -> Result<(), VaultError> {
         });
     }
     Ok(())
-}
-
-/// Сколько секунд ещё ждать до следующей попытки (округление вверх).
-fn retry_after(file: &VaultFile, now: DateTime<Utc>) -> u64 {
-    let delay = backoff_secs(file.failed_attempts);
-    let (true, Some(last)) = (delay > 0, file.last_failed_at) else {
-        return 0;
-    };
-    let Ok(delay_secs) = i64::try_from(delay) else {
-        return MAX_BACKOFF_SECS;
-    };
-    let remaining_ms = (last + Duration::seconds(delay_secs) - now).num_milliseconds();
-    if remaining_ms <= 0 {
-        return 0;
-    }
-    // Часы ушли назад: ждём не дольше максимальной задержки.
-    u64::try_from((remaining_ms + 999) / 1000)
-        .unwrap_or(MAX_BACKOFF_SECS)
-        .min(MAX_BACKOFF_SECS)
 }
 
 /// UUID v4 из случайных байтов: отдельная зависимость ради одного поля не нужна.

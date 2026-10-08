@@ -4,6 +4,7 @@
   import { vaultApi } from '$lib/api/vault';
   import { Button, Checkbox } from '$lib/components';
   import { errorText } from '$lib/i18n/errors';
+  import { copySecret, SECRET_CLIPBOARD_TTL_MS, type SecretCopy } from '$lib/security/clipboard';
   import { session } from '$lib/stores/session.svelte';
 
   type Props = { code: string };
@@ -17,11 +18,17 @@
 
   const groups = $derived(code.split('-'));
 
+  let copied: SecretCopy | null = null;
+
+  // Код не должен пережить экран: при уходе с него (подтверждение, блокировка) буфер чистится.
+  $effect(() => () => void copied?.clearNow());
+
   async function copy(): Promise<void> {
     failure = null;
     try {
-      await navigator.clipboard.writeText(code);
-      notice = 'Скопировано. Очистите буфер обмена, когда сохраните код.';
+      await copied?.clearNow();
+      copied = await copySecret(code);
+      notice = `Скопировано. Буфер очистится через ${String(SECRET_CLIPBOARD_TTL_MS / 1000)} с. Журнал буфера Windows (Win+V) мог сохранить копию: надёжнее записать код в файл.`;
     } catch {
       notice = null;
       failure = 'Не удалось скопировать. Выделите код и скопируйте вручную.';
@@ -43,6 +50,7 @@
     if (!confirmed || busy) return;
     busy = true;
     try {
+      await copied?.clearNow();
       await session.acknowledgeRecovery();
     } finally {
       busy = false;

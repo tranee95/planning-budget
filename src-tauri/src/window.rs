@@ -43,6 +43,21 @@ pub fn apply_theme(app: &AppHandle, theme: &Theme) {
     }
 }
 
+/// Второй запуск приложения: разворачивает и выводит вперёд главное окно. Состояние сессии не трогает:
+/// заблокированное приложение остаётся на экране входа.
+pub fn focus_main(app: &AppHandle) {
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    if let Err(err) = window
+        .unminimize()
+        .and_then(|()| window.show())
+        .and_then(|()| window.set_focus())
+    {
+        tracing::warn!(%err, "main window not focused");
+    }
+}
+
 /// Тёмная ли тема у окна (в режиме «системная» — тема ОС). Если узнать нельзя — тёмная.
 #[must_use]
 pub fn is_dark(app: &AppHandle) -> bool {

@@ -1,11 +1,9 @@
 <script lang="ts">
   import { Card, Chart, SimpleTable } from '$lib/components';
-  import { lineSpec } from '$lib/charts/line-spec';
   import { currentMonth, formatMoney } from '$lib/format';
   import { getSavingsVm } from '../savings.svelte';
 
   const vm = getSavingsVm();
-  const spec = lineSpec('Прогноз баланса накопления на 5 лет');
   const item = $derived(vm.selected);
   const past = $derived(vm.data !== null && vm.data.year < Number(currentMonth().slice(0, 4)));
 </script>
@@ -15,7 +13,9 @@
     <p class="from">
       От баланса на конец {vm.data.year} года: <strong>{formatMoney(item.balance)}</strong>
     </p>
-    <div class="plot"><Chart data={item.forecastChart} {spec} /></div>
+    <div class="plot">
+      <Chart data={item.forecastChart} type="line" title="Прогноз баланса накопления на 5 лет" />
+    </div>
     {#if past}
       <p class="note">
         Для прошлого года это расчёт «что было бы»: от баланса на конец {vm.data.year} года с взносами

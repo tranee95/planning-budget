@@ -2,12 +2,10 @@
   import ChevronLeft from '@lucide/svelte/icons/chevron-left';
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
   import { Card, Chart, IconButton, SimpleTable } from '$lib/components';
-  import { lineSpec } from '$lib/charts/line-spec';
   import { formatMoney, formatMonth } from '$lib/format';
   import { getSavingsVm } from '../savings.svelte';
 
   const vm = getSavingsVm();
-  const spec = lineSpec('Баланс накопления по месяцам');
   const item = $derived(vm.selected);
 </script>
 
@@ -43,7 +41,9 @@
         В {vm.data.year} году взносов нет: растёт только стартовый баланс за счёт купонов.
       </p>
     {/if}
-    <div class="plot"><Chart data={item.factChart} {spec} /></div>
+    <div class="plot">
+      <Chart data={item.factChart} type="line" title="Баланс накопления по месяцам" />
+    </div>
     <SimpleTable
       caption={`Накопление по месяцам, ${String(vm.data.year)}`}
       headers={['Месяц', 'Взнос', 'Купон', 'Баланс', 'Внесено всего', 'Купоны всего']}

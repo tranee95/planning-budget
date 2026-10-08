@@ -20,6 +20,9 @@ export class LockVm {
   error = $state<string | null>(null);
   shake = $state(0);
 
+  // Повтор переноса данных из прежней папки
+  migrationError = $state<string | null>(null);
+
   // Сброс по ключу восстановления
   code = $state('');
   resetPassword = $state('');
@@ -84,6 +87,19 @@ export class LockVm {
       this.setupRepeat = '';
     } catch (e) {
       this.setupError = errorText(e);
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  async retryMigration(): Promise<void> {
+    if (this.busy) return;
+    this.busy = true;
+    this.migrationError = null;
+    try {
+      await session.retryMigration();
+    } catch (e) {
+      this.migrationError = errorText(e);
     } finally {
       this.busy = false;
     }

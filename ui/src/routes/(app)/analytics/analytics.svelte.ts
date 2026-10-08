@@ -1,6 +1,7 @@
 import { getContext, setContext } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 import { type ChartCardDto, type ChartSpecDto, type DashboardDto } from '$lib/api/bindings';
+import { ApiError } from '$lib/api/call';
 import { onDataChanged } from '$lib/api/data-events';
 import { analyticsApi, dashboardsApi } from '$lib/api/data';
 import type { CardData } from '$lib/charts/card-data';
@@ -88,19 +89,31 @@ export class AnalyticsVm {
   /** Пересчитывает данные всех карточек (после изменения записей или правки графика). */
   async refreshData(): Promise<void> {
     const generation = ++this.#generation;
-    await Promise.all(
-      this.cards.map(async (card) => {
-        if (!this.data.has(card.id)) this.data.set(card.id, { status: 'loading' });
-        try {
-          const data = await analyticsApi.run(card.spec);
-          if (generation === this.#generation) this.data.set(card.id, { status: 'ready', data });
-        } catch (e) {
-          if (generation === this.#generation) {
-            this.data.set(card.id, { status: 'error', message: errorText(e) });
-          }
+    const cards = this.cards;
+    for (const card of cards) {
+      if (!this.data.has(card.id)) this.data.set(card.id, { status: 'loading' });
+    }
+    // Один вызов на все карточки: бэкенд читает набор данных и считает Ledger один раз.
+    try {
+      const results = await analyticsApi.runMany(cards.map((card) => card.spec));
+      if (generation !== this.#generation) return;
+      cards.forEach((card, i) => {
+        const result = results[i];
+        if (result?.data) {
+          this.data.set(card.id, { status: 'ready', data: result.data });
+        } else {
+          const messageKey = result?.errorKey ?? '';
+          this.data.set(card.id, {
+            status: 'error',
+            message: errorText(new ApiError({ code: 'Validation', messageKey, field: null }))
+          });
         }
-      })
-    );
+      });
+    } catch (e) {
+      if (generation !== this.#generation) return;
+      const message = errorText(e);
+      for (const card of cards) this.data.set(card.id, { status: 'error', message });
+    }
   }
 
   // --- раскладка ---
@@ -231,6 +244,19 @@ export class AnalyticsVm {
   async createDashboard(name: string): Promise<boolean> {
     try {
       const created = await dashboardsApi.create(name);
+      this.dashboards = [...this.dashboards, created];
+      await this.select(created.id);
+      return true;
+    } catch (e) {
+      toasts.push({ message: errorText(e), kind: 'error' });
+      return false;
+    }
+  }
+
+  /** Предложение для пустого списка: добавляет стандартный дашборд (только по клику). */
+  async createDefaultDashboard(): Promise<boolean> {
+    try {
+      const created = await dashboardsApi.createDefault();
       this.dashboards = [...this.dashboards, created];
       await this.select(created.id);
       return true;

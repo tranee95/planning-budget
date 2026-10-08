@@ -395,6 +395,27 @@ it('теги: setTags сохраняет выбор и перечитывает 
   expect(vm.transactions.find((t) => t.id === 1)?.tagIds).toEqual([1, 2]);
 });
 
+it('теги: setTags пишет прежний набор в стек отмены, ⌘Z и ⇧⌘Z переключают наборы', async () => {
+  const vm = new ExpensesVm();
+  await vm.load('2026-09');
+  const before = vm.transactions.find((t) => t.id === 1)?.tagIds ?? [];
+  await vm.setTags(1, [1, 2]);
+  expect(undoStack.depth).toBe(1);
+
+  await undoStack.undo();
+  expect(vm.transactions.find((t) => t.id === 1)?.tagIds).toEqual(before);
+  await undoStack.redo();
+  expect(vm.transactions.find((t) => t.id === 1)?.tagIds).toEqual([1, 2]);
+});
+
+it('теги: тот же набор не попадает в стек отмены', async () => {
+  const vm = new ExpensesVm();
+  await vm.load('2026-09');
+  const same = vm.transactions.find((t) => t.id === 1)?.tagIds ?? [];
+  await vm.setTags(1, [...same]);
+  expect(undoStack.depth).toBe(0);
+});
+
 it('поиск по тегу: «#подарки» находит траты с этим тегом', async () => {
   const vm = new ExpensesVm();
   vm.mode = 'table';

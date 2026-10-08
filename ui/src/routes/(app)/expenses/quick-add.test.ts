@@ -1,5 +1,6 @@
 import { clearMocks } from '@tauri-apps/api/mocks';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { transactionsApi } from '$lib/api/data';
 import { resetMockBudget } from '$lib/api/mock/budget';
 import { installMocks } from '$lib/api/mock/install';
 import { categories } from '$lib/stores/categories.svelte';
@@ -178,4 +179,28 @@ it('dateError: дата вне месяца экрана блокирует со
   vm.date = '2026-09-30';
   expect(vm.dateError).toBeNull();
   expect(vm.canSave).toBe(true);
+});
+
+it('save: каждая новая трата уходит со своим request_id, повтор того же id не создаёт дубль', async () => {
+  const create = vi.spyOn(transactionsApi, 'create');
+  const { expenses, vm } = await open();
+  expenses.openEditor();
+  vm.categoryId = 1;
+  for (const title of ['Раз', 'Два']) {
+    vm.amount = 10_000;
+    vm.title = title;
+    await vm.save(true);
+  }
+  const [first, second] = create.mock.calls.map(([requestId]) => requestId);
+  expect(first).toBeTruthy();
+  expect(second).not.toBe(first);
+
+  const input = create.mock.calls[0]?.[1];
+  if (!input) throw new Error('create не вызывался');
+  const before = expenses.transactions.length;
+  const again = await transactionsApi.create(first ?? '', input);
+  expect(again.title).toBe('Раз');
+  await expenses.load('2026-09');
+  expect(expenses.transactions).toHaveLength(before);
+  create.mockRestore();
 });

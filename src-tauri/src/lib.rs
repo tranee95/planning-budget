@@ -1,6 +1,6 @@
 //! Оболочка Tauri: состояние сессии, команды, события.
 
-mod commands;
+pub mod commands;
 mod data_migration;
 mod dto;
 mod error;
@@ -8,6 +8,7 @@ mod events;
 mod idle;
 pub mod logging;
 mod prefs;
+mod recent;
 pub mod self_test;
 mod services;
 mod state;
@@ -55,6 +56,10 @@ pub fn run() -> tauri::Result<()> {
         tracing::warn!(%err, "bindings export failed");
     }
     tauri::Builder::default()
+        // Первым в цепочке: второй процесс завершается, первое окно выходит вперёд.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            window::focus_main(app);
+        }))
         .plugin(tauri_plugin_window_state::Builder::default().build())
         // Диалоги открывает только Rust; фронтенду dialog:* не выдан.
         .plugin(tauri_plugin_dialog::init())
@@ -63,17 +68,17 @@ pub fn run() -> tauri::Result<()> {
         .setup(move |app| {
             builder.mount_events(app);
             let data_dir = app.path().app_data_dir()?;
-            if let Some(old) = data_migration::LEGACY_IDENTIFIER
-                .and_then(|id| data_migration::legacy_dir(&data_dir, id))
-            {
-                // Результат не логируется: пути и данные в лог не попадают.
-                let _ = data_migration::migrate(&old, &data_dir);
-            }
             let log_dir = data_dir.join("logs");
             std::fs::create_dir_all(&log_dir)?;
             app.manage(AppState::new(AppPaths::new(data_dir)));
             let guard = logging::init(&log_dir)?;
             app.manage(guard);
+            let state = app.state::<AppState>();
+            state.set_legacy_dir(
+                data_migration::LEGACY_IDENTIFIER
+                    .and_then(|id| data_migration::legacy_dir(state.paths().data_dir(), id)),
+            );
+            services::vault::run_migration(&state);
             idle::spawn_watcher(app.handle().clone())?;
             window::init(app.handle());
             Ok(())

@@ -44,7 +44,7 @@ it('быстрый график равными частями приходит �
   vm.draft.months = '3';
   await vm.refreshSchedule();
   expect(vm.schedule.map((r) => r.month)).toEqual(['2026-10', '2026-11', '2026-12']);
-  expect(vm.schedule.reduce((sum, r) => sum + r.amount, 0)).toBe(1_000_001);
+  expect(vm.scheduleTotal).toBe(1_000_001);
   expect(vm.scheduleError).toBeNull();
 });
 
@@ -118,6 +118,44 @@ it('редактирование: график можно менять, пока
   await vm.save();
   expect(vm.overview?.debts[0]?.lender).toBe('Рассрочка');
   expect(vm.overview?.debts[0]?.remaining).toBe(2_000_000);
+});
+
+it('правка комментария не отправляет перестроенный график, неравный график сохраняется', async () => {
+  const vm = new DebtsVm();
+  await vm.load('2026-09');
+  vm.startNew();
+  vm.draft.lender = 'Брат';
+  vm.draft.amount = 3_000_000;
+  vm.draft.kind = 'single';
+  vm.draft.singleMonth = '2026-12';
+  await vm.refreshSchedule();
+  await vm.save();
+  const debt = vm.overview?.debts[0];
+  const id = debt?.id ?? 0;
+  expect(debt?.payments.map((p) => p.month)).toEqual(['2026-12']);
+
+  vm.select(id);
+  await vm.refreshSchedule();
+  expect(vm.schedule).toEqual([{ month: '2026-12', amount: 3_000_000 }]);
+  vm.draft.comment = 'до зарплаты';
+  await vm.refreshSchedule();
+  await vm.save();
+  const saved = vm.overview?.debts[0];
+  expect(saved?.comment).toBe('до зарплаты');
+  expect(saved?.payments.map((p) => p.month)).toEqual(['2026-12']);
+});
+
+it('правка месяцев пересобирает график, возврат к исходным значениям восстанавливает его', async () => {
+  const vm = new DebtsVm();
+  await vm.load('2026-09');
+  await createThreeMonthDebt(vm);
+  vm.select(vm.overview?.debts[0]?.id ?? 0);
+  vm.draft.months = '2';
+  await vm.refreshSchedule();
+  expect(vm.schedule).toHaveLength(2);
+  vm.draft.months = '3';
+  await vm.refreshSchedule();
+  expect(vm.schedule.map((r) => r.month)).toEqual(['2026-10', '2026-11', '2026-12']);
 });
 
 it('удаление возвращается тостом «Вернуть»', async () => {

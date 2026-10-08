@@ -7,9 +7,10 @@ use planning_budget_storage::{Db, LIST_LIMIT, SearchResult};
 
 use crate::AppError;
 use crate::dto::{
-    CategoryHitDto, CategoryUsageDto, IncomeDto, IncomeGroupDto, IncomeHitDto, IncomeSearchDto,
-    MonthHitDto, QueryHintSpanDto, SavedFilterDto, SearchResultDto, TitleSuggestionDto,
-    TokenSpanDto, TransactionDto, TransactionGroupDto, TransactionHitDto, TransactionSearchDto,
+    CategoryHitDto, CategoryUsageDto, FilterScreenDto, IncomeDto, IncomeGroupDto, IncomeHitDto,
+    IncomeSearchDto, MonthHitDto, QueryHintSpanDto, QueryParseDto, SavedFilterDto, SearchResultDto,
+    TitleSuggestionDto, TokenSpanDto, TransactionDto, TransactionGroupDto, TransactionHitDto,
+    TransactionSearchDto,
 };
 use crate::services::month_of;
 
@@ -126,6 +127,15 @@ fn to_dto(request_id: u32, parsed: &ParsedQuery, found: &SearchResult) -> Search
     }
 }
 
+/// Только разбор строки: данные не читаются, поэтому БД не нужна.
+pub fn query_parse(query: &str, current_year: u16) -> QueryParseDto {
+    let parsed = parse(clip(query), current_year);
+    QueryParseDto {
+        spans: spans(&parsed),
+        hints: hints(&parsed),
+    }
+}
+
 /// Полный список трат по запросу: строки таблицы «Расходы» при активном фильтре.
 pub fn tx_list(
     db: &Db,
@@ -169,11 +179,7 @@ pub fn filters_list(db: &Db) -> Result<Vec<SavedFilterDto>, AppError> {
     Ok(db
         .saved_filters()?
         .into_iter()
-        .map(|f| SavedFilterDto {
-            id: f.id,
-            name: f.name,
-            query: f.query,
-        })
+        .map(SavedFilterDto::from)
         .collect())
 }
 
@@ -181,14 +187,12 @@ pub fn filter_save(
     db: &mut Db,
     name: &str,
     query: &str,
+    screen: FilterScreenDto,
     now: DateTime<Utc>,
 ) -> Result<SavedFilterDto, AppError> {
-    let f = db.saved_filter_save(name, query, now)?;
-    Ok(SavedFilterDto {
-        id: f.id,
-        name: f.name,
-        query: f.query,
-    })
+    Ok(db
+        .saved_filter_save(name, query, screen.into(), now)?
+        .into())
 }
 
 pub fn filter_delete(db: &mut Db, id: i64) -> Result<(), AppError> {
@@ -226,4 +230,30 @@ pub fn category_usage(db: &Db, today: NaiveDate) -> Result<Vec<CategoryUsageDto>
             uses,
         })
         .collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn query_parse_returns_chips_and_hints_without_a_database() {
+        let parsed = query_parse("тип:желания сумма>500 кофе", 2026);
+        assert_eq!(parsed.spans.len(), 3);
+        assert!(parsed.hints.is_empty());
+        // Границы — в символах, как у tx_search: чипы режут строку по ним.
+        assert_eq!((parsed.spans[0].start, parsed.spans[0].end), (0, 11));
+    }
+
+    #[test]
+    fn query_parse_flags_unknown_values() {
+        let parsed = query_parse("статус:несуществует", 2026);
+        assert_eq!(parsed.hints.len(), 1);
+    }
+
+    #[test]
+    fn empty_query_has_no_chips() {
+        let parsed = query_parse("   ", 2026);
+        assert!(parsed.spans.is_empty() && parsed.hints.is_empty());
+    }
 }

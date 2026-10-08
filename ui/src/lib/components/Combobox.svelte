@@ -12,9 +12,21 @@
     value: string | null;
     placeholder?: string;
     onchange: (value: string) => void;
+    /** Для необязательных полей: первым пунктом (без поискового запроса) идёт «Не выбрано», его выбор вызывает `onclear`. */
+    onclear?: () => void;
+    clearLabel?: string;
   };
 
-  let { id, label, options, value, placeholder, onchange }: Props = $props();
+  let {
+    id,
+    label,
+    options,
+    value,
+    placeholder,
+    onchange,
+    onclear,
+    clearLabel = 'Не выбрано'
+  }: Props = $props();
 
   const listId = $props.id();
   let open = $state(false);
@@ -49,18 +61,23 @@
 
   const selectedLabel = $derived(options.find((o) => o.value === value)?.label ?? '');
   // Поиск общий с палитрой: ё = е, регистр не важен, начало слова выше.
-  const results = $derived(
+  const found = $derived(
     filterCommands(
       options.map((o) => ({ id: o.value, label: o.label, group: '', run: () => {} })),
       query
     )
   );
+  type Row = { id: string | null; label: string };
+  const results = $derived<Row[]>(
+    onclear && query.trim() === '' ? [{ id: null, label: clearLabel }, ...found] : found
+  );
   const activeIndex = $derived(Math.min(active, Math.max(results.length - 1, 0)));
   const optionId = (i: number): string => `${listId}-${String(i)}`;
 
-  function choose(optionValue: string | undefined): void {
-    if (optionValue === undefined) return;
-    onchange(optionValue);
+  function choose(row: Row | undefined): void {
+    if (row === undefined) return;
+    if (row.id === null) onclear?.();
+    else onchange(row.id);
     open = false;
     query = '';
   }
@@ -76,7 +93,7 @@
       active = (activeIndex + step + results.length) % Math.max(results.length, 1);
     } else if (event.key === 'Enter' && open) {
       event.preventDefault();
-      choose(results[activeIndex]?.id);
+      choose(results[activeIndex]);
     } else if (event.key === 'Escape' && open) {
       event.stopPropagation();
       open = false;
@@ -123,19 +140,20 @@
     />
     {#if open}
       <ul id={listId} role="listbox" aria-label={label} style={listStyle}>
-        {#each results as option, i (option.id)}
+        {#each results as option, i (option.id ?? '')}
           <li
             id={optionId(i)}
             role="option"
             aria-selected={option.id === value}
             class:active={i === activeIndex}
+            class:clear={option.id === null}
             onpointermove={() => {
               active = i;
             }}
             onpointerdown={(event) => {
               // Не даём полю потерять фокус раньше выбора.
               event.preventDefault();
-              choose(option.id);
+              choose(option);
             }}
           >
             {option.label}
@@ -199,6 +217,9 @@
   }
   li.active {
     background: var(--accent-soft);
+  }
+  li.clear {
+    color: var(--muted);
   }
   .none {
     color: var(--muted);

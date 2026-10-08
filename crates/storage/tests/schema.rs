@@ -196,6 +196,29 @@ fn rekey_moves_the_whole_database_to_the_new_key() {
 }
 
 #[test]
+fn rekey_can_be_repeated_within_one_session() {
+    const LAST_KEY: [u8; 32] = [11; 32];
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("budget.db");
+    {
+        let mut db = Db::create(&path, &KEY).unwrap();
+        db.seed_defaults(now()).unwrap();
+        let cat = category_id(db.conn(), "Продукты");
+        for key in [[9; 32], [10; 32], LAST_KEY] {
+            add_tx(db.conn(), cat, "Лента", None);
+            db.rekey(&key).unwrap();
+        }
+        let mode: String = db
+            .conn()
+            .query_row("PRAGMA journal_mode", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(mode, "wal");
+    }
+    let db = Db::open(&path, &LAST_KEY).unwrap();
+    assert_eq!(count(db.conn(), "SELECT count(*) FROM transactions"), 3);
+}
+
+#[test]
 fn rekeyed_database_file_is_still_encrypted() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("budget.db");

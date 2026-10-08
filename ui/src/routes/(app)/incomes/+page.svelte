@@ -73,6 +73,7 @@
   <FilterBar
     filter={vm.filter}
     subject="доходов"
+    screen="incomes"
     placeholder="Поиск по доходам: зарплата сумма>50000 период:2026"
   />
 

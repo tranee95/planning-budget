@@ -170,6 +170,15 @@ pub struct ChartDataDto {
     pub unit: ChartUnitDto,
 }
 
+/// Результат одного графика пакетного расчёта: либо данные, либо ключ причины
+/// (`errors.chart.<причина>`), чтобы один недопустимый график не ронял остальные.
+#[derive(Debug, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ChartRunDto {
+    pub data: Option<ChartDataDto>,
+    pub error_key: Option<String>,
+}
+
 #[derive(Debug, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct DashboardDto {

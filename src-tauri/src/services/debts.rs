@@ -11,7 +11,7 @@ use super::{parse_date, parse_month};
 use crate::AppError;
 use crate::dto::{
     DebtDto, DebtInput, DebtPatchDto, DebtPaymentDto, DebtPaymentStatusDto, DebtScheduleKindDto,
-    DebtsOverviewDto, SchedulePaymentDto,
+    DebtsOverviewDto, SchedulePaymentDto, SchedulePreviewDto,
 };
 
 /// График на входе → строки `(месяц, сумма)`.
@@ -181,7 +181,7 @@ pub fn schedule_preview(
     amount: i64,
     taken_month: &str,
     kind: DebtScheduleKindDto,
-) -> Result<Vec<SchedulePaymentDto>, AppError> {
+) -> Result<SchedulePreviewDto, AppError> {
     let taken = parse_month(taken_month, "takenMonth")?;
     let amount = Money::from_kopecks(amount);
     let rows = match kind {
@@ -196,13 +196,18 @@ pub fn schedule_preview(
         }
     }
     .map_err(schedule_error)?;
-    Ok(rows
-        .into_iter()
-        .map(|(month, amount)| SchedulePaymentDto {
-            month: month.to_string(),
-            amount: amount.kopecks(),
-        })
-        .collect())
+    let total = Money::sum(rows.iter().map(|(_, amount)| *amount))
+        .map_err(planning_budget_core::CoreError::from)?;
+    Ok(SchedulePreviewDto {
+        rows: rows
+            .into_iter()
+            .map(|(month, amount)| SchedulePaymentDto {
+                month: month.to_string(),
+                amount: amount.kopecks(),
+            })
+            .collect(),
+        total: total.kopecks(),
+    })
 }
 
 /// Месяцы, которых коснулось изменение долга: месяц займа и месяцы графика.

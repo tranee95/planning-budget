@@ -1,6 +1,7 @@
 import { commands } from './bindings';
 import type {
   CategoryInput,
+  FilterScreenDto,
   CardPlacementDto,
   CategoryPatchDto_Deserialize,
   DebtInput,
@@ -32,6 +33,8 @@ export const categoriesApi = {
   reorder: (ids: number[]) => call(commands.categoriesReorder(ids)),
   setLimit: (categoryId: number, validFrom: string, amount: number) =>
     call(commands.limitsSet(categoryId, validFrom, amount)),
+  unsetLimit: (categoryId: number, validFrom: string) =>
+    call(commands.limitsUnset(categoryId, validFrom)),
   clearLimit: (categoryId: number, validFrom: string) =>
     call(commands.limitsClear(categoryId, validFrom)),
   limitHistory: (categoryId: number) => call(commands.limitsHistory(categoryId)),
@@ -45,7 +48,7 @@ export const categoriesApi = {
 
 export const transactionsApi = {
   list: (month: string) => call(commands.txList(month)),
-  create: (input: TransactionInput) => call(commands.txCreate(input)),
+  create: (requestId: string, input: TransactionInput) => call(commands.txCreate(requestId, input)),
   update: (id: number, patch: TransactionPatchDto_Deserialize) =>
     call(commands.txUpdate(id, patch)),
   setStatus: (id: number, status: TxStatusDto) => call(commands.txSetStatus(id, status)),
@@ -58,9 +61,7 @@ export const transactionsApi = {
 
 export const tagsApi = {
   list: () => call(commands.tagsList()),
-  create: (name: string) => call(commands.tagsCreate(name)),
-  rename: (id: number, name: string) => call(commands.tagsRename(id, name)),
-  remove: (id: number) => call(commands.tagsDelete(id))
+  create: (name: string) => call(commands.tagsCreate(name))
 };
 
 export const incomesApi = {
@@ -119,24 +120,29 @@ export const legacyApi = {
 
 export const searchApi = {
   run: (query: string, requestId: number) => call(commands.search(query, requestId)),
+  /** Разбор строки запроса на токены и подсказки без выборки данных. */
+  parse: (query: string) => call(commands.queryParse(query)),
   transactions: (query: string, requestId: number) => call(commands.txSearch(query, requestId)),
   incomes: (query: string, requestId: number) => call(commands.incomesSearch(query, requestId))
 };
 
 export const filtersApi = {
   list: () => call(commands.filtersList()),
-  save: (name: string, query: string) => call(commands.filtersSave(name, query)),
+  save: (name: string, query: string, screen: FilterScreenDto) =>
+    call(commands.filtersSave(name, query, screen)),
   remove: (id: number) => call(commands.filtersDelete(id))
 };
 
 export const analyticsApi = {
   run: (spec: ChartSpecDto) => call(commands.analyticsRun(spec)),
+  runMany: (specs: ChartSpecDto[]) => call(commands.analyticsRunMany(specs)),
   check: (specs: ChartSpecDto[]) => call(commands.analyticsCheck(specs))
 };
 
 export const dashboardsApi = {
   list: () => call(commands.dashboardsList()),
   create: (name: string) => call(commands.dashboardsCreate(name)),
+  createDefault: () => call(commands.dashboardsCreateDefault()),
   rename: (id: number, name: string) => call(commands.dashboardsRename(id, name)),
   remove: (id: number) => call(commands.dashboardsDelete(id)),
   charts: (dashboardId: number) => call(commands.chartsList(dashboardId)),

@@ -10,8 +10,8 @@ use tempfile::TempDir;
 use super::{analytics, categories, devseed, plan, records, savings, settings, summary};
 use crate::AppError;
 use crate::dto::{
-    CategoryInput, CategoryKindDto, CategoryPatchDto, PlanBalanceDto, SettingsPatchDto,
-    TransactionInput, TransactionPatchDto, TxStatusDto,
+    CategoryInput, CategoryKindDto, CategoryPatchDto, FilterScreenDto, PlanBalanceDto,
+    SettingsPatchDto, TransactionInput, TransactionPatchDto, TxStatusDto,
 };
 
 const KEY: [u8; 32] = [7; 32];
@@ -348,8 +348,14 @@ fn filtered_lists_match_palette_totals_and_saved_filters_roundtrip() {
     let incomes = super::search::income_list(&db, "доход", 3, 2026).unwrap();
     assert_eq!(incomes.items.len() as u64, incomes.total);
 
-    let saved =
-        super::search::filter_save(&mut db, "Лента", "лента статус:оплачено", now()).unwrap();
+    let saved = super::search::filter_save(
+        &mut db,
+        "Лента",
+        "лента статус:оплачено",
+        FilterScreenDto::Expenses,
+        now(),
+    )
+    .unwrap();
     let all = super::search::filters_list(&db).unwrap();
     assert_eq!(all.len(), 1);
     assert_eq!(all[0].id, saved.id);
@@ -402,9 +408,63 @@ fn analytics_run_uses_the_database_and_reports_invalid_specs_by_key() {
 }
 
 #[test]
+fn analytics_run_many_equals_single_runs_and_isolates_invalid_specs() {
+    use planning_budget_core::analytics::standard_dashboard;
+
+    let (_dir, db) = seeded();
+    let mut specs: Vec<_> = standard_dashboard()
+        .iter()
+        .map(|p| analytics::spec_to_dto(&p.spec).unwrap())
+        .collect();
+    let mut narrow = specs[0].clone();
+    narrow.period = crate::dto::ChartPeriodDto::Preset {
+        preset: crate::dto::PeriodPresetDto::CurrentMonth,
+    };
+    let mut compare = specs[0].clone();
+    compare.options.compare_prev_period = true;
+    compare.period = crate::dto::ChartPeriodDto::Range {
+        from: "2026-05".to_owned(),
+        to: "2026-07".to_owned(),
+    };
+    let mut all = specs[0].clone();
+    all.period = crate::dto::ChartPeriodDto::Preset {
+        preset: crate::dto::PeriodPresetDto::All,
+    };
+    let mut invalid = specs[0].clone();
+    invalid.metrics.clear();
+    invalid.series_by = None;
+    invalid.chart_type = crate::dto::ChartTypeDto::StackedBar;
+    specs.extend([narrow, compare, all, invalid]);
+
+    let many = analytics::run_many(&db, &specs, today()).unwrap();
+    assert_eq!(many.len(), specs.len());
+    for (spec, got) in specs.iter().zip(&many) {
+        match analytics::run(&db, spec, today()) {
+            Ok(single) => {
+                assert!(got.error_key.is_none());
+                assert_eq!(
+                    serde_json::to_value(got.data.as_ref().unwrap()).unwrap(),
+                    serde_json::to_value(&single).unwrap()
+                );
+            }
+            Err(AppError::Validation { message_key, .. }) => {
+                assert!(got.data.is_none());
+                assert_eq!(got.error_key.as_deref(), Some(message_key.as_str()));
+            }
+            Err(e) => panic!("{e:?}"),
+        }
+    }
+    assert_eq!(
+        many.last().unwrap().error_key.as_deref(),
+        Some("errors.chart.stacked_without_series")
+    );
+    assert!(analytics::run_many(&db, &[], today()).unwrap().is_empty());
+}
+
+#[test]
 fn savings_overview_matches_the_bonds_golden_for_the_seeded_accumulation() {
     let (_dir, db) = seeded();
-    let dto = savings::overview(&db, 2026, today()).unwrap();
+    let dto = savings::overview(&db, 2026).unwrap();
     assert_eq!(dto.items.len(), 1);
     let item = &dto.items[0];
     assert_eq!(item.months.len(), 12);
@@ -432,7 +492,7 @@ fn savings_overview_matches_the_bonds_golden_for_the_seeded_accumulation() {
 #[test]
 fn savings_charts_come_ready_from_the_backend() {
     let (_dir, db) = seeded();
-    let dto = savings::overview(&db, 2026, today()).unwrap();
+    let dto = savings::overview(&db, 2026).unwrap();
     let item = &dto.items[0];
     let fact = &item.fact_chart;
     assert_eq!(fact.categories.len(), item.months.len());
@@ -465,7 +525,7 @@ fn savings_params_and_fixed_plan_are_saved_and_shown() {
     )
     .unwrap();
     savings::fixed_set(&mut db, id.0, "2026-09", rub(5_000)).unwrap();
-    let dto = savings::overview(&db, 2026, today()).unwrap();
+    let dto = savings::overview(&db, 2026).unwrap();
     let item = &dto.items[0];
     assert_eq!(
         (item.params.annual_rate_bp, item.params.initial_balance),
@@ -706,6 +766,8 @@ fn schedule_preview_builds_equal_parts_and_single_payment() {
     use crate::dto::DebtScheduleKindDto::{EqualParts, Single};
     let equal =
         debts::schedule_preview(rub(10_000) + 1, "2026-09", EqualParts { months: 3 }).unwrap();
+    assert_eq!(equal.total, rub(10_000) + 1);
+    let equal = equal.rows;
     let months: Vec<&str> = equal.iter().map(|r| r.month.as_str()).collect();
     assert_eq!(months, vec!["2026-10", "2026-11", "2026-12"]);
     assert_eq!(equal.iter().map(|r| r.amount).sum::<i64>(), rub(10_000) + 1);
@@ -722,7 +784,8 @@ fn schedule_preview_builds_equal_parts_and_single_payment() {
         },
     )
     .unwrap();
-    assert_eq!(single.len(), 1);
+    assert_eq!(single.rows.len(), 1);
+    assert_eq!(single.total, rub(500));
 
     let early = debts::schedule_preview(
         rub(500),
@@ -781,8 +844,9 @@ fn debt_from_a_debt_status_transaction_takes_its_amount_and_category() {
         crate::dto::DebtScheduleKindDto::EqualParts { months: 3 },
     )
     .unwrap();
-    let debt = debts::create_from_transaction(&mut db, TxId(created.id), "Рассрочка", &rows, now())
-        .unwrap();
+    let debt =
+        debts::create_from_transaction(&mut db, TxId(created.id), "Рассрочка", &rows.rows, now())
+            .unwrap();
     assert_eq!(debt.amount, rub(30_000));
     assert_eq!(debt.taken_month, "2026-09");
     assert_eq!(debt.transaction_id, Some(created.id));
@@ -928,4 +992,35 @@ fn wizard_apply_errors_carry_ui_keys_and_keep_the_month_untouched() {
     assert!(
         matches!(&err, AppError::Conflict { message_key } if message_key == "errors.plan.locked")
     );
+}
+
+#[test]
+fn limits_unset_removes_the_limit_from_that_month_only() {
+    let (_dir, mut db) = seeded();
+    let food = categories::list(&db, false)
+        .unwrap()
+        .into_iter()
+        .find(|c| c.name == "Продукты")
+        .unwrap();
+    let before = summary::month(&db, "2026-09", today()).unwrap();
+    let row = |o: &crate::dto::MonthOverviewDto, month_row: i64| {
+        o.limits
+            .iter()
+            .find(|r| r.category_id == month_row)
+            .unwrap()
+            .limit
+    };
+    assert!(row(&before, food.id).is_some());
+
+    categories::limits_unset(&mut db, CategoryId(food.id), "2026-09").unwrap();
+    assert!(
+        categories::limits_history(&db, CategoryId(food.id))
+            .unwrap()
+            .iter()
+            .any(|e| e.valid_from == "2026-09" && e.amount.is_none())
+    );
+    let after = summary::month(&db, "2026-09", today()).unwrap();
+    assert_eq!(row(&after, food.id), None);
+    let earlier = summary::month(&db, "2026-08", today()).unwrap();
+    assert!(row(&earlier, food.id).is_some());
 }

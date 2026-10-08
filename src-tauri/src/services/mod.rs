@@ -11,6 +11,8 @@ pub mod devseed;
 pub mod legacy;
 pub mod plan;
 pub mod records;
+#[cfg(test)]
+mod records_tests;
 pub mod savings;
 pub mod search;
 pub mod settings;

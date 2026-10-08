@@ -238,3 +238,31 @@ fn a_dashboard_that_would_outgrow_the_row_limit_refuses_new_cards() {
     // дашборд по-прежнему читается целиком
     assert_eq!(db.charts(id).unwrap().len(), 9 + added);
 }
+
+#[test]
+fn standard_dashboard_is_offered_only_when_none_exist_and_only_once() {
+    let dir = TempDir::new().unwrap();
+    let mut db = Db::create(&dir.path().join("budget.db"), &KEY).unwrap();
+    db.seed_defaults(now()).unwrap();
+    let first = db.dashboards().unwrap().remove(0);
+    db.dashboard_create("Свой").unwrap();
+    db.dashboard_delete(first.id).unwrap();
+    // Повторный сид удалённый дашборд не возвращает.
+    db.seed_defaults(now()).unwrap();
+    assert_eq!(db.dashboards().unwrap().len(), 1);
+
+    let mut empty = Db::create(&dir.path().join("empty.db"), &KEY).unwrap();
+    assert!(empty.dashboards().unwrap().is_empty());
+    empty.seed_standard_dashboard(now()).unwrap();
+    let list = empty.dashboards().unwrap();
+    assert_eq!(list.len(), 1);
+    assert!(list[0].is_default);
+    assert_eq!(
+        empty.charts(list[0].id).unwrap().len(),
+        standard_dashboard().len()
+    );
+
+    let err = empty.seed_standard_dashboard(now()).unwrap_err();
+    assert!(matches!(err, StorageError::Conflict("dashboard.exists")));
+    assert_eq!(empty.dashboards().unwrap().len(), 1);
+}

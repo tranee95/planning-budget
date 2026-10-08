@@ -21,6 +21,11 @@ import { sortRows, type SortColumn } from './table-sort';
 
 export type { SortColumn };
 
+/** Наборы тегов равны независимо от порядка. */
+function sameIds(a: number[], b: number[]): boolean {
+  return a.length === b.length && a.every((id) => b.includes(id));
+}
+
 export interface CategoryBlock {
   category: CategoryDto;
   rows: TransactionDto[];
@@ -53,6 +58,7 @@ export class ExpensesVm {
   editingId = $state<number | null>(null);
   /** Категория, в карточке которой открыта строка добавления. */
   addingTo = $state<number | null>(null);
+  #addRequestId = crypto.randomUUID();
 
   #month = '';
   #req = 0;
@@ -151,6 +157,7 @@ export class ExpensesVm {
 
   /** Заменяет теги траты и перечитывает строки: колонка «Теги» показывает ответ Rust. */
   async setTags(id: number, tagIds: number[]): Promise<void> {
+    const before = this.transactions.find((t) => t.id === id)?.tagIds;
     try {
       await transactionsApi.setTags(id, tagIds);
     } catch (e) {
@@ -158,6 +165,18 @@ export class ExpensesVm {
       return;
     }
     this.tagEditId = null;
+    if (before !== undefined && !sameIds(before, tagIds)) {
+      undoStack.record({
+        label: 'смена тегов',
+        undo: () => this.#applyTags(id, before),
+        redo: () => this.#applyTags(id, tagIds)
+      });
+    }
+    await this.load(this.#month);
+  }
+
+  async #applyTags(id: number, tagIds: number[]): Promise<void> {
+    await transactionsApi.setTags(id, tagIds);
     await this.load(this.#month);
   }
 
@@ -392,7 +411,7 @@ export class ExpensesVm {
     const title = draft.title.trim();
     if (categoryId === null || title === '' || draft.amount <= 0) return;
     try {
-      const created = await transactionsApi.create({
+      const created = await transactionsApi.create(this.#addRequestId, {
         month: this.#month,
         date: null,
         categoryId,
@@ -401,6 +420,7 @@ export class ExpensesVm {
         status: this.overview?.planLocked === true ? 'unplanned' : 'planned',
         comment: null
       });
+      this.#addRequestId = crypto.randomUUID();
       this.transactions = [...this.transactions, created];
       this.addingTo = null;
       this.trackCreated(created);

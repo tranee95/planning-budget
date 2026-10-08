@@ -97,7 +97,7 @@ impl Ledger<'_> {
                 .limit_history
                 .get(&category)
                 .and_then(|history| history.range(..=month).next_back())
-                .map(|(_, amount)| *amount)),
+                .and_then(|(_, amount)| *amount)),
         }
     }
 

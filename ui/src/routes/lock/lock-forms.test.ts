@@ -116,6 +116,31 @@ test('recovery-код: продолжить можно только после �
   await expect.poll(() => session.recoveryCode).toBeNull();
 });
 
+test('recovery-код: скопированный код стирается из буфера при подтверждении', async () => {
+  let content = '';
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: {
+      writeText: (t: string) => {
+        content = t;
+        return Promise.resolve();
+      },
+      readText: () => Promise.resolve(content)
+    }
+  });
+  session.phase = 'unlocked';
+  session.recoveryCode = 'K7QM-2XPA-ZTRB-4HNW-6DVC-ESJF-3Q';
+  render(RecoveryCodeView, { code: session.recoveryCode });
+
+  await user.click(screen.getByRole('button', { name: /Скопировать/ }));
+  expect(await screen.findByRole('status')).toHaveTextContent('Буфер очистится через 30 с');
+  expect(content).toBe('K7QM-2XPA-ZTRB-4HNW-6DVC-ESJF-3Q');
+
+  await user.click(screen.getByLabelText('Я сохранил код в надёжном месте'));
+  await user.click(screen.getByRole('button', { name: 'Продолжить' }));
+  await expect.poll(() => content).toBe('');
+});
+
 test('recovery-код: сохранение в файл сообщает результат', async () => {
   render(RecoveryCodeView, { code: 'K7QM-2XPA-ZTRB-4HNW-6DVC-ESJF-3Q' });
   await user.click(screen.getByRole('button', { name: /Сохранить в файл/ }));

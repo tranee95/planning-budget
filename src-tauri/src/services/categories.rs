@@ -6,7 +6,7 @@ use planning_budget_storage::{CategoryPatch, Db, NewCategory};
 
 use super::{month_of, parse_month};
 use crate::AppError;
-use crate::dto::{CategoryDto, CategoryInput, CategoryPatchDto, LimitEntryDto, SavingsRateDto};
+use crate::dto::{CategoryDto, CategoryInput, CategoryPatchDto, LimitEntryDto};
 
 fn category_error(id: CategoryId) -> impl Fn(planning_budget_storage::StorageError) -> AppError {
     move |e| AppError::from_storage(e, "category", id.0)
@@ -98,6 +98,12 @@ pub fn limits_set(
         .map_err(category_error(category))
 }
 
+pub fn limits_unset(db: &mut Db, category: CategoryId, valid_from: &str) -> Result<(), AppError> {
+    let valid_from = parse_month(valid_from, "validFrom")?;
+    db.limit_unset(category, valid_from)
+        .map_err(category_error(category))
+}
+
 pub fn limits_clear(db: &mut Db, category: CategoryId, valid_from: &str) -> Result<(), AppError> {
     let valid_from = parse_month(valid_from, "validFrom")?;
     db.limit_clear(category, valid_from)
@@ -110,7 +116,7 @@ pub fn limits_history(db: &Db, category: CategoryId) -> Result<Vec<LimitEntryDto
         .iter()
         .map(|e| LimitEntryDto {
             valid_from: e.valid_from.to_string(),
-            amount: e.amount.kopecks(),
+            amount: e.amount.map(Money::kopecks),
         })
         .collect())
 }
@@ -128,18 +134,6 @@ pub fn savings_rate_set(
     let valid_from = parse_month(valid_from, "validFrom")?;
     db.savings_rate_set(category, valid_from, rate(rate_bp))
         .map_err(category_error(category))
-}
-
-pub fn savings_rates(db: &Db) -> Result<Vec<SavingsRateDto>, AppError> {
-    Ok(db
-        .savings_rates()?
-        .iter()
-        .map(|r| SavingsRateDto {
-            category_id: r.category_id.0,
-            valid_from: r.valid_from.to_string(),
-            rate_bp: r.rate.0,
-        })
-        .collect())
 }
 
 pub fn savings_override_set(

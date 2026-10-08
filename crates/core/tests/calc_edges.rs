@@ -51,12 +51,12 @@ fn base() -> DataSet {
             LimitEntry {
                 category_id: FOOD,
                 valid_from: ym("2026-01"),
-                amount: rub(1000),
+                amount: Some(rub(1000)),
             },
             LimitEntry {
                 category_id: FOOD,
                 valid_from: ym("2026-03"),
-                amount: rub(2000),
+                amount: Some(rub(2000)),
             },
         ],
         savings_rates: vec![SavingsRateEntry {
@@ -289,7 +289,7 @@ fn limit_levels_switch_at_85_and_100_percent() {
 #[test]
 fn zero_limit_with_spending_is_over_with_full_usage() {
     let mut data = base();
-    data.limits[0].amount = Money::ZERO;
+    data.limits[0].amount = Some(Money::ZERO);
     spend(&mut data, "2026-02", FOOD, rub(1), TxStatus::Paid);
     let limits = Ledger::new(&data)
         .unwrap()
@@ -343,7 +343,7 @@ fn accumulation_starts_from_initial_month_with_initial_balance() {
 }
 
 #[test]
-fn accumulation_before_initial_month_keeps_initial_balance() {
+fn accumulation_before_initial_month_has_no_balance() {
     let mut data = base();
     let params = data.savings_params.get_mut(&SAVE).unwrap();
     params.initial_month = ym("2027-03");
@@ -353,7 +353,8 @@ fn accumulation_before_initial_month_keeps_initial_balance() {
         .accumulation_fact(SAVE, 2026)
         .unwrap();
     assert!(fact.months.is_empty());
-    assert_eq!(fact.dec_balance, rub(5));
+    // Накопление ещё не началось: стартовые 5 ₽ появятся только в `initial_month`.
+    assert_eq!(fact.dec_balance, Money::ZERO);
 }
 
 #[test]
@@ -380,7 +381,7 @@ fn accumulation_balance_carries_over_into_next_year() {
 #[test]
 fn zero_limit_without_spending_is_ok() {
     let mut data = base();
-    data.limits[0].amount = Money::ZERO;
+    data.limits[0].amount = Some(Money::ZERO);
     let limits = Ledger::new(&data)
         .unwrap()
         .month_limits(ym("2026-02"))
@@ -587,7 +588,7 @@ fn zero_limit_has_full_percent_and_no_split() {
     data.limits.push(LimitEntry {
         category_id: FOOD,
         valid_from: ym("2026-05"),
-        amount: Money::ZERO,
+        amount: Some(Money::ZERO),
     });
     spend(&mut data, "2026-05", FOOD, rub(10), TxStatus::Paid);
     let limits = Ledger::new(&data)
