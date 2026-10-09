@@ -122,7 +122,7 @@
   .legend span {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--sp-2);
   }
   .legend i {
     width: 10px;
@@ -140,7 +140,7 @@
   }
   text {
     fill: var(--muted);
-    font-size: 11px;
+    font-size: var(--fs-11);
   }
   .month {
     fill: var(--muted);

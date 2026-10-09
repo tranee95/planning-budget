@@ -76,6 +76,7 @@
   --sidebar-w: 232px;
   --topbar-h: 76px;
   --content-max: 1400px;
+  --content-narrow: 640px;
 
   /* движение */
   --dur-instant: 80ms;

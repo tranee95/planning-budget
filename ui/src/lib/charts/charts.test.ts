@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ChartDataDto, ChartSpecDto } from '$lib/api/bindings';
 import { resolveColor } from './colors';
+import { isEmptyChart } from './card-data';
 import { drillQuery } from './drill';
 import { formatAxis, formatValue } from './format';
 import { PLAIN_OPTIONS, toEcharts, type ChartEnv } from './toEcharts';
@@ -120,6 +121,38 @@ describe('toEcharts', () => {
       xAxis: { type: 'value' },
       series: [{ label: { show: true } }]
     });
+  });
+
+  it('keeps whole-number ticks on rouble and count axes so an empty chart has no repeated labels', () => {
+    const empty = data({ series: [{ name: 'Траты', color: 'metric.spent', values: [0, 0] }] });
+    expect(toEcharts(empty, spec(), env)).toMatchObject({ yAxis: { minInterval: 1 } });
+    expect(toEcharts(data({ unit: 'count' }), spec(), env)).toMatchObject({
+      yAxis: { minInterval: 1 }
+    });
+    expect(toEcharts(data({ unit: 'percent' }), spec(), env)).toMatchObject({
+      yAxis: { minInterval: undefined }
+    });
+  });
+
+  it('colours each bar of a single-series chart by its category', () => {
+    const byCategory = data({
+      categories: ['Продукты', 'Транспорт', 'Без цвета'],
+      categoryTokens: ['category:7', 'category:8', 'category:9'],
+      series: [{ name: 'Расходы', color: 'metric.expenses', values: [300, null, 100] }]
+    });
+    const option = toEcharts(byCategory, spec({ type: 'hbar', groupBy: 'category' }), env) as {
+      series: { data: { value: number | null; itemStyle: { color: string } }[] }[];
+    };
+    expect(option.series[0]?.data).toEqual([
+      { value: 300, itemStyle: { color: '#cat7' } },
+      { value: null, itemStyle: { color: '#plan' } },
+      { value: 100, itemStyle: { color: '#plan' } }
+    ]);
+  });
+
+  it('keeps a single series colour when the axis is not made of categories', () => {
+    const option = toEcharts(data(), spec(), env) as { series: { data: unknown[] }[] };
+    expect(option.series[0]?.data).toEqual([1000, null]);
   });
 
   it('draws from a plain view without a query spec', () => {
@@ -257,5 +290,24 @@ describe('drillQuery', () => {
     expect(drillQuery(spec({ groupBy: 'tag', period: { preset: 'all' } }), tags, 1, 0, now)).toBe(
       ''
     );
+  });
+});
+
+describe('isEmptyChart', () => {
+  it('is empty without categories or when every value is zero or missing', () => {
+    expect(isEmptyChart(data({ categories: [], categoryTokens: [], series: [] }))).toBe(true);
+    const zeros = data({ series: [{ name: 'Траты', color: 'metric.spent', values: [0, null] }] });
+    expect(isEmptyChart(zeros)).toBe(true);
+  });
+
+  it('has data when any value is non-zero or a reference line is drawn', () => {
+    expect(isEmptyChart(data())).toBe(false);
+    const zeros = data({ series: [{ name: 'Траты', color: 'metric.spent', values: [0, 0] }] });
+    const line = {
+      name: 'Лимит',
+      value: 100,
+      kind: 'limit'
+    } as unknown as ChartDataDto['referenceLines'][number];
+    expect(isEmptyChart({ ...zeros, referenceLines: [line] })).toBe(false);
   });
 });

@@ -100,10 +100,10 @@
     grid-template-columns: 24px 14px minmax(0, 1fr) 120px 130px 110px 110px;
     align-items: center;
     gap: var(--sp-3);
-    padding-inline: 14px;
+    padding-inline: var(--sp-4);
   }
   .head {
-    padding-block: 6px;
+    padding-block: var(--sp-2);
     color: var(--muted);
     font-size: var(--fs-12);
   }

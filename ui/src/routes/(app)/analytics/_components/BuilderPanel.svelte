@@ -26,6 +26,7 @@
     Switch,
     TextField
   } from '$lib/components';
+  import { isEmptyChart } from '$lib/charts/card-data';
   import { currentMonth } from '$lib/format';
   import { categories } from '$lib/stores/categories.svelte';
   import {
@@ -289,7 +290,7 @@
 
     <section class="preview" aria-label="Предпросмотр" aria-live="polite">
       {#if builder.preview.status === 'ready'}
-        {#if builder.preview.data.categories.length === 0}
+        {#if isEmptyChart(builder.preview.data)}
           <EmptyState title="Нет данных за период" hint="Измените период или фильтр." />
         {:else}
           <Chart

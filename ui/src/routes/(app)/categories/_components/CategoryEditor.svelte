@@ -168,9 +168,9 @@
     gap: var(--sp-4);
     width: 360px;
     flex-shrink: 0;
-    padding: 22px;
+    padding: var(--sp-6);
     border: 1px solid var(--line);
-    border-radius: 18px;
+    border-radius: var(--r-xl);
     background: var(--surface);
     box-shadow: var(--shadow);
     overflow-y: auto;
@@ -227,11 +227,11 @@
   .stats {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--sp-2);
     margin: 0;
-    padding: 12px 14px;
+    padding: var(--sp-3) var(--sp-4);
     border: 1px solid var(--line);
-    border-radius: 12px;
+    border-radius: var(--r-md);
     background: var(--surface-2);
     font-size: var(--fs-13);
   }
@@ -257,7 +257,7 @@
   }
   .actions {
     display: flex;
-    gap: 10px;
+    gap: var(--sp-3);
   }
   .actions :global(button) {
     flex: 1;

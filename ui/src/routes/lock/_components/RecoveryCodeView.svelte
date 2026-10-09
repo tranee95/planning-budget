@@ -93,7 +93,7 @@
     justify-content: center;
     gap: var(--sp-2) var(--sp-3);
     margin: 0;
-    padding: var(--sp-5) var(--sp-4);
+    padding: var(--sp-5);
     border: 1px solid var(--line);
     border-radius: var(--r-lg);
     background: var(--surface);

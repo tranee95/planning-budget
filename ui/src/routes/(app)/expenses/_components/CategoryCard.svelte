@@ -16,7 +16,11 @@
   const plannedShare = $derived(limit?.plannedUsage ?? 0);
 </script>
 
-<article class="card" in:rise={{ delay: stagger(index) }}>
+<article
+  class="card"
+  style:--category-color={block.category.color}
+  in:rise={{ delay: stagger(index) }}
+>
   <header>
     <div class="head">
       <h2>{block.category.name}</h2>
@@ -90,15 +94,25 @@
 
 <style>
   .card {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: var(--sp-3);
     min-width: 0;
-    padding: var(--sp-4);
+    padding: var(--sp-5);
     border: 1px solid var(--line);
     border-radius: var(--r-lg);
     background: var(--surface);
     box-shadow: var(--shadow);
+  }
+  /* Полоса цвета категории: декоративная, название категории есть в заголовке. */
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0 var(--r-lg) auto;
+    height: 3px;
+    border-radius: 0 0 var(--r-xs) var(--r-xs);
+    background: var(--category-color);
   }
   header {
     display: flex;
@@ -151,7 +165,7 @@
   ul {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: var(--sp-1);
     margin: 0;
     padding: 0;
     list-style: none;

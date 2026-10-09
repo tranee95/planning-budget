@@ -44,7 +44,7 @@
   li {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--sp-2);
   }
   .head {
     display: flex;

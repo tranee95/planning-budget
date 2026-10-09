@@ -20,7 +20,7 @@ export default ts.config(
             'vitest.config.ts',
             'e2e/*.ts'
           ],
-          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 24
+          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 32
         },
         extraFileExtensions: ['.svelte'],
         tsconfigRootDir: import.meta.dirname

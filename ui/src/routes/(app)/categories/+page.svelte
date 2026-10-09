@@ -117,9 +117,9 @@
     display: flex;
     flex: 1;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--sp-2);
     min-width: 0;
-    padding: 14px;
+    padding: var(--sp-5);
     border: 1px solid var(--line);
     border-radius: var(--r-lg);
     background: var(--surface);
@@ -128,8 +128,8 @@
   .balance {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 12px 14px 4px;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-4) var(--sp-1);
     border-top: 1px solid var(--line);
     font-size: var(--fs-13);
   }
@@ -147,7 +147,7 @@
   }
   .keys {
     margin: 0;
-    padding: 0 14px;
+    padding: 0 var(--sp-4);
     color: var(--muted);
     font-size: var(--fs-12);
   }

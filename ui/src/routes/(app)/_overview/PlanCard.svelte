@@ -136,7 +136,7 @@
     align-items: center;
     height: 24px;
     padding: 0 var(--sp-2);
-    border-radius: 999px;
+    border-radius: var(--r-full);
     background: var(--paid-bg);
     color: var(--paid);
     font-size: var(--fs-12);

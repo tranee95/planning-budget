@@ -2804,7 +2804,7 @@ checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
 
 [[package]]
 name = "planning-budget-app"
-version = "0.6.15"
+version = "0.6.16"
 dependencies = [
  "chrono",
  "planning-budget-core",
@@ -2833,7 +2833,7 @@ dependencies = [
 
 [[package]]
 name = "planning-budget-broker"
-version = "0.6.15"
+version = "0.6.16"
 dependencies = [
  "planning-budget-core",
  "thiserror 2.0.21",
@@ -2841,7 +2841,7 @@ dependencies = [
 
 [[package]]
 name = "planning-budget-core"
-version = "0.6.15"
+version = "0.6.16"
 dependencies = [
  "insta",
  "proptest",
@@ -2852,11 +2852,11 @@ dependencies = [
 
 [[package]]
 name = "planning-budget-export"
-version = "0.6.15"
+version = "0.6.16"
 
 [[package]]
 name = "planning-budget-import"
-version = "0.6.15"
+version = "0.6.16"
 dependencies = [
  "calamine",
  "planning-budget-core",
@@ -2865,7 +2865,7 @@ dependencies = [
 
 [[package]]
 name = "planning-budget-storage"
-version = "0.6.15"
+version = "0.6.16"
 dependencies = [
  "chrono",
  "data-encoding",
@@ -2882,7 +2882,7 @@ dependencies = [
 
 [[package]]
 name = "planning-budget-vault"
-version = "0.6.15"
+version = "0.6.16"
 dependencies = [
  "argon2",
  "chacha20poly1305",

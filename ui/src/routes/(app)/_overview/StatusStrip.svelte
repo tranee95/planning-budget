@@ -31,7 +31,7 @@
     align-items: center;
     flex-wrap: wrap;
     gap: var(--sp-4) var(--sp-6);
-    padding: var(--sp-4) var(--sp-5);
+    padding: var(--sp-5);
     border: 1px solid var(--line);
     border-radius: var(--r-lg);
     background: var(--surface);

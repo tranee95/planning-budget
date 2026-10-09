@@ -44,8 +44,8 @@
     margin-top: var(--sp-4);
   }
   .card {
-    max-width: 520px;
-    padding: var(--sp-6);
+    max-width: var(--content-narrow);
+    padding: var(--sp-5);
     border: 1px solid var(--line);
     border-radius: var(--r-lg);
     background: var(--surface);

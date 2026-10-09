@@ -57,14 +57,14 @@
     animation: pop var(--dur-pop) var(--ease-spring) both;
   }
   h1 {
-    margin: 22px 0 6px;
+    margin: var(--sp-6) 0 var(--sp-2);
     font-size: var(--fs-26);
     font-weight: var(--fw-bold);
     letter-spacing: var(--tracking-tight);
     text-align: center;
   }
   .subtitle {
-    margin: 0 0 28px;
+    margin: 0 0 var(--sp-6);
     color: var(--muted);
     font-size: var(--fs-14);
     line-height: var(--lh-body);
@@ -74,7 +74,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-2);
-    margin: 22px 0 0;
+    margin: var(--sp-6) 0 0;
     color: var(--muted);
     font-size: var(--fs-13);
   }

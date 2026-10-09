@@ -64,7 +64,7 @@
     flex-direction: column;
     gap: var(--sp-2);
     width: 100%;
-    padding: var(--sp-4);
+    padding: var(--sp-5);
     border: 1px solid var(--line);
     border-radius: var(--r-lg);
     background: var(--surface);
@@ -95,7 +95,7 @@
   }
   .chip {
     padding: 1px var(--sp-2);
-    border-radius: 999px;
+    border-radius: var(--r-full);
     background: var(--line-2);
     color: var(--ink-2);
     font-size: var(--fs-12);

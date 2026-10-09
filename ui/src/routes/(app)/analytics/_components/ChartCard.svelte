@@ -4,7 +4,7 @@
   import GripVertical from '@lucide/svelte/icons/grip-vertical';
   import Trash2 from '@lucide/svelte/icons/trash-2';
   import type { ChartCardDto } from '$lib/api/bindings';
-  import type { CardData } from '$lib/charts/card-data';
+  import { isEmptyChart, type CardData } from '$lib/charts/card-data';
   import type { CategoryColors } from '$lib/charts/colors';
   import { SIZES, sizeOf, type Box, type SizeName } from '$lib/charts/layout';
   import { Chart, EmptyState, IconButton, Skeleton } from '$lib/components';
@@ -85,7 +85,7 @@
       <EmptyState title="Не удалось построить график" hint={failure} />
     {:else if ready === null}
       <Skeleton height="100%" />
-    {:else if ready.categories.length === 0}
+    {:else if isEmptyChart(ready)}
       <EmptyState title="Нет данных за период" hint="Измените период или фильтр графика." />
     {:else}
       <Chart
@@ -109,7 +109,7 @@
     height: 100%;
     min-width: 0;
     box-sizing: border-box;
-    padding: var(--sp-4) var(--sp-5);
+    padding: var(--sp-5);
     border: 1px solid var(--line);
     border-radius: var(--r-lg);
     background: var(--surface);
@@ -134,7 +134,7 @@
     margin-left: auto;
   }
   h2 {
-    flex: 1 1 180px;
+    flex: 1 1 120px;
     min-width: 0;
     margin: 0;
     overflow: hidden;

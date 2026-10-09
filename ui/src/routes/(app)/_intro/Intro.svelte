@@ -135,7 +135,7 @@
   .dot {
     width: 8px;
     height: 8px;
-    border-radius: 999px;
+    border-radius: var(--r-full);
     background: var(--line);
   }
   .dot.on {

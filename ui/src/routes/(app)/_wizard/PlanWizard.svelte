@@ -206,7 +206,7 @@
   }
   .dot {
     padding: 2px var(--sp-3);
-    border-radius: 999px;
+    border-radius: var(--r-full);
     background: var(--line-2);
     color: var(--muted);
     font-size: var(--fs-12);
@@ -254,7 +254,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--sp-1);
-    padding: var(--sp-4) var(--sp-5);
+    padding: var(--sp-5);
     border: 1px solid var(--line);
     border-radius: var(--r-lg);
     margin-bottom: var(--sp-4);

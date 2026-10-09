@@ -35,7 +35,7 @@
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 14px;
+    gap: var(--sp-4);
     width: 100%;
   }
 </style>

@@ -79,7 +79,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--sp-4);
-    max-width: 760px;
+    max-width: var(--content-narrow);
     padding-bottom: var(--sp-6);
   }
   .guide {

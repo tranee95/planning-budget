@@ -77,7 +77,7 @@
     flex-direction: column;
     gap: var(--sp-1);
     width: 100%;
-    padding: var(--sp-3) var(--sp-4);
+    padding: var(--sp-5);
     border: 1px solid var(--line);
     border-radius: var(--r-lg);
     background: var(--surface);

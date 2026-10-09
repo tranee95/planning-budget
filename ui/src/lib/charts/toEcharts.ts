@@ -79,6 +79,7 @@ function seriesOption(
     }
     return {
       ...base,
+      data: categoryBars(series.values, data, isLine, env) ?? series.values,
       type: 'bar',
       stack: stacked ? 'total' : undefined,
       barMaxWidth: horizontal ? 18 : 32,
@@ -103,6 +104,28 @@ function seriesOption(
       ...(index === 0 ? refs : {})
     };
   });
+}
+
+/**
+ * Столбцы единственной серии по категориям красятся цветом своей категории (она же на экране категорий).
+ * Оси из месяцев, статусов и типов не затрагиваются.
+ */
+function categoryBars(
+  values: (number | null)[],
+  data: ChartDataDto,
+  isLine: boolean,
+  env: ChartEnv
+): { value: number | null; itemStyle: { color: string } }[] | null {
+  if (isLine || data.series.length !== 1) return null;
+  if (
+    data.categoryTokens.length === 0 ||
+    !data.categoryTokens.every((t) => t.startsWith('category:'))
+  )
+    return null;
+  return values.map((value, i) => ({
+    value,
+    itemStyle: { color: resolveColor(data.categoryTokens[i] ?? '', env.css, env.categoryColors) }
+  }));
 }
 
 /** Лимит — штриховая линия, коридор — полоса; рисуются на первой серии. */
@@ -189,6 +212,8 @@ export function toEcharts(data: ChartDataDto, spec: ChartView, env: ChartEnv): E
   const valueAxis = {
     type: 'value',
     max: spec.options.percent ? 100 : undefined,
+    // Подписи оси целые: без шага от 1 на пустом графике ось 0…1 даёт повторы «0 0 0 1 1 1».
+    minInterval: data.unit === 'percent' ? undefined : 1,
     axisLabel: {
       color: css('--muted'),
       fontSize: 12,
