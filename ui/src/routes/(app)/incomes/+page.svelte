@@ -1,11 +1,13 @@
 <script lang="ts">
+  import { PLACEHOLDERS } from '$lib/i18n/placeholders';
   import { onMount, untrack } from 'svelte';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { Button, EmptyState, FilterBar, Kbd, Segmented, Skeleton } from '$lib/components';
+  import { Button, EmptyState, FilterBar, FormulaHint, Segmented, Skeleton } from '$lib/components';
   import type { IncomeStatusDto } from '$lib/api/bindings';
   import { formatDay, formatMoney, formatMonth } from '$lib/format';
+  import { FORMULAS } from '$lib/formulas';
   import { month } from '$lib/stores/month.svelte';
   import IncomeAdd from './_components/IncomeAdd.svelte';
   import { IncomesVm, setIncomesVm } from './incomes.svelte';
@@ -24,7 +26,7 @@
     expected: 'Ожидается'
   };
 
-  // Ссылка палитры: `?q=` открывает список с запросом.
+  // Ссылки палитры: `?q=` открывает список с запросом.
   $effect(() => {
     const query = page.url.searchParams.get('q');
     if (query === null) return;
@@ -62,11 +64,12 @@
       Получено <b>{formatMoney(vm.totals.received)}</b> · ожидается
       <b>{formatMoney(vm.totals.expected)}</b> · всего <b>{formatMoney(vm.totals.total)}</b>
     </span>
+    <FormulaHint label={FORMULAS.incomesTotals.label} lines={FORMULAS.incomesTotals.lines} />
     <Button
-      variant="primary"
+      variant="success"
       onclick={() => {
         vm.openEditor();
-      }}>Новый доход <Kbd>I</Kbd></Button
+      }}><span aria-hidden="true">+</span> Новый доход</Button
     >
   </div>
 
@@ -74,7 +77,7 @@
     filter={vm.filter}
     subject="доходов"
     screen="incomes"
-    placeholder="Поиск по доходам: зарплата сумма>50000 период:2026"
+    placeholder={PLACEHOLDERS.searchIncomes}
   />
 
   {#if vm.error}
@@ -94,9 +97,10 @@
     <EmptyState title="В этом месяце доходов нет" hint="Добавьте зарплату или другое поступление.">
       {#snippet actions()}
         <Button
+          variant="success"
           onclick={() => {
             vm.openEditor();
-          }}>Новый доход</Button
+          }}><span aria-hidden="true">+</span> Новый доход</Button
         >
       {/snippet}
     </EmptyState>
@@ -112,8 +116,17 @@
           <span class="muted day"
             >{vm.filtered ? formatMonth(income.month) : formatDay(income.date)}</span
           >
-          <span class="source">{income.sourceName}</span>
-          <span class="num amount">{formatMoney(income.amount)}</span>
+          <button
+            type="button"
+            class="body"
+            aria-label="Изменить доход «{income.sourceName}»"
+            onclick={() => {
+              vm.openEdit(income.id);
+            }}
+          >
+            <span class="source">{income.sourceName}</span>
+            <span class="num amount">{formatMoney(income.amount)}</span>
+          </button>
           <button
             type="button"
             class="status {income.status}"
@@ -121,6 +134,15 @@
             onclick={() => {
               void vm.setStatus(income.id, income.status === 'received' ? 'expected' : 'received');
             }}>{STATUS_LABEL[income.status]}</button
+          >
+          <button
+            type="button"
+            class="remove"
+            aria-label="Удалить доход «{income.sourceName}»"
+            title="Удалить"
+            onclick={() => {
+              void vm.remove(income.id);
+            }}>×</button
           >
         </li>
       {/each}
@@ -167,7 +189,7 @@
   }
   .item {
     display: grid;
-    grid-template-columns: var(--day-w, 56px) minmax(0, 1fr) auto 120px;
+    grid-template-columns: var(--day-w, 56px) minmax(0, 1fr) 120px 28px;
     align-items: center;
     gap: var(--sp-4);
     min-height: 48px;
@@ -179,6 +201,42 @@
   .muted {
     color: var(--muted);
     font-size: var(--fs-13);
+  }
+  .body {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    min-width: 0;
+    height: 100%;
+    min-height: 48px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+  }
+  .body:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+    border-radius: var(--r-sm);
+  }
+  .remove {
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--muted);
+    font-size: var(--fs-16, 16px);
+    line-height: 1;
+    cursor: pointer;
+  }
+  .remove:hover {
+    background: var(--line-2);
+    color: var(--ink);
   }
   .source {
     overflow: hidden;

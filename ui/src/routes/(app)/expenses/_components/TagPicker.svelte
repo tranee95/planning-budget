@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { PLACEHOLDERS } from '$lib/i18n/placeholders';
   import { untrack } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
   import type { TransactionDto } from '$lib/api/bindings';
@@ -68,7 +69,12 @@
       }
     }}
   >
-    <input aria-label="Новый тег" placeholder="Новый тег" autocomplete="off" bind:value={draft} />
+    <input
+      aria-label="Новый тег"
+      placeholder={PLACEHOLDERS.tagName}
+      autocomplete="off"
+      bind:value={draft}
+    />
     <Button
       variant="secondary"
       size="sm"

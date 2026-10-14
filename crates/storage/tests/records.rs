@@ -331,3 +331,47 @@ fn incomes_follow_the_same_rules() {
         Err(StorageError::NotFound)
     ));
 }
+
+#[test]
+fn income_date_can_be_set_and_cleared_by_a_patch() {
+    // UX-1: редактор дохода всегда отправляет дату; `Some(None)` очищает её, `None` не трогает.
+    let (_dir, mut db) = seeded();
+    let income = db
+        .income_create(&new_income("2026-10", "Зарплата"), now())
+        .unwrap();
+    let day = NaiveDate::from_ymd_opt(2026, 10, 5).unwrap();
+    let set = db
+        .income_update(
+            income.id,
+            &IncomePatch {
+                date: Some(Some(day)),
+                ..IncomePatch::default()
+            },
+            now(),
+        )
+        .unwrap();
+    assert_eq!(set.current.date, Some(day));
+    let kept = db
+        .income_update(
+            income.id,
+            &IncomePatch {
+                amount: Some(rub(1)),
+                ..IncomePatch::default()
+            },
+            now(),
+        )
+        .unwrap();
+    assert_eq!(kept.current.date, Some(day));
+    let cleared = db
+        .income_update(
+            income.id,
+            &IncomePatch {
+                date: Some(None),
+                ..IncomePatch::default()
+            },
+            now(),
+        )
+        .unwrap();
+    assert_eq!(cleared.current.date, None);
+    assert_eq!(cleared.current.month, income.month);
+}

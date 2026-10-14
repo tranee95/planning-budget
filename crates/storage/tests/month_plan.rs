@@ -9,7 +9,7 @@
 use chrono::{DateTime, TimeZone, Utc};
 use planning_budget_core::calc::Ledger;
 use planning_budget_core::{
-    BasisPoints, CategoryId, DebtPaymentStatus, IncomeStatus, Money, SavingsParams, TxStatus,
+    BasisPoints, CategoryId, DebtPaymentStatus, IncomeStatus, Money, SavingsParams, TxId, TxStatus,
     YearMonth,
 };
 use planning_budget_storage::{
@@ -411,4 +411,176 @@ fn wizard_with_bad_input_writes_nothing() {
     assert!(db.transactions_of_month(ym("2026-10")).unwrap().is_empty());
     assert!(db.incomes_of_month(ym("2026-10")).unwrap().is_empty());
     assert!(!db.plan_is_locked(ym("2026-10")).unwrap());
+}
+
+fn december() -> DateTime<Utc> {
+    Utc.with_ymd_and_hms(2026, 12, 15, 12, 0, 0).unwrap()
+}
+
+// ---- U-1: автоперенос плана на новый месяц ----
+
+#[test]
+fn carry_forward_copies_from_the_latest_month_with_data_even_across_a_gap() {
+    let (_dir, mut db) = seeded();
+    october(&mut db);
+    // Ноябрь пропущен: декабрь берёт план из октября.
+    let created = db.plan_carry_forward(ym("2026-12"), december()).unwrap();
+    assert_eq!(created, 2);
+    let rows = db.transactions_of_month(ym("2026-12")).unwrap();
+    assert!(rows.iter().all(|t| t.status == TxStatus::Planned));
+    let total: i64 = rows.iter().map(|t| t.amount.kopecks()).sum();
+    assert_eq!(total, rub(35_000).kopecks());
+}
+
+#[test]
+fn carry_forward_happens_once_per_month_even_if_the_user_clears_it() {
+    let (_dir, mut db) = seeded();
+    october(&mut db);
+    assert_eq!(db.plan_carry_forward(ym("2026-11"), december()).unwrap(), 2);
+    for row in db.transactions_of_month(ym("2026-11")).unwrap() {
+        db.transaction_delete(row.id, now()).unwrap();
+    }
+    assert_eq!(db.plan_carry_forward(ym("2026-11"), december()).unwrap(), 0);
+    assert!(db.transactions_of_month(ym("2026-11")).unwrap().is_empty());
+}
+
+#[test]
+fn carry_forward_leaves_a_month_that_already_has_records() {
+    let (_dir, mut db) = seeded();
+    october(&mut db);
+    let food = cat(&db, "Продукты");
+    spend(&mut db, "2026-11", food, 1_000, TxStatus::Paid);
+    assert_eq!(db.plan_carry_forward(ym("2026-11"), december()).unwrap(), 0);
+    assert_eq!(db.transactions_of_month(ym("2026-11")).unwrap().len(), 1);
+}
+
+#[test]
+fn carry_forward_leaves_a_locked_month_and_the_first_month_alone() {
+    let (_dir, mut db) = seeded();
+    // Данных ещё нет: переносить нечего, и отметки «перенесено» не остаётся.
+    assert_eq!(db.plan_carry_forward(ym("2026-10"), december()).unwrap(), 0);
+    october(&mut db);
+    db.plan_lock(ym("2026-11"), now()).unwrap();
+    assert_eq!(db.plan_carry_forward(ym("2026-11"), december()).unwrap(), 0);
+    assert!(db.transactions_of_month(ym("2026-11")).unwrap().is_empty());
+    // Прошлое не заполняется из будущего.
+    assert_eq!(db.plan_carry_forward(ym("2026-09"), december()).unwrap(), 0);
+}
+
+#[test]
+fn carry_forward_does_not_copy_savings_and_skips_archived_categories() {
+    let (_dir, mut db) = seeded();
+    october(&mut db);
+    let savings = cat(&db, "Сбережения");
+    spend(&mut db, "2026-10", savings, 14_000, TxStatus::Paid);
+    let fun = cat(&db, "Хобби и игры");
+    spend(&mut db, "2026-10", fun, 2_000, TxStatus::Planned);
+    db.category_archive(fun, ym("2026-10"), now()).unwrap();
+    db.plan_carry_forward(ym("2026-11"), december()).unwrap();
+    let rows = db.transactions_of_month(ym("2026-11")).unwrap();
+    assert!(!rows.is_empty());
+    assert!(
+        rows.iter()
+            .all(|t| t.category_id != savings && t.category_id != fun)
+    );
+}
+
+#[test]
+fn carry_forward_ignores_future_months_and_keeps_them_for_later() {
+    let (_dir, mut db) = seeded();
+    october(&mut db);
+    // «Сегодня» — декабрь 2026: январь 2030 ещё не наступил, отметка не ставится.
+    assert_eq!(db.plan_carry_forward(ym("2030-01"), december()).unwrap(), 0);
+    assert!(db.transactions_of_month(ym("2030-01")).unwrap().is_empty());
+    // Когда месяц наступил, план переносится как обычно.
+    let later = Utc.with_ymd_and_hms(2030, 1, 5, 9, 0, 0).unwrap();
+    assert_eq!(db.plan_carry_forward(ym("2030-01"), later).unwrap(), 2);
+}
+
+#[test]
+fn carry_forward_does_not_fill_a_month_older_than_existing_data() {
+    let (_dir, mut db) = seeded();
+    october(&mut db);
+    let food = cat(&db, "Продукты");
+    spend(&mut db, "2026-08", food, 9_000, TxStatus::Paid);
+    // Сентябрь лежит между августом и октябрём: «последнего» месяца для него нет.
+    assert_eq!(db.plan_carry_forward(ym("2026-09"), december()).unwrap(), 0);
+    assert!(db.transactions_of_month(ym("2026-09")).unwrap().is_empty());
+}
+
+// ---- U-3: начало накоплений для расчёта «за весь период» ----
+
+#[test]
+fn first_deposit_month_is_the_earliest_non_planned_savings_record() {
+    let (_dir, mut db) = seeded();
+    assert_eq!(db.savings_first_deposit_month().unwrap(), None);
+    let savings = cat(&db, "Сбережения");
+    let food = cat(&db, "Продукты");
+    spend(&mut db, "2025-01", food, 1_000, TxStatus::Paid);
+    spend(&mut db, "2025-02", savings, 1_000, TxStatus::Planned);
+    assert_eq!(db.savings_first_deposit_month().unwrap(), None);
+    spend(&mut db, "2025-11", savings, 5_000, TxStatus::Paid);
+    spend(&mut db, "2026-03", savings, 5_000, TxStatus::Paid);
+    assert_eq!(
+        db.savings_first_deposit_month().unwrap(),
+        Some(ym("2025-11"))
+    );
+}
+
+#[test]
+fn wizard_refuses_a_month_filled_by_the_automatic_carry_forward() {
+    // U-1: открытие нового месяца переносит план прошлого; мастер заполняет только пустой месяц.
+    let (_dir, mut db) = seeded();
+    let food = cat(&db, "Продукты");
+    spend(&mut db, "2026-09", food, 30_000, TxStatus::Planned);
+    assert!(db.plan_carry_forward(ym("2026-10"), december()).unwrap() > 0);
+    let input = wizard_input(&db);
+    assert!(matches!(
+        db.plan_wizard_apply(ym("2026-10"), &input, now()),
+        Err(StorageError::Conflict("plan.not_empty"))
+    ));
+}
+
+// ---- Q-17: сбережения по месяцам — несколько сумм одного накопления ----
+
+#[test]
+fn several_amounts_of_one_savings_category_add_up_in_the_month() {
+    // 30 000 ₽ откладываются тремя разами по 10 000 ₽: это три суммы одного накопления.
+    let (_dir, mut db) = seeded();
+    let savings = cat(&db, "Сбережения");
+    let ids: Vec<i64> = (0..3)
+        .map(|_| spend(&mut db, "2026-10", savings, 10_000, TxStatus::Paid))
+        .collect();
+    let total = |db: &Db| {
+        let data = db.dataset(ym("2026-10"), ym("2026-10")).unwrap();
+        Ledger::new(&data)
+            .unwrap()
+            .category_total(ym("2026-10"), savings)
+            .unwrap()
+    };
+    assert_eq!(total(&db), rub(30_000));
+    assert_eq!(db.transactions_of_month(ym("2026-10")).unwrap().len(), 3);
+
+    // Одну сумму можно изменить, другую удалить; остальные остаются.
+    db.transaction_update(
+        TxId(ids[0]),
+        &TransactionPatch {
+            amount: Some(rub(15_000)),
+            ..TransactionPatch::default()
+        },
+        now(),
+    )
+    .unwrap();
+    db.transaction_delete(TxId(ids[2]), now()).unwrap();
+    assert_eq!(total(&db), rub(25_000));
+
+    // Другой месяц не затронут: каждый месяц начинается пустым.
+    let data = db.dataset(ym("2026-11"), ym("2026-11")).unwrap();
+    assert_eq!(
+        Ledger::new(&data)
+            .unwrap()
+            .category_total(ym("2026-11"), savings)
+            .unwrap(),
+        Money::ZERO
+    );
 }

@@ -3,7 +3,9 @@ import { dashboardHandlers } from './dashboards';
 import {
   budgetHandlers,
   mockPlanRateBp,
+  mockAllSavingsCategories,
   mockSavingsCategories,
+  mockSavingsFacts,
   mockTransactionById
 } from './budget';
 import { createSavingsHandlers } from './savings';
@@ -23,6 +25,7 @@ const MOCK_RETRY_MS = 3000;
 const vaultParam = new URLSearchParams(globalThis.location.search).get('vault');
 // Знакомство в моке выключено, чтобы не перекрывать экраны в e2e и скриншотах: ?intro=1 включает.
 const introParam = new URLSearchParams(globalThis.location.search).get('intro');
+const updateParam = new URLSearchParams(globalThis.location.search).get('update');
 
 const vault = {
   exists: vaultParam !== 'new',
@@ -55,7 +58,9 @@ let prefs: Prefs = {
   uiScale: 100,
   reducedMotion: 'system',
   autolockMinutes: 5,
-  introDone: introParam !== '1'
+  introDone: introParam !== '1',
+  checkUpdates: true,
+  lastUpdateCheck: null
 };
 
 function reject(error: AppError): Promise<never> {
@@ -85,7 +90,12 @@ export const handlers = {
   ...budgetHandlers,
   ...dashboardHandlers,
   ...createDebtHandlers(mockTransactionById),
-  ...createSavingsHandlers(mockSavingsCategories, mockPlanRateBp),
+  ...createSavingsHandlers(
+    mockSavingsCategories,
+    mockPlanRateBp,
+    mockSavingsFacts,
+    mockAllSavingsCategories
+  ),
   app_version: () => '0.0.0-mock',
 
   vault_status: (): VaultStatusDto => ({
@@ -161,15 +171,38 @@ export const handlers = {
   // В браузере тему ОС отдаёт media-запрос (в окне Tauri её сообщает Rust).
   system_dark: () => globalThis.matchMedia('(prefers-color-scheme: dark)').matches,
   prefs_set: (args: { patch: PrefsPatch }) => {
-    const { theme, locale, uiScale, reducedMotion, introDone } = args.patch;
+    const { theme, locale, uiScale, reducedMotion, introDone, checkUpdates } = args.patch;
     prefs = {
       theme: theme ?? prefs.theme,
       locale: locale ?? prefs.locale,
       uiScale: uiScale ?? prefs.uiScale,
       reducedMotion: reducedMotion ?? prefs.reducedMotion,
       autolockMinutes: prefs.autolockMinutes,
-      introDone: introDone ?? prefs.introDone
+      introDone: introDone ?? prefs.introDone,
+      checkUpdates: checkUpdates ?? prefs.checkUpdates,
+      lastUpdateCheck: prefs.lastUpdateCheck
     };
     return prefs;
-  }
+  },
+  // ?update=1 — в манифесте есть новая версия; ?update=fail — проверка не удалась.
+  update_check: (args: { manual: boolean }) => {
+    const current = '0.6.16';
+    if (!args.manual && !prefs.checkUpdates)
+      return { state: 'disabled', currentVersion: current, version: null, notes: null };
+    if (updateParam === '1') {
+      return {
+        state: 'available',
+        currentVersion: current,
+        version: '0.7.0',
+        notes: 'Исправления и улучшения.'
+      };
+    }
+    return {
+      state: updateParam === 'fail' ? 'failed' : 'upToDate',
+      currentVersion: current,
+      version: null,
+      notes: null
+    };
+  },
+  update_install: () => null
 } satisfies Record<string, (args: never) => unknown>;

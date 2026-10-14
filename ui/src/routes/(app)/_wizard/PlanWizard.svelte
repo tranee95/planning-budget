@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
-  import { Button, MoneyInput, Modal, Segmented, Skeleton, TextField } from '$lib/components';
+  import { PLACEHOLDERS } from '$lib/i18n/placeholders';
+  import { tick, untrack } from 'svelte';
+  import { Button, MoneyInput, Modal, Skeleton, TextField } from '$lib/components';
   import { formatMoney } from '$lib/format';
   import { onboarding } from '$lib/stores/onboarding.svelte';
   import { WIZARD_STEPS, WizardVm } from './wizard.svelte';
@@ -17,10 +18,17 @@
     }
   });
 
-  const KINDS = [
-    { value: 'percent', label: '% от дохода' },
-    { value: 'fixed', label: 'Сумма' }
-  ] as const;
+  let body = $state<HTMLDivElement>();
+
+  // На каждом шаге фокус — на первом поле, а не на кнопке в подвале (пока грузится — на кнопках).
+  $effect(() => {
+    if (vm.loading) return;
+    const step = vm.step;
+    void tick().then(() => {
+      if (step !== vm.step) return;
+      body?.querySelector<HTMLElement>('input:not(:disabled)')?.focus();
+    });
+  });
 
   const preview = $derived(vm.preview);
   const title = $derived(`План на ${vm.monthName}: ${WIZARD_STEPS[vm.step] ?? ''}`);
@@ -39,159 +47,181 @@
     {/each}
   </p>
 
-  {#if vm.loading}
-    <Skeleton height="240px" />
-  {:else if vm.step === 0}
-    <p class="lead">
-      Внесите ожидаемые поступления месяца. По мере получения вы отметите их как полученные.
-    </p>
-    <div class="rows">
-      {#each vm.incomes as row, index (index)}
-        <div class="row income">
-          <TextField id="wiz-income-name-{index}" label="Источник" bind:value={row.name} />
-          <MoneyInput id="wiz-income-amount-{index}" label="Сумма" bind:value={row.amount} />
-          {#if vm.incomes.length > 1}
-            <Button
-              variant="ghost"
-              size="sm"
-              onclick={() => {
-                vm.removeIncome(index);
-              }}>Убрать</Button
-            >
-          {/if}
-        </div>
-      {/each}
-    </div>
-    <div>
-      <Button
-        variant="secondary"
-        size="sm"
-        onclick={() => {
-          vm.addIncome();
-        }}>+ Ещё поступление</Button
-      >
-    </div>
-  {:else if vm.step === 1}
-    <p class="lead">
-      Сколько вы планируете потратить по каждой статье. Пустые статьи в план не попадут.
-    </p>
-    <div class="grid">
-      {#each vm.lines as row (row.category.id)}
-        <MoneyInput
-          id="wiz-line-{row.category.id}"
-          label={row.category.name}
-          bind:value={row.amount}
-        />
-      {/each}
-    </div>
-  {:else if vm.step === 2}
-    <p class="lead">
-      Сколько откладывать на каждое накопление: долей дохода или фиксированной суммой.
-    </p>
-    {#if vm.savings.length === 0}
-      <p class="muted">Накоплений нет: добавьте категорию типа «Сбережения» в «Категориях».</p>
-    {/if}
-    <div class="rows">
-      {#each vm.savings as row (row.category.id)}
-        <div class="row saving">
-          <span class="name">{row.category.name}</span>
-          <Segmented
-            label="План: {row.category.name}"
-            options={KINDS}
-            value={row.kind}
-            onchange={(value: 'percent' | 'fixed') => {
-              row.kind = value;
-            }}
-          />
-          {#if row.kind === 'percent'}
+  {#if vm.blockedReason}
+    <p class="error" role="status">{vm.blockedReason}</p>
+  {/if}
+
+  <div bind:this={body}>
+    {#if vm.loading}
+      <Skeleton height="240px" />
+    {:else if vm.step === 0}
+      <p class="lead">
+        Внесите ожидаемые поступления месяца. По мере получения вы отметите их как полученные.
+      </p>
+      <div class="rows">
+        {#each vm.incomes as row, index (index)}
+          <div class="row income">
             <TextField
-              id="wiz-saving-percent-{row.category.id}"
-              label="Доля дохода, %"
-              bind:value={row.percent}
+              id="wiz-income-name-{index}"
+              label="Источник"
+              placeholder={PLACEHOLDERS.income}
+              bind:value={row.name}
             />
-          {:else}
+            <MoneyInput
+              id="wiz-income-amount-{index}"
+              label="Сумма"
+              placeholder={PLACEHOLDERS.incomeAmount}
+              bind:value={row.amount}
+            />
+            {#if vm.incomes.length > 1}
+              <Button
+                variant="ghost"
+                size="sm"
+                onclick={() => {
+                  vm.removeIncome(index);
+                }}>Убрать</Button
+              >
+            {/if}
+          </div>
+        {/each}
+      </div>
+      <div>
+        <Button
+          variant="secondary"
+          size="sm"
+          onclick={() => {
+            vm.addIncome();
+          }}>+ Ещё поступление</Button
+        >
+      </div>
+    {:else if vm.step === 1}
+      <p class="lead">
+        Сколько вы планируете потратить по каждой статье. Пустые статьи в план не попадут.
+      </p>
+      <div class="grid">
+        {#each vm.lines as row (row.category.id)}
+          <MoneyInput
+            id="wiz-line-{row.category.id}"
+            label={row.category.name}
+            placeholder={PLACEHOLDERS.amountExample}
+            bind:value={row.amount}
+          />
+        {/each}
+      </div>
+    {:else if vm.step === 2}
+      <p class="lead">Сколько откладывать на каждое накопление в месяц.</p>
+      {#if vm.savings.length === 0}
+        <p class="muted">Накоплений нет: добавьте категорию типа «Сбережения» в «Категориях».</p>
+      {/if}
+      <div class="rows">
+        {#each vm.savings as row (row.category.id)}
+          <div class="row saving">
+            <span class="name">{row.category.name}</span>
             <MoneyInput
               id="wiz-saving-fixed-{row.category.id}"
               label="Сумма в месяц"
+              placeholder={PLACEHOLDERS.savingAmount}
               bind:value={row.fixed}
             />
+          </div>
+        {/each}
+      </div>
+    {:else if preview}
+      <div class="result {preview.balance}" aria-live="polite">
+        <span class="label">Не распределено</span>
+        <span class="value num">{formatMoney(preview.unallocated)}</span>
+        <span class="hint">
+          {#if preview.balance === 'balanced'}
+            каждый рубль дохода получил назначение
+          {:else if preview.balance === 'unallocated'}
+            доход без назначения: вернитесь и распределите остаток или оставьте как есть
+          {:else if preview.balance === 'over'}
+            план превышает доход на {formatMoney(Math.abs(preview.unallocated))}
+          {:else}
+            внесите доход и суммы по статьям
           {/if}
+        </span>
+      </div>
+      <dl class="totals">
+        <div>
+          <dt>Доход</dt>
+          <dd class="num">{formatMoney(preview.income)}</dd>
         </div>
-      {/each}
-    </div>
-  {:else if preview}
-    <div class="result {preview.balance}" aria-live="polite">
-      <span class="label">Не распределено</span>
-      <span class="value num">{formatMoney(preview.unallocated)}</span>
-      <span class="hint">
-        {#if preview.balance === 'balanced'}
-          каждый рубль дохода получил назначение
-        {:else if preview.balance === 'unallocated'}
-          доход без назначения: вернитесь и распределите остаток или оставьте как есть
-        {:else if preview.balance === 'over'}
-          план превышает доход на {formatMoney(Math.abs(preview.unallocated))}
-        {:else}
-          внесите доход и суммы по статьям
-        {/if}
-      </span>
-    </div>
-    <dl class="totals">
-      <div>
-        <dt>Доход</dt>
-        <dd class="num">{formatMoney(preview.income)}</dd>
-      </div>
-      <div>
-        <dt>План трат</dt>
-        <dd class="num">{formatMoney(preview.planExpenses)}</dd>
-      </div>
-      <div>
-        <dt>План сбережений</dt>
-        <dd class="num">{formatMoney(preview.planSavings)}</dd>
-      </div>
-    </dl>
-    <ul class="lines">
-      {#each vm.planLines as line (line.name)}
-        <li><span>{line.name}</span><span class="num">{formatMoney(line.plan)}</span></li>
-      {/each}
-    </ul>
-    <p class="muted">
-      «План готов» запоминает эти суммы: в течение месяца вы будете сравнивать с ними факт.
-    </p>
-  {/if}
+        <div>
+          <dt>План трат</dt>
+          <dd class="num">{formatMoney(preview.planExpenses)}</dd>
+        </div>
+        <div>
+          <dt>План сбережений</dt>
+          <dd class="num">{formatMoney(preview.planSavings)}</dd>
+        </div>
+      </dl>
+      <ul class="lines">
+        {#each vm.planLines as line (line.name)}
+          <li><span>{line.name}</span><span class="num">{formatMoney(line.plan)}</span></li>
+        {/each}
+      </ul>
+      <p class="muted">
+        «План готов» запоминает эти суммы: в течение месяца вы будете сравнивать с ними факт.
+      </p>
+    {/if}
+  </div>
 
   {#if vm.error}<p class="error" role="alert">{vm.error}</p>{/if}
 
   {#snippet footer()}
-    {#if preview && vm.step < WIZARD_STEPS.length - 1}
-      <span class="mini"
-        >Не распределено: <b class="num">{formatMoney(preview.unallocated)}</b></span
+    {#if vm.confirmingOver}
+      <span class="mini over" role="alert"
+        >План превышает доход на {formatMoney(vm.overBy)}. Всё равно зафиксировать?</span
       >
-    {/if}
-    <Button
-      variant="ghost"
-      onclick={() => {
-        onboarding.closeWizard();
-      }}>Позже</Button
-    >
-    {#if vm.step > 0}
       <Button
         variant="secondary"
         onclick={() => {
-          vm.back();
-        }}>Назад</Button
+          vm.cancelOver();
+        }}>Назад к плану</Button
       >
-    {/if}
-    {#if vm.last}
       <Button variant="primary" loading={vm.applying} onclick={() => void vm.apply()}
-        >План готов</Button
+        >Зафиксировать</Button
       >
     {:else}
+      {#if vm.step === 0 && !vm.canNext && vm.blockedReason === null}
+        <span class="mini" id="wiz-next-hint">Внесите хотя бы один доход с суммой.</span>
+      {:else if preview && vm.step < WIZARD_STEPS.length - 1}
+        <span class="mini"
+          >Не распределено: <b class="num">{formatMoney(preview.unallocated)}</b></span
+        >
+      {/if}
       <Button
-        variant="primary"
+        variant="ghost"
         onclick={() => {
-          vm.next();
-        }}>Далее</Button
+          onboarding.closeWizard();
+        }}>Позже</Button
       >
+      {#if vm.step > 0}
+        <Button
+          variant="secondary"
+          onclick={() => {
+            vm.back();
+          }}>Назад</Button
+        >
+      {/if}
+      {#if vm.last}
+        <Button
+          variant="primary"
+          loading={vm.applying}
+          disabled={vm.blockedReason !== null}
+          onclick={() => void vm.apply()}>План готов</Button
+        >
+      {:else}
+        <Button
+          variant="primary"
+          disabled={!vm.canNext}
+          aria-describedby={vm.step === 0 && !vm.canNext ? 'wiz-next-hint' : undefined}
+          onclick={() => {
+            vm.next();
+          }}>Далее</Button
+        >
+      {/if}
     {/if}
   {/snippet}
 </Modal>
@@ -324,6 +354,9 @@
     margin-inline-end: auto;
     color: var(--muted);
     font-size: var(--fs-13);
+  }
+  .mini.over {
+    color: var(--unpl);
   }
   .mini b {
     color: var(--ink);

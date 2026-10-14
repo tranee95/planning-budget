@@ -10,7 +10,8 @@ import {
 } from '$lib/api/bindings';
 import { LoadStamp, onDataChanged } from '$lib/api/data-events';
 import { categoriesApi, settingsApi, summaryApi } from '$lib/api/data';
-import { CATEGORY_COLORS, parsePercentBp } from '$lib/category-colors';
+import { CATEGORY_COLORS } from '$lib/category-colors';
+import { pluralRu } from '$lib/format';
 import { errorText } from '$lib/i18n/errors';
 import { toasts } from '$lib/stores/toasts.svelte';
 
@@ -18,8 +19,6 @@ export type CategoryRow = {
   category: CategoryDto;
   /** Лимит в выбранном месяце (для категории сбережений — `null`). */
   limit: number | null;
-  /** Процент плана сбережений в выбранном месяце, б. п. */
-  rateBp: number | null;
   avg: number;
   /** Среднее минус лимит: положительное — превышение. */
   overLimit: number | null;
@@ -32,10 +31,6 @@ export type Draft = {
   note: string;
   /** Копейки; `null` — поле пусто. */
   limit: number | null;
-  /** Процент текстом, как вводит пользователь. */
-  rate: string;
-  /** Процент только на выбранный месяц, текстом. */
-  monthRate: string;
 };
 
 const emptyDraft = (): Draft => ({
@@ -43,9 +38,7 @@ const emptyDraft = (): Draft => ({
   color: CATEGORY_COLORS[0] ?? '',
   kind: 'wants',
   note: '',
-  limit: null,
-  rate: '',
-  monthRate: ''
+  limit: null
 });
 
 /** ViewModel экрана «Категории и лимиты». Суммы и средние приходят из Rust. */
@@ -54,8 +47,6 @@ export class CategoriesVm {
   limits = $state.raw<LimitRowDto[]>([]);
   yearRows = $state.raw<CategoryYearRowDto[]>([]);
   balance = $state.raw<BudgetBalanceDto | null>(null);
-  /** Процент плана сбережений месяца с учётом переопределения, б. п. (считает Rust). */
-  monthPlanBp = $state<number | null>(null);
   settings = $state.raw<SettingsDto | null>(null);
   showArchived = $state(false);
   loading = $state(false);
@@ -80,28 +71,27 @@ export class CategoriesVm {
   rows = $derived.by<CategoryRow[]>(() => {
     const limitById = new SvelteMap(this.limits.map((l) => [l.categoryId, l]));
     const yearById = new SvelteMap(this.yearRows.map((r) => [r.categoryId, r]));
-    return this.items
-      .filter((c) => this.showArchived || !c.archived)
-      .map((category) => {
-        const year = yearById.get(category.id);
-        const row = limitById.get(category.id);
-        return {
-          category,
-          limit: row?.limit ?? null,
-          rateBp: row?.planRateBp ?? null,
-          avg: year?.avg ?? 0,
-          overLimit: year?.avgMinusLimit ?? null
-        };
-      });
+    return (
+      this.items
+        // Накопления живут во вкладке «Сбережения».
+        .filter((c) => c.kind !== 'savings' && (this.showArchived || !c.archived))
+        .map((category) => {
+          const year = yearById.get(category.id);
+          const row = limitById.get(category.id);
+          return {
+            category,
+            limit: row?.limit ?? null,
+            avg: year?.avg ?? 0,
+            overLimit: year?.avgMinusLimit ?? null
+          };
+        })
+    );
   });
 
   subtitle = $derived.by(() => {
-    const n = this.items.filter((c) => !c.archived).length;
-    return `${String(n)} ${pluralCategories(n)} · перетаскивайте, чтобы изменить порядок`;
+    const n = this.items.filter((c) => c.kind !== 'savings' && !c.archived).length;
+    return `${String(n)} ${pluralRu(n, ['категория', 'категории', 'категорий'])} · перетаскивайте, чтобы изменить порядок`;
   });
-
-  /** Процент плана расходится с нормой из настроек: пользователю нужно это объяснить. */
-  rateMismatch = $state(false);
 
   current = $derived(
     typeof this.selected === 'number'
@@ -127,8 +117,6 @@ export class CategoriesVm {
       this.limits = overview.limits;
       this.yearRows = year.categories;
       this.balance = year.balance;
-      this.monthPlanBp = overview.summary.savingsPlanRateBp;
-      this.rateMismatch = overview.summary.savingsPlanOffNorm;
       this.settings = settings;
       if (typeof this.selected === 'number' && !items.some((c) => c.id === this.selected)) {
         this.selected = null;
@@ -150,9 +138,7 @@ export class CategoriesVm {
       color: row.category.color,
       kind: row.category.kind,
       note: row.category.note ?? '',
-      limit: row.limit,
-      rate: row.rateBp === null ? '' : String(row.rateBp / 100).replace('.', ','),
-      monthRate: ''
+      limit: row.limit
     };
   }
 
@@ -166,23 +152,12 @@ export class CategoriesVm {
     this.selected = null;
   }
 
-  /** Сохраняет черновик: поля категории, затем лимит или процент «с начала месяца экрана». */
+  /** Сохраняет черновик: поля категории, затем лимит «с начала месяца экрана». */
   async save(): Promise<boolean> {
     const d = this.draft;
     const name = d.name.trim();
     if (name === '') {
       this.fieldError = 'Название не должно быть пустым';
-      return false;
-    }
-    const isSavings = d.kind === 'savings';
-    const rateBp = isSavings && d.rate.trim() !== '' ? parsePercentBp(d.rate) : null;
-    if (isSavings && d.rate.trim() !== '' && rateBp === null) {
-      this.fieldError = 'Процент от 0 до 100, например 14 или 14,5';
-      return false;
-    }
-    const monthBp = isSavings && d.monthRate.trim() !== '' ? parsePercentBp(d.monthRate) : null;
-    if (isSavings && d.monthRate.trim() !== '' && monthBp === null) {
-      this.fieldError = 'Процент на месяц от 0 до 100';
       return false;
     }
     this.fieldError = null;
@@ -202,21 +177,13 @@ export class CategoriesVm {
         return false;
       }
       const row = this.rows.find((r) => r.category.id === id);
-      if (!isSavings && d.limit !== null && d.limit > 0 && d.limit !== row?.limit) {
+      if (d.limit !== null && d.limit > 0 && d.limit !== row?.limit) {
         await categoriesApi.setLimit(id, this.#month, d.limit);
       }
       // Пустое поле у категории с лимитом: лимита нет с начала месяца экрана.
-      if (!isSavings && d.limit === null && row?.limit != null) {
+      if (d.limit === null && row?.limit != null) {
         await categoriesApi.unsetLimit(id, this.#month);
       }
-      // Пустой процент: план сбережений с начала месяца экрана равен нулю.
-      if (isSavings && d.rate.trim() === '' && row?.rateBp != null && row.rateBp > 0) {
-        await categoriesApi.setSavingsRate(id, this.#month, 0);
-      }
-      if (rateBp !== null && rateBp !== row?.rateBp) {
-        await categoriesApi.setSavingsRate(id, this.#month, rateBp);
-      }
-      if (monthBp !== null) await categoriesApi.setSavingsOverride(this.#month, id, monthBp);
       await this.load(this.#month);
       this.selected = id;
       this.select(id);
@@ -234,18 +201,25 @@ export class CategoriesVm {
     }
   }
 
-  /** Убирает переопределение процента на выбранный месяц: снова действует общий процент. */
-  async clearMonthRate(id: number): Promise<void> {
-    this.#writes++;
-    try {
-      await categoriesApi.clearSavingsOverride(this.#month, id);
-      await this.load(this.#month);
-      toasts.push({ message: 'Процент месяца сброшен' });
-    } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
-    } finally {
-      this.#writes--;
-    }
+  /** Категория, которую пользователь собрался отправить в архив: ждёт подтверждения. */
+  archiveAsk = $state<{ id: number; name: string } | null>(null);
+
+  /** Запрос на архивацию: сама категория меняется только после `confirmArchive`. */
+  askArchive(id: number): void {
+    const category = this.items.find((c) => c.id === id);
+    if (category === undefined || category.archived) return;
+    this.archiveAsk = { id, name: category.name };
+  }
+
+  cancelArchive(): void {
+    this.archiveAsk = null;
+  }
+
+  async confirmArchive(): Promise<void> {
+    const ask = this.archiveAsk;
+    if (ask === null) return;
+    this.archiveAsk = null;
+    await this.setArchived(ask.id, true);
   }
 
   async setArchived(id: number, archived: boolean): Promise<void> {
@@ -271,13 +245,6 @@ export class CategoriesVm {
     if (from < 0 || to < 0) return;
     ids.splice(to, 0, ...ids.splice(from, 1));
     await this.#reorder(ids);
-  }
-
-  /** Сдвиг на одну позицию клавиатурой (Alt+↑ / Alt+↓). */
-  async nudge(id: number, delta: -1 | 1): Promise<void> {
-    const visible = this.rows.map((r) => r.category.id);
-    const target = visible[visible.indexOf(id) + delta];
-    if (target !== undefined) await this.move(id, target);
   }
 
   async #reorder(ids: number[]): Promise<void> {
@@ -306,14 +273,6 @@ export class CategoriesVm {
       if (this.#month !== '') void this.load(this.#month);
     });
   }
-}
-
-function pluralCategories(n: number): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return 'категория';
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'категории';
-  return 'категорий';
 }
 
 const KEY = Symbol('CategoriesVm');

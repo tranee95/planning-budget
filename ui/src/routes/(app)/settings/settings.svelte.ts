@@ -61,6 +61,15 @@ export class SettingsVm {
     return this.saveView({ reducedMotion: on ? 'on' : 'system' });
   }
 
+  /** Проверка обновлений при запуске. */
+  get checkUpdates(): boolean {
+    return prefs.current?.checkUpdates ?? true;
+  }
+
+  setCheckUpdates(on: boolean): Promise<void> {
+    return this.saveView({ checkUpdates: on });
+  }
+
   /** Знакомство снова показывается сразу: оболочка следит за `introDone`. */
   showIntroAgain(): Promise<void> {
     return this.saveView({ introDone: false });

@@ -1,7 +1,10 @@
 <script lang="ts">
+  import { watchResultCache } from '$lib/api/result-cache';
+  import { prefetchCharts } from '$lib/charts/prefetch';
+  import { trackScrolling } from '$lib/scroll-state';
   import type { Snippet } from 'svelte';
   import { onMount } from 'svelte';
-  import { searchApi } from '$lib/api/data';
+  import { planApi, searchApi } from '$lib/api/data';
   import { categories } from '$lib/stores/categories.svelte';
   import { page } from '$app/state';
   import CommandPalette from '$lib/components/CommandPalette.svelte';
@@ -9,6 +12,8 @@
   import { monthOut, monthSlide, routeIn, routeOut } from '$lib/motion';
   import { routeMeta } from '$lib/nav';
   import { shortcuts } from '$lib/shortcuts';
+  import { errorText } from '$lib/i18n/errors';
+  import { toasts } from '$lib/stores/toasts.svelte';
   import { month } from '$lib/stores/month.svelte';
   import { onboarding } from '$lib/stores/onboarding.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
@@ -17,6 +22,8 @@
   import { registerShellShortcuts } from './_shell/shortcuts';
   import Intro from './_intro/Intro.svelte';
   import PlanWizard from './_wizard/PlanWizard.svelte';
+  import UpdateDialog from './_shell/UpdateDialog.svelte';
+  import { updates } from '$lib/stores/updates.svelte';
   import Sidebar from './_components/Sidebar.svelte';
   import Topbar from './_components/Topbar.svelte';
 
@@ -31,14 +38,27 @@
 
   const commands = buildCommands();
 
+  // Новый месяц получает план прошлого автоматически, один раз (U-1); экраны обновятся по событию.
+  $effect(() => {
+    if (session.phase !== 'unlocked' || !monthScoped) return;
+    planApi.carryForward(month.current).catch((e: unknown) => {
+      toasts.push({ kind: 'error', message: errorText(e) });
+    });
+  });
+
   onMount(() => {
     const offShortcuts = registerShellShortcuts(() => {
       paletteOpen = !paletteOpen;
     });
     const offCategories = categories.watch();
+    watchResultCache();
+    prefetchCharts();
+    const offScrolling = trackScrolling();
+    void updates.autoCheck();
     return () => {
       offShortcuts();
       offCategories();
+      offScrolling();
     };
   });
 </script>
@@ -89,6 +109,9 @@
   {/if}
   {#if onboarding.wizardOpen}
     <PlanWizard />
+  {/if}
+  {#if prefs.current?.introDone !== false}
+    <UpdateDialog />
   {/if}
   {#if paletteOpen}
     <CommandPalette

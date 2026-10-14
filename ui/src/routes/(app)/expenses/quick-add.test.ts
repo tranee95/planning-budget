@@ -45,16 +45,18 @@ it('chips: категории по частоте использования в 
   await vi.waitFor(() => {
     expect(vm.usage.size).toBeGreaterThan(0);
   });
-  expect(vm.chips.map((c) => c.name)).toEqual(['Продукты', 'Жильё', 'Развлечения', 'Накопления']);
+  expect(vm.chips.map((c) => c.name)).toEqual(['Продукты', 'Жильё', 'Развлечения']);
 });
 
-it('canSave требует сумму, категорию и наименование', async () => {
+it('canSave требует сумму и категорию; наименование необязательно (UX-2)', async () => {
   const { vm } = await open();
+  expect(vm.canSave).toBe(false);
   vm.amount = 259_600;
+  // Самая частая категория предвыбрана, наименование не нужно.
+  expect(vm.canSave).toBe(true);
+  vm.clearCategory();
   expect(vm.canSave).toBe(false);
   vm.categoryId = 1;
-  expect(vm.canSave).toBe(false);
-  vm.title = '  Шары ';
   expect(vm.canSave).toBe(true);
   vm.amount = 0;
   expect(vm.canSave).toBe(false);
@@ -203,4 +205,99 @@ it('save: каждая новая трата уходит со своим reques
   await expenses.load('2026-09');
   expect(expenses.transactions).toHaveLength(before);
   create.mockRestore();
+});
+
+// ---- UX-2: категория по умолчанию и понятные ошибки ----
+
+it('категория предвыбрана сразу, а после загрузки частоты — самая частая', async () => {
+  const { vm } = await open();
+  expect(vm.categoryId).not.toBeNull();
+  await vi.waitFor(() => {
+    expect(vm.usage.size).toBeGreaterThan(0);
+  });
+  expect(vm.categoryId).toBe(vm.chips[0]?.id);
+  expect(vm.chips[0]?.name).toBe('Продукты');
+});
+
+it('ручной выбор категории не перебивается поздней загрузкой частоты', async () => {
+  const expenses = new ExpensesVm();
+  await expenses.load('2026-09');
+  const vm = new QuickAddVm(expenses, () => '2026-09-30');
+  vm.categoryId = 3;
+  await vi.waitFor(() => {
+    expect(vm.usage.size).toBeGreaterThan(0);
+  });
+  expect(vm.categoryId).toBe(3);
+});
+
+it('Enter без суммы: ничего не создаётся, под полем «Введите сумму»', async () => {
+  const { expenses, vm } = await open();
+  expenses.openEditor();
+  const create = vi.spyOn(transactionsApi, 'create');
+  expect(vm.formError).toBeNull();
+  await vm.save(false);
+  expect(create).not.toHaveBeenCalled();
+  expect(vm.formError).toBe('Введите сумму');
+  vm.amount = 100_000;
+  expect(vm.formError).toBeNull();
+});
+
+it('Enter без категории: подсказка «Выберите категорию», пока она не выбрана', async () => {
+  const { expenses, vm } = await open();
+  expenses.openEditor();
+  vm.clearCategory();
+  vm.amount = 100_000;
+  const create = vi.spyOn(transactionsApi, 'create');
+  await vm.save(false);
+  expect(create).not.toHaveBeenCalled();
+  expect(vm.formError).toBe('Выберите категорию');
+  vm.categoryId = 1;
+  expect(vm.formError).toBeNull();
+});
+
+it('наименование необязательно: без него берётся название категории', async () => {
+  const { expenses, vm } = await open();
+  expenses.openEditor();
+  vm.amount = 250_000;
+  vm.categoryId = 1;
+  expect(vm.canSave).toBe(true);
+  await vm.save(false);
+  expect(expenses.transactions.some((t) => t.title === 'Продукты' && t.amount === 250_000)).toBe(
+    true
+  );
+  expect(toasts.items.at(-1)?.message).toContain('Продукты');
+});
+
+it('⇧↵ «ещё одну»: после сохранения форма снова ждёт сумму, категория остаётся выбранной', async () => {
+  const { expenses, vm } = await open();
+  expenses.openEditor();
+  vm.amount = 100_000;
+  vm.categoryId = 2;
+  await vm.save(true);
+  expect(vm.amount).toBeNull();
+  expect(vm.categoryId).toBe(2);
+  expect(vm.focusAmount).toBe(true);
+});
+
+it('без категорий расходов выбрать нечего: категория пуста, сохранение просит выбрать', async () => {
+  const { expenses, vm } = await open();
+  categories.items = categories.items.filter((c) => c.kind === 'savings');
+  expect(vm.chips).toEqual([]);
+  vm.clearCategory();
+  vm.amount = 100_000;
+  const create = vi.spyOn(transactionsApi, 'create');
+  await vm.save(false);
+  expect(create).not.toHaveBeenCalled();
+  expect(vm.formError).toBe('Выберите категорию');
+  expect(expenses.editorOpen).toBe(false);
+});
+
+it('ошибка возвращается, если исправленное поле снова стало неверным после первой попытки', async () => {
+  const { vm } = await open();
+  await vm.save(false);
+  expect(vm.formError).toBe('Введите сумму');
+  vm.amount = 100;
+  expect(vm.formError).toBeNull();
+  vm.amount = null;
+  expect(vm.formError).toBe('Введите сумму');
 });

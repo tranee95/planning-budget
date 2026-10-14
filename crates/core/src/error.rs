@@ -18,6 +18,8 @@ pub enum CoreError {
     Money(#[from] MoneyError),
     #[error("invalid month")]
     Month,
+    #[error("invalid day of month")]
+    Day,
     #[error("category {0} not found")]
     CategoryNotFound(i64),
     #[error("invalid settings: {0}")]

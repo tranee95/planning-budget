@@ -664,6 +664,117 @@ fn copy_from_previous_fills_the_next_month_once() {
     );
 }
 
+#[test]
+fn carry_forward_fills_a_new_month_once_and_rejects_a_bad_month() {
+    let (_dir, mut db) = seeded();
+    let before = plan::month(&db, "2026-09").unwrap();
+    let late = Utc.with_ymd_and_hms(2026, 10, 2, 9, 0, 0).unwrap();
+    let created = plan::carry_forward(&mut db, "2026-10", late).unwrap();
+    assert!(created > 0);
+    assert_eq!(
+        plan::month(&db, "2026-10").unwrap().plan_expenses,
+        before.plan_expenses
+    );
+    assert_eq!(plan::carry_forward(&mut db, "2026-10", late).unwrap(), 0);
+    assert!(plan::carry_forward(&mut db, "2026-13", late).is_err());
+}
+
+/// Сумма накопления за месяц (Q-17): обычная оплаченная трата в категории-сбережении.
+fn put_saving(db: &mut Db, category_id: i64, month: &str, amount: i64) -> i64 {
+    records::tx_create(
+        db,
+        TransactionInput {
+            month: month.into(),
+            date: None,
+            category_id,
+            title: "Накопление".into(),
+            amount,
+            status: TxStatusDto::Paid,
+            comment: None,
+        },
+        now(),
+    )
+    .unwrap()
+    .id
+}
+
+#[test]
+fn savings_progress_sums_amounts_over_the_whole_period() {
+    let dir = TempDir::new().unwrap();
+    let mut db = Db::create(&dir.path().join("budget.db"), &KEY).unwrap();
+    db.seed_defaults(now()).unwrap();
+    let savings = category(&db, "Сбережения").0;
+    let empty = savings::progress(&db, "2026-10").unwrap();
+    assert_eq!((empty.total, empty.months.len()), (0, 0));
+    put_saving(&mut db, savings, "2026-08", rub(10_000));
+    put_saving(&mut db, savings, "2026-09", rub(10_000));
+    // Октябрь: 12 000 ₽ тремя суммами по 4 000 ₽ — одна запись месяца в графике.
+    for _ in 0..3 {
+        put_saving(&mut db, savings, "2026-10", rub(4_000));
+    }
+    let p = savings::progress(&db, "2026-10").unwrap();
+    assert_eq!(p.total, rub(32_000));
+    assert_eq!(p.months.len(), 3);
+    assert_eq!(p.months[2].deposited, rub(12_000));
+    assert_eq!(p.chart.categories.len(), 3);
+    assert!(savings::progress(&db, "2026-13").is_err());
+}
+
+#[test]
+fn savings_progress_lists_every_accumulation_including_a_closed_goal() {
+    let dir = TempDir::new().unwrap();
+    let mut db = Db::create(&dir.path().join("budget.db"), &KEY).unwrap();
+    db.seed_defaults(now()).unwrap();
+    let cushion = category(&db, "Сбережения").0;
+    let trip = categories::create(
+        &mut db,
+        crate::dto::CategoryInput {
+            name: "Отпуск".into(),
+            kind: crate::dto::CategoryKindDto::Savings,
+            color: "#D9893A".into(),
+            note: None,
+        },
+        now(),
+    )
+    .unwrap()
+    .id;
+    put_saving(&mut db, cushion, "2026-10", rub(5_000));
+    put_saving(&mut db, trip, "2026-09", rub(20_000));
+    put_saving(&mut db, trip, "2026-09", rub(10_000));
+    // Цель «Отпуск» достигнута и закрыта (архив): её суммы остаются в графике и в итоге.
+    categories::archive(&mut db, CategoryId(trip), today(), now()).unwrap();
+    let p = savings::progress(&db, "2026-10").unwrap();
+    assert_eq!(p.total, rub(35_000));
+    assert_eq!(p.categories.len(), 2);
+    let closed = p.categories.iter().find(|c| c.name == "Отпуск").unwrap();
+    assert!(closed.archived);
+    assert_eq!(closed.total, rub(30_000));
+    assert_eq!(closed.color, "#D9893A");
+    assert_eq!(p.chart.series.len(), 2);
+    let series = p.chart.series.iter().find(|s| s.name == "Отпуск").unwrap();
+    assert_eq!(series.color, format!("category:{trip}"));
+    assert_eq!(series.values, vec![Some(30_000.0), Some(0.0)]);
+}
+
+#[test]
+fn savings_amounts_lower_the_free_balance_and_deleting_one_restores_it() {
+    let (_dir, mut db) = seeded();
+    let savings = category(&db, "Сбережения").0;
+    // Месяц без записей: итоги до и после сравниваются как есть.
+    let before = summary::month(&db, "2026-11", today()).unwrap().summary;
+    let first = put_saving(&mut db, savings, "2026-11", rub(7_000));
+    put_saving(&mut db, savings, "2026-11", rub(3_000));
+    let after = summary::month(&db, "2026-11", today()).unwrap().summary;
+    // Суммы — расход бюджета: уменьшают свободный остаток и входят в сбережения; «Расходы» без сбережений.
+    assert_eq!(after.expenses, before.expenses);
+    assert_eq!(after.savings, before.savings + rub(10_000));
+    assert_eq!(after.free, before.free - rub(10_000));
+    records::tx_delete(&mut db, TxId(first), now()).unwrap();
+    let rest = summary::month(&db, "2026-11", today()).unwrap().summary;
+    assert_eq!(rest.savings, before.savings + rub(3_000));
+    assert_eq!(rest.free, before.free - rub(3_000));
+}
+
 fn debt_input(db: &Db, schedule: Vec<(&str, i64)>) -> crate::dto::DebtInput {
     crate::dto::DebtInput {
         lender: "Кредитная карта".to_owned(),
@@ -1023,4 +1134,113 @@ fn limits_unset_removes_the_limit_from_that_month_only() {
     assert_eq!(row(&after, food.id), None);
     let earlier = summary::month(&db, "2026-08", today()).unwrap();
     assert!(row(&earlier, food.id).is_some());
+}
+
+#[test]
+fn first_run_seed_creates_only_chosen_and_required_categories_once() {
+    let dir = TempDir::new().unwrap();
+    let mut db = Db::create(&dir.path().join("budget.db"), &KEY).unwrap();
+    db.seed_base(now()).unwrap();
+    assert!(categories::list(&db, false).unwrap().is_empty());
+
+    let defaults = categories::defaults().unwrap();
+    assert_eq!(defaults.len(), 17);
+    assert_eq!(defaults.iter().filter(|c| c.required).count(), 2);
+
+    let chosen = vec!["Продукты".to_owned()];
+    let (created, added) = categories::seed(&mut db, &chosen, now()).unwrap();
+    assert_eq!(added, 3);
+    let names: Vec<&str> = created.iter().map(|c| c.name.as_str()).collect();
+    assert_eq!(names, ["Продукты", "Прочее", "Сбережения"]);
+
+    // Повтор не дублирует и не добавляет снятое.
+    let (again, added) = categories::seed(&mut db, &["Одежда".to_owned()], now()).unwrap();
+    assert_eq!((again.len(), added), (3, 0));
+}
+
+/// UX-4: после мастера все строки в статусе «План», «Фактически» равно нулю; оплата переносит сумму.
+#[test]
+fn plan_actual_is_zero_after_the_wizard_and_follows_payments() {
+    let (_dir, mut db) = seeded();
+    let input = wizard_dto(&db);
+    let applied = plan::wizard_apply(&mut db, "2026-11", &input, now()).unwrap();
+    let food_id = category(&db, "Продукты").0;
+    let food = applied
+        .rows
+        .iter()
+        .find(|r| r.category_id == food_id)
+        .unwrap();
+    assert_eq!(
+        (food.plan, food.fact, food.actual, food.deviation),
+        (rub(30_000), rub(30_000), 0, 0)
+    );
+    assert!(applied.rows.iter().all(|r| r.actual == 0));
+
+    let line = db
+        .transactions_of_month(planning_budget_core::YearMonth::parse("2026-11").unwrap())
+        .unwrap()
+        .into_iter()
+        .find(|t| t.category_id.0 == food_id)
+        .unwrap();
+    records::tx_set_status(&mut db, line.id, TxStatusDto::Paid, now()).unwrap();
+    let paid = plan::month(&db, "2026-11").unwrap();
+    let food = paid.rows.iter().find(|r| r.category_id == food_id).unwrap();
+    assert_eq!((food.fact, food.actual), (rub(30_000), rub(30_000)));
+    let cafe = paid
+        .rows
+        .iter()
+        .find(|r| r.category_id == category(&db, "Кафе и доставка").0)
+        .unwrap();
+    assert_eq!(cafe.actual, 0);
+}
+#[test]
+fn overview_exposes_free_actual_and_remaining_weeks_only_for_the_current_month() {
+    let (_dir, db) = seeded();
+    // «Сегодня» 15 сентября: до конца месяца 16 дней. Значения посчитаны независимо от кода:
+    // доход 163 000 ₽ − оплаченное 88 828 ₽ = 74 172 ₽; 4 272 349 коп. × 7 / 16 → 1 869 153 коп.
+    let sep = summary::month(&db, "2026-09", today()).unwrap().summary;
+    assert_eq!((sep.free, sep.free_actual), (4_272_349, 7_417_200));
+    assert_eq!(sep.per_week, 1_869_153);
+    assert!((sep.weeks_left.unwrap() - 16.0 / 7.0).abs() < 1e-9);
+    // Прошлый месяц: прежнее правило, остаток ÷ 4, без «оставшихся недель».
+    let aug = summary::month(&db, "2026-08", today()).unwrap().summary;
+    assert_eq!(aug.per_week, 751_934);
+    assert_eq!(aug.weeks_left, None);
+    assert_eq!(aug.free_actual, aug.free);
+}
+
+#[test]
+fn saved_on_overview_matches_deposited_on_savings_for_every_seed_month() {
+    use planning_budget_core::{CategoryKind, TxStatus, YearMonth};
+    let (_dir, db) = seeded();
+    for month in 1..=9 {
+        let key = format!("2026-{month:02}");
+        let ym = YearMonth::parse(&key).unwrap();
+        let saved = plan::month(&db, &key).unwrap().saved;
+        let progress = savings::progress(&db, &key).unwrap();
+        let deposited = progress
+            .months
+            .iter()
+            .find(|m| m.month == key)
+            .map_or(0, |m| m.deposited);
+        // Третье независимое определение: оплаченные записи категорий-накоплений месяца.
+        let data = db.dataset(ym, ym).unwrap();
+        let paid_by_hand: i64 = data
+            .transactions
+            .iter()
+            .filter(|t| t.month == ym && t.status != TxStatus::Planned)
+            .filter(|t| {
+                data.categories
+                    .iter()
+                    .any(|c| c.id == t.category_id && c.kind == CategoryKind::Savings)
+            })
+            .map(|t| t.amount.kopecks())
+            .sum();
+        assert_eq!(saved, deposited, "{key}: Обзор и Сбережения");
+        assert_eq!(saved, paid_by_hand, "{key}: сумма записей");
+    }
+    // Сентябрь seed: всё накопление в плане. «Отложено» 0, план — отдельная величина.
+    let sep = plan::month(&db, "2026-09").unwrap();
+    assert_eq!(sep.saved, 0);
+    assert!(sep.plan_savings > 0);
 }

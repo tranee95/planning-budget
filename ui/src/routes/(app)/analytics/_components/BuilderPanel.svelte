@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { PLACEHOLDERS } from '$lib/i18n/placeholders';
   import ChartArea from '@lucide/svelte/icons/chart-area';
   import ChartBar from '@lucide/svelte/icons/chart-bar';
   import ChartColumn from '@lucide/svelte/icons/chart-column';
@@ -109,6 +110,7 @@
     <TextField
       id="builder-title"
       label="Название"
+      placeholder={PLACEHOLDERS.chartName}
       bind:value={
         () => draft.title,
         (title: string) => {
@@ -236,7 +238,7 @@
         }
       }
       required={false}
-      placeholder="тип:желания -кат:займы"
+      placeholder={PLACEHOLDERS.chartFilter}
       hint="Язык поиска: кат:, тип:, статус:, сумма>, #тег, период:. Источник не поддерживается."
     />
     {#if builder.filterChips}

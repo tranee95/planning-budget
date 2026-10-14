@@ -340,6 +340,7 @@ fn logs_of_a_full_session_contain_no_amounts_titles_passwords_or_keys() {
         let json: serde_json::Value = serde_json::from_slice(&fs::read(FIXTURE).unwrap()).unwrap();
         state
             .with_session_sync(|db| {
+                db.seed_categories(t0(), None)?;
                 let cat: i64 = db
                     .conn()
                     .query_row("SELECT id FROM categories LIMIT 1", [], |r| r.get(0))

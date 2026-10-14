@@ -67,6 +67,26 @@ pub async fn plan_copy_from_previous(
     Ok(dto)
 }
 
+/// Автоперенос плана из последнего месяца с данными в новый (один раз на месяц). Возвращает число
+/// созданных строк; события об изменении уходят, только если что-то создано.
+#[tauri::command]
+#[specta::specta]
+pub async fn plan_carry_forward(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    month: String,
+) -> Result<u32, AppError> {
+    let target = month.clone();
+    let created = state
+        .with_session(move |db| service::carry_forward(db, &month, Utc::now()))
+        .await?;
+    if created > 0 {
+        data_changed(&app, ChangeScope::Plan, vec![target.clone()]);
+        data_changed(&app, ChangeScope::Transactions, vec![target]);
+    }
+    Ok(created)
+}
+
 /// Предпросмотр мастера первого месяца: «Не распределено» по введённому, без записи.
 #[tauri::command]
 #[specta::specta]

@@ -2,7 +2,7 @@
 //!
 //! Что именно фиксировать, решает `core::calc::Ledger::lock_snapshot`; здесь только запись.
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Datelike, Utc};
 use planning_budget_core::calc::Ledger;
 use planning_budget_core::{BasisPoints, CategoryId, CategoryKind, Money, YearMonth};
 use rusqlite::params;
@@ -275,5 +275,86 @@ impl Db {
         }
         tx.commit()?;
         Ok(created)
+    }
+
+    /// Автоперенос плана в новый месяц (U-1): строки плана ближайшего прошлого месяца с тратами
+    /// создаются в `to` со статусом «План». Выполняется один раз на месяц: после переноса (или если
+    /// в месяце уже есть записи) остаётся отметка, и очищенный пользователем месяц не заполняется
+    /// заново. Не трогаются: будущие месяцы (позже месяца `now`), зафиксированный месяц, месяц без
+    /// прошлых данных и месяц, после которого уже есть данные («последнего» месяца для него нет). Возвращает число
+    /// созданных строк.
+    ///
+    /// # Errors
+    /// Ошибка SQLite или повреждённая строка.
+    pub fn plan_carry_forward(
+        &mut self,
+        to: YearMonth,
+        now: DateTime<Utc>,
+    ) -> Result<usize, StorageError> {
+        let today = YearMonth::new(
+            u16::try_from(now.year()).unwrap_or(0),
+            u8::try_from(now.month()).unwrap_or(1),
+        )
+        .map_err(|_| StorageError::Corrupt)?;
+        if to > today || self.plan_is_locked(to)? {
+            return Ok(0);
+        }
+        let month = to.to_string();
+        let carried: bool = self.conn.query_row(
+            "SELECT EXISTS (SELECT 1 FROM month_carry WHERE month = ?1)",
+            [&month],
+            |r| r.get(0),
+        )?;
+        if carried {
+            return Ok(0);
+        }
+        let has_records: bool = self.conn.query_row(
+            "SELECT EXISTS (SELECT 1 FROM v_transactions WHERE month = ?1)",
+            [&month],
+            |r| r.get(0),
+        )?;
+        let source: Option<String> = self.conn.query_row(
+            "SELECT max(t.month) FROM v_transactions t
+             JOIN categories c ON c.id = t.category_id
+             WHERE t.month < ?1 AND c.kind <> 'savings'",
+            [&month],
+            |r| r.get(0),
+        )?;
+        let newer_data: bool = self.conn.query_row(
+            "SELECT EXISTS (SELECT 1 FROM v_transactions WHERE month > ?1)",
+            [&month],
+            |r| r.get(0),
+        )?;
+        if newer_data {
+            return Ok(0);
+        }
+        let created = match source {
+            Some(from) if !has_records => {
+                self.plan_copy_from(crate::records::parse_month(&from)?, to, now)?
+            }
+            Some(_) => 0,
+            None => return Ok(0),
+        };
+        self.conn.execute(
+            "INSERT INTO month_carry (month, carried_at) VALUES (?1, ?2)",
+            params![month, stamp(now)],
+        )?;
+        Ok(created)
+    }
+
+    /// Месяц первого взноса в накопления (неплановая трата в категории-сбережении); `None`, если
+    /// взносов ещё не было. Нужен, чтобы читать данные «за весь период».
+    ///
+    /// # Errors
+    /// Ошибка SQLite или повреждённая строка.
+    pub fn savings_first_deposit_month(&self) -> Result<Option<YearMonth>, StorageError> {
+        let month: Option<String> = self.conn.query_row(
+            "SELECT min(t.month) FROM v_transactions t
+             JOIN categories c ON c.id = t.category_id
+             WHERE c.kind = 'savings' AND t.status <> 'planned'",
+            [],
+            |r| r.get(0),
+        )?;
+        month.map(|m| crate::records::parse_month(&m)).transpose()
     }
 }

@@ -12,7 +12,7 @@ const props = { range: 'year', year: 2026, onrange: () => undefined } as const;
 test('без данных вместо вырожденной сетки показывается заглушка', () => {
   render(MonthsChart, { props: { ...props, months: [month({}), month({ month: '2026-11' })] } });
   expect(screen.getByText('Данных за выбранный период нет.')).toBeTruthy();
-  expect(document.querySelector('svg')).toBeNull();
+  expect(document.querySelector('svg[role="img"]')).toBeNull();
 });
 
 test('маленькие суммы не схлопывают подписи оси Y в одинаковые «0»', () => {

@@ -120,6 +120,40 @@ fn rename_to_another_active_name_conflicts() {
 }
 
 #[test]
+fn renaming_a_savings_goal_checks_emptiness_and_uniqueness_ignoring_case_and_yo() {
+    let (_dir, mut db) = seeded();
+    let trip = db
+        .category_create(&new("Отпуск", CategoryKind::Savings), now())
+        .unwrap();
+    let cushion = db
+        .category_create(&new("Ёлка", CategoryKind::Savings), now())
+        .unwrap();
+    let rename = |name: &str| CategoryPatch {
+        name: Some(name.to_owned()),
+        ..CategoryPatch::default()
+    };
+    assert!(matches!(
+        db.category_update(trip.id, &rename("  "), now()),
+        Err(StorageError::Invalid("category.name_empty"))
+    ));
+    assert!(matches!(
+        db.category_update(trip.id, &rename("елка"), now()),
+        Err(StorageError::Conflict("category.name_taken"))
+    ));
+    // Свой же вариант написания допустим: имя не конфликтует само с собой.
+    let renamed = db
+        .category_update(cushion.id, &rename(" ёлка новая "), now())
+        .unwrap();
+    assert_eq!(renamed.name, "ёлка новая");
+    // Закрытая цель освобождает имя.
+    db.category_archive(trip.id, ym("2026-10"), now()).unwrap();
+    let freed = db
+        .category_update(cushion.id, &rename("ОТПУСК"), now())
+        .unwrap();
+    assert_eq!(freed.name, "ОТПУСК");
+}
+
+#[test]
 fn reorder_requires_the_exact_set_and_applies_positions() {
     let (_dir, mut db) = seeded();
     let mut ids: Vec<CategoryId> = db.categories(false).unwrap().iter().map(|c| c.id).collect();
@@ -175,15 +209,23 @@ fn archiving_a_savings_category_zeroes_its_rate_from_that_month() {
 }
 
 #[test]
-fn last_savings_category_cannot_be_archived_while_the_year_has_savings() {
+fn the_only_savings_goal_can_be_closed_and_its_amounts_stay_counted() {
+    // Закрытие цели: накопили — цель закрыли; суммы остаются в итогах.
     let (_dir, mut db) = seeded();
     let id = id_of(&db, "Сбережения");
     insert_tx(&db, id, "2026-03");
-    assert!(matches!(
-        db.category_archive(id, ym("2026-10"), now()),
-        Err(StorageError::Conflict("category.last_savings"))
-    ));
-    db.category_archive(id, ym("2027-01"), now()).unwrap();
+    db.category_archive(id, ym("2026-10"), now()).unwrap();
+    assert!(db.category(id).unwrap().archived);
+    let data = db.dataset(ym("2026-03"), ym("2026-10")).unwrap();
+    let progress = planning_budget_core::calc::Ledger::new(&data)
+        .unwrap()
+        .savings_progress(ym("2026-10"))
+        .unwrap();
+    assert_eq!(progress.total, Money::from_kopecks(10_000));
+    assert_eq!(progress.categories.len(), 1);
+    // Закрытая цель возвращается.
+    db.category_unarchive(id, now()).unwrap();
+    assert!(!db.category(id).unwrap().archived);
 }
 
 #[test]
@@ -298,4 +340,70 @@ fn savings_rate_and_override_roundtrip_with_validation() {
         db.savings_rate_set(food, ym("2026-12"), BasisPoints(100)),
         Err(StorageError::Invalid("savings.not_a_savings_category"))
     ));
+}
+
+fn names(db: &Db) -> Vec<String> {
+    db.categories(false)
+        .unwrap()
+        .into_iter()
+        .map(|c| c.name)
+        .collect()
+}
+
+#[test]
+fn seed_base_leaves_categories_empty() {
+    let dir = TempDir::new().unwrap();
+    let mut db = Db::create(&dir.path().join("budget.db"), &KEY).unwrap();
+    db.seed_base(now()).unwrap();
+    assert!(names(&db).is_empty());
+}
+
+#[test]
+fn seed_categories_adds_chosen_and_required_with_sequential_order() {
+    let dir = TempDir::new().unwrap();
+    let mut db = Db::create(&dir.path().join("budget.db"), &KEY).unwrap();
+    db.seed_base(now()).unwrap();
+    let chosen = vec![
+        "Продукты".to_owned(),
+        "Подписки".to_owned(),
+        "Нет такой".to_owned(),
+    ];
+    assert_eq!(db.seed_categories(now(), Some(&chosen)).unwrap(), 4);
+    assert_eq!(names(&db), ["Продукты", "Подписки", "Прочее", "Сбережения"]);
+    let orders: Vec<i32> = db
+        .categories(false)
+        .unwrap()
+        .iter()
+        .map(|c| c.sort_order)
+        .collect();
+    assert_eq!(orders, [0, 1, 2, 3]);
+    // «Сбережения» получают процент плана и параметры накопления, как при полном сиде.
+    let savings = id_of(&db, "Сбережения");
+    assert!(db.savings_params().unwrap().contains_key(&savings));
+}
+
+#[test]
+fn seed_categories_without_selection_adds_everything_and_only_into_empty_table() {
+    let dir = TempDir::new().unwrap();
+    let mut db = Db::create(&dir.path().join("budget.db"), &KEY).unwrap();
+    db.seed_base(now()).unwrap();
+    assert_eq!(db.seed_categories(now(), None).unwrap(), 17);
+    assert_eq!(
+        db.seed_categories(now(), Some(&["Продукты".to_owned()]))
+            .unwrap(),
+        0
+    );
+    assert_eq!(names(&db).len(), 17);
+}
+
+#[test]
+fn default_categories_mark_savings_and_other_as_required() {
+    let list = planning_budget_storage::default_categories().unwrap();
+    assert_eq!(list.len(), 17);
+    let required: Vec<&str> = list
+        .iter()
+        .filter(|c| c.required)
+        .map(|c| c.name.as_str())
+        .collect();
+    assert_eq!(required, ["Прочее", "Сбережения"]);
 }

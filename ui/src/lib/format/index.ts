@@ -16,6 +16,21 @@ const MONTHS = [
   'Декабрь'
 ] as const;
 
+const MONTHS_PREPOSITIONAL = [
+  'январе',
+  'феврале',
+  'марте',
+  'апреле',
+  'мае',
+  'июне',
+  'июле',
+  'августе',
+  'сентябре',
+  'октябре',
+  'ноябре',
+  'декабре'
+] as const;
+
 // Intl.NumberFormat дорогой в создании: форматтеры живут на уровне модуля.
 const grouped = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0, useGrouping: true });
 const exact = new Intl.NumberFormat('ru-RU', {
@@ -48,11 +63,37 @@ export function formatPercent(basisPoints: number): string {
   return `${sign}${normalize(fraction.format(Math.abs(basisPoints) / 100))}${NBSP}%`;
 }
 
+const weeks = new Intl.NumberFormat('ru-RU', {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1
+});
+
+/** Недели одним знаком после запятой: 16/7 → «2,3». Само число приходит из ядра. */
+export function formatWeeks(value: number): string {
+  return weeks.format(value);
+}
+
 /** `YYYY-MM` → «Сентябрь 2026» (`short` — без года). */
 export function formatMonth(month: string, style: 'long' | 'short' = 'long'): string {
   const [year, number] = parseMonth(month);
   const name = MONTHS[number - 1] ?? month;
   return style === 'short' ? name : `${name} ${String(year)}`;
+}
+
+/** Форма слова по числу: `forms` = [для 1, для 2–4, для 5–20] («категория», «категории», «категорий»). */
+export function pluralRu(n: number, forms: readonly [string, string, string]): string {
+  const mod10 = Math.abs(n) % 10;
+  const mod100 = Math.abs(n) % 100;
+  if (mod10 === 1 && mod100 !== 11) return forms[0];
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return forms[1];
+  return forms[2];
+}
+
+/** `YYYY-MM` → «сентябре 2026»: для фраз «в сентябре 2026». */
+export function formatMonthPrepositional(month: string): string {
+  const [year, number] = parseMonth(month);
+  const name = MONTHS_PREPOSITIONAL[number - 1];
+  return name === undefined ? month : `${name} ${String(year)}`;
 }
 
 /** Сдвигает `YYYY-MM` на `delta` месяцев. */

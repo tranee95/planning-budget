@@ -34,7 +34,8 @@ it('пустой месяц: isEmpty, блоки категорий остают
   const vm = new ExpensesVm();
   await vm.load('2025-01');
   expect(vm.isEmpty).toBe(true);
-  expect(vm.blocks).toHaveLength(4);
+  // Накопления на «Расходах» не показываются: три карточки вместо четырёх.
+  expect(vm.blocks).toHaveLength(3);
   expect(vm.blocks.every((b) => b.rows.length === 0)).toBe(true);
 });
 
@@ -46,6 +47,29 @@ it('blocks: строки сгруппированы по категориям, �
   expect(groceries?.limit?.limit).toBe(3_000_000);
 });
 
+it('накопления: ни карточки, ни строк на «Расходах», а итог месяца их учитывает', async () => {
+  const savings = categories.byId.get(4);
+  await categories.ensure();
+  const savingsId = [...categories.items].find((c) => c.kind === 'savings')?.id ?? 0;
+  expect(savingsId).toBeGreaterThan(0);
+  await transactionsApi.create(crypto.randomUUID(), {
+    month: '2026-09',
+    date: null,
+    categoryId: savingsId,
+    title: 'Накопление',
+    amount: 700_000,
+    status: 'paid',
+    comment: null
+  });
+  expect(savings === undefined || savings.kind === 'savings').toBe(true);
+  const vm = new ExpensesVm();
+  await vm.load('2026-09');
+  expect(vm.blocks.some((b) => b.category.kind === 'savings')).toBe(false);
+  expect(vm.visible.some((t) => t.categoryId === savingsId)).toBe(false);
+  expect(vm.sortedRows.some((t) => t.categoryId === savingsId)).toBe(false);
+  expect(categories.spending.some((c) => c.kind === 'savings')).toBe(false);
+});
+
 it('фильтр по статусу оставляет только выбранные', async () => {
   const vm = new ExpensesVm();
   await vm.load('2026-09');
@@ -53,7 +77,7 @@ it('фильтр по статусу оставляет только выбра�
   expect(vm.visible.map((t) => t.title)).toEqual(['Кино']);
   expect(vm.blocks.flatMap((b) => b.rows)).toHaveLength(1);
   vm.toggleStatus('debt');
-  expect(vm.visible).toHaveLength(6);
+  expect(vm.visible).toHaveLength(5);
 });
 
 it('setStatus: оптимистично меняет строку и перечитывает сводку', async () => {
@@ -159,7 +183,7 @@ it('добавление в карточку: startAdd → commitAdd созда�
   });
 });
 
-it('commitAdd: нулевая сумма или пустое имя не создают строку', async () => {
+it('commitAdd: нулевая сумма не создаёт строку', async () => {
   const vm = new ExpensesVm();
   await vm.load('2026-09');
   const category = vm.blocks[0]?.category;
@@ -167,9 +191,33 @@ it('commitAdd: нулевая сумма или пустое имя не соз�
   const before = vm.transactions.length;
   vm.startAdd(category.id);
   await vm.commitAdd({ title: 'Хлеб', amount: 0 });
-  await vm.commitAdd({ title: '', amount: 100 });
   expect(vm.transactions).toHaveLength(before);
   expect(vm.addingTo).toBe(category.id);
+});
+
+it('commitAdd: без наименования берётся название категории', async () => {
+  const vm = new ExpensesVm();
+  await vm.load('2026-09');
+  const category = vm.blocks[0]?.category;
+  if (!category) throw new Error('нет категорий');
+  vm.startAdd(category.id);
+  await vm.commitAdd({ title: '  ', amount: 100 });
+  expect(vm.transactions.at(-1)?.title).toBe(category.name);
+  expect(vm.addingTo).toBeNull();
+});
+
+it('commitAdd: повторный вызов до ответа (Enter и уход фокуса) создаёт одну строку', async () => {
+  const vm = new ExpensesVm();
+  await vm.load('2026-09');
+  const category = vm.blocks[0]?.category;
+  if (!category) throw new Error('нет категорий');
+  const before = vm.transactions.length;
+  vm.startAdd(category.id);
+  await Promise.all([
+    vm.commitAdd({ title: 'Хлеб', amount: 9_000 }),
+    vm.commitAdd({ title: 'Хлеб', amount: 9_000 })
+  ]);
+  expect(vm.transactions).toHaveLength(before + 1);
 });
 
 it('totals: расходы, лимиты и остаток берутся из сводки Rust', async () => {
@@ -185,11 +233,11 @@ it('totals: расходы, лимиты и остаток берутся из �
 it('sortedRows: по умолчанию в порядке ввода, сортировка по сумме и повторный клик меняют направление', async () => {
   const vm = new ExpensesVm();
   await vm.load('2026-09');
-  expect(vm.sortedRows.map((t) => t.id)).toEqual([1, 2, 3, 4, 5, 6]);
+  expect(vm.sortedRows.map((t) => t.id)).toEqual([1, 2, 3, 4, 5]);
   vm.toggleSort('amount');
   expect(vm.sort).toEqual({ column: 'amount', descending: false });
   expect(vm.sortedRows.map((t) => t.amount)).toEqual([
-    90_000, 140_000, 480_000, 1_250_000, 2_000_000, 4_200_000
+    90_000, 140_000, 480_000, 1_250_000, 4_200_000
   ]);
   vm.toggleSort('amount');
   expect(vm.sortedRows[0]?.amount).toBe(4_200_000);
@@ -202,7 +250,7 @@ it('sortedRows: по категории сортирует по названию
   await vm.load('2026-09');
   vm.toggleSort('title');
   expect(vm.sortedRows.map((t) => t.title)).toEqual(
-    [...vm.transactions.map((t) => t.title)].sort((a, b) => a.localeCompare(b, 'ru'))
+    [...vm.spendingRows.map((t) => t.title)].sort((a, b) => a.localeCompare(b, 'ru'))
   );
   vm.toggleSort('category');
   const names = vm.sortedRows.map(
@@ -215,7 +263,7 @@ it('sortedRows учитывает фильтр статусов', async () => {
   const vm = new ExpensesVm();
   await vm.load('2026-09');
   vm.toggleStatus('planned');
-  expect(vm.sortedRows.map((t) => t.id)).toEqual([4, 6]);
+  expect(vm.sortedRows.map((t) => t.id)).toEqual([4]);
 });
 
 it('мультивыбор: toggleChecked, toggleAllChecked, clearChecked', async () => {
@@ -227,7 +275,7 @@ it('мультивыбор: toggleChecked, toggleAllChecked, clearChecked', asyn
   vm.toggleChecked(2);
   expect([...vm.checked]).toEqual([3]);
   vm.toggleAllChecked();
-  expect(vm.checked.size).toBe(6);
+  expect(vm.checked.size).toBe(5);
   vm.toggleAllChecked();
   expect(vm.checked.size).toBe(0);
   vm.toggleChecked(1);
@@ -247,11 +295,11 @@ it('bulkSetStatus: меняет статус выбранных, сбрасыв�
   const vm = new ExpensesVm();
   await vm.load('2026-09');
   vm.toggleChecked(4);
-  vm.toggleChecked(6);
   await vm.bulkSetStatus('paid');
-  expect(vm.transactions.filter((t) => t.status === 'paid').map((t) => t.id)).toEqual([1, 3, 4, 6]);
+  expect(vm.transactions.filter((t) => t.status === 'paid').map((t) => t.id)).toEqual([1, 3, 4]);
   expect(vm.checked.size).toBe(0);
-  expect(vm.overview?.summary.byStatus.planned).toBe(0);
+  // Плановый «Вклад» скрыт на «Расходах», но остаётся в итогах месяца.
+  expect(vm.overview?.summary.byStatus.planned).toBe(2_000_000);
 });
 
 it('bulkSetCategory: переносит выбранные в другую категорию', async () => {
@@ -268,8 +316,8 @@ it('bulk: ошибка одной строки не теряет остальн�
   const vm = new ExpensesVm();
   await vm.load('2026-09');
   vm.toggleChecked(4);
-  vm.toggleChecked(6);
-  await transactionsApi.remove(6);
+  vm.toggleChecked(2);
+  await transactionsApi.remove(2);
   await vm.bulkSetStatus('paid');
   expect(vm.transactions.find((t) => t.id === 4)?.status).toBe('paid');
   expect(toasts.items.at(-1)?.kind).toBe('error');
@@ -317,6 +365,22 @@ it('bulkDelete: удаляет выбранные, undo возвращает', a
   expect(vm.checked.size).toBe(0);
   await undoStack.undo();
   expect(vm.transactions.filter((t) => t.id === 1 || t.id === 2)).toHaveLength(2);
+});
+
+it('deleteOne: удаляет одну сумму, не трогая выбор, тост «Отменить» возвращает её', async () => {
+  const vm = new ExpensesVm();
+  await vm.load('2026-09');
+  vm.toggleChecked(2);
+  await vm.deleteOne(3);
+  expect(vm.transactions.some((t) => t.id === 3)).toBe(false);
+  expect(vm.transactions.some((t) => t.id === 2)).toBe(true);
+  expect(vm.checked.has(2)).toBe(true);
+  const toast = toasts.items.at(-1);
+  expect(toast?.message).toBe('Трата удалена');
+  toasts.runAction(toast?.id ?? 0);
+  await vi.waitFor(() => {
+    expect(vm.transactions.some((t) => t.id === 3)).toBe(true);
+  });
 });
 
 it('bulkDelete: тост «Отменить» возвращает строки', async () => {

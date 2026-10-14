@@ -17,6 +17,7 @@ pub mod savings;
 pub mod search;
 pub mod settings;
 pub mod summary;
+pub mod updates;
 pub mod vault;
 
 use chrono::{Datelike as _, NaiveDate};

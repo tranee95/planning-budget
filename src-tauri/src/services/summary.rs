@@ -1,8 +1,8 @@
 //! Сводки месяца и года поверх `core::calc`.
 
-use chrono::NaiveDate;
-use planning_budget_core::YearMonth;
+use chrono::{Datelike, NaiveDate};
 use planning_budget_core::calc::Ledger;
+use planning_budget_core::{CalendarDay, YearMonth};
 use planning_budget_storage::Db;
 
 use super::{month_of, parse_month};
@@ -27,7 +27,7 @@ pub fn month(db: &Db, month: &str, today: NaiveDate) -> Result<MonthOverviewDto,
     };
     let data = db.dataset(YearMonth::first_of_year(month.year())?, last)?;
     let ledger = Ledger::new(&data)?;
-    let summary = ledger.month_summary(month)?;
+    let summary = ledger.month_summary_at(month, calendar_day(today)?)?;
     let limits = ledger.month_limits(month)?;
     let expenses_delta_percent = ledger
         .year_summary(month.year(), current)?
@@ -42,6 +42,14 @@ pub fn month(db: &Db, month: &str, today: NaiveDate) -> Result<MonthOverviewDto,
         plan_locked: db.plan_is_locked(month)?,
         expenses_delta_percent,
     })
+}
+
+/// «Сегодня» для расчёта «На неделю».
+fn calendar_day(today: NaiveDate) -> Result<CalendarDay, AppError> {
+    let day =
+        u8::try_from(today.day()).map_err(|_| AppError::invalid_field("date_invalid", "date"))?;
+    CalendarDay::new(month_of(today)?, day)
+        .map_err(|_| AppError::invalid_field("date_invalid", "date"))
 }
 
 /// Сколько лет назад заглядывает период «Всё»: хватает на любую личную историю.

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openQuickAdd } from './quick-add';
 
 // В моках данные лежат в сентябре 2026, история «Ленты» — в 2024.
 async function openShell(page: Page, path = '/expenses'): Promise<void> {
@@ -114,8 +115,7 @@ test('доходы: панель фильтров ищет по всем мес�
 });
 
 test('быстрое добавление: подсказки из всей истории', async ({ page }) => {
-  await openShell(page);
-  await page.keyboard.press('KeyN');
+  await openQuickAdd(page);
   await page.getByLabel('Наименование').fill('лен');
   await expect(page.getByRole('list', { name: 'Подсказки из истории' })).toContainText('Лента');
 });

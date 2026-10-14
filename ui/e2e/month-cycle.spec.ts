@@ -11,8 +11,13 @@ test('цикл месяца: мастер, план готов, долг, тра
   page.on('pageerror', (e) => problems.push(e.message));
 
   await test.step('знакомство и мастер: план готов', async () => {
-    await page.goto('/?vault=open&intro=1');
+    // Первый месяц: пустое хранилище (мастер отказывает, если в месяце уже есть плановые строки).
+    await page.goto('/?vault=open&intro=1&fresh=1');
     for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Далее' }).click();
+    await page
+      .getByRole('dialog', { name: 'Категории расходов' })
+      .getByRole('button', { name: 'Далее' })
+      .click();
     await page.getByRole('button', { name: 'Спланировать первый месяц' }).click();
     const wizard = page.getByRole('dialog', { name: /План на .+: Доход/ });
     await wizard.getByLabel('Сумма').fill('100000');
@@ -29,7 +34,7 @@ test('цикл месяца: мастер, план готов, долг, тра
   });
 
   await test.step('обзор: план зафиксирован', async () => {
-    await expect(page.getByText('Не распределено')).toBeVisible();
+    await expect(page.locator('.unallocated .label')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Разблокировать' })).toBeVisible();
   });
 
@@ -43,7 +48,7 @@ test('цикл месяца: мастер, план готов, долг, тра
     await expect(sheet.getByText('Сумма графика: 30 000 ₽')).toBeVisible();
     await sheet.getByRole('button', { name: 'Сохранить' }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
-    await expect(page.getByText('Брат')).toBeVisible();
+    await expect(page.getByText('Брат', { exact: true })).toBeVisible();
   });
 
   await test.step('трата: добавляется и меняет статус', async () => {
@@ -62,8 +67,8 @@ test('цикл месяца: мастер, план готов, долг, тра
 
   await test.step('итоги: обзор показывает план и факт без ошибок', async () => {
     await page.getByRole('link', { name: 'Обзор' }).click();
-    await expect(page.getByText('Не распределено')).toBeVisible();
-    await expect(page.getByText('Незапланировано').first()).toBeVisible();
+    await expect(page.locator('.unallocated .label')).toBeVisible();
+    await expect(page.locator('dt', { hasText: 'Незапланировано' })).toBeVisible();
   });
 
   expect(problems).toEqual([]);

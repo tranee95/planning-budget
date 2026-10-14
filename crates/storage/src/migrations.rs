@@ -18,6 +18,7 @@ const SCRIPTS: &[&str] = &[
     include_str!("../migrations/009_drop_bonds_settings.sql"),
     include_str!("../migrations/010_saved_filter_screen.sql"),
     include_str!("../migrations/011_limit_tombstone.sql"),
+    include_str!("../migrations/012_month_carry.sql"),
 ];
 
 /// Только вперёд: старые файлы не редактируются, схема меняется новой миграцией.
@@ -63,6 +64,103 @@ mod tests {
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
         assert_eq!(usize::try_from(version).unwrap(), SCRIPTS.len());
+    }
+
+    /// Правило обновлений: база первой версии
+    /// с данными проходит миграции по одной, и после каждой записи пользователя на месте.
+    #[test]
+    fn upgrade_from_version_1_keeps_user_data_after_every_migration() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        register_functions(&conn).unwrap();
+        migrations().to_version(&mut conn, 1).unwrap();
+        conn.execute_batch(
+            "INSERT INTO categories (id, name, kind, color, sort_order, created_at, updated_at)
+                 VALUES (1, 'Продукты', 'mandatory', '#3AA567', 0, 'x', 'x'),
+                        (2, 'Подушка', 'savings', '#3AA567', 1, 'x', 'x');
+             INSERT INTO category_limits (category_id, valid_from, amount)
+                 VALUES (1, '2026-01', 4000000);
+             INSERT INTO transactions (id, month, category_id, title, amount, status, sort_key, created_at, updated_at)
+                 VALUES (1, '2026-09', 1, 'Хлеб', 25000, 'paid', 0, 'x', 'x'),
+                        (2, '2026-09', 2, 'Взнос', 1400000, 'paid', 0, 'x', 'x');
+             INSERT INTO incomes (id, month, source_name, amount, status, created_at, updated_at)
+                 VALUES (1, '2026-09', 'Зарплата', 10000000, 'received', 'x', 'x');",
+        )
+        .unwrap();
+        for version in 2..=SCRIPTS.len() {
+            migrations().to_version(&mut conn, version).unwrap();
+            let count = |sql: &str| -> i64 { conn.query_row(sql, [], |r| r.get(0)).unwrap() };
+            let at = format!("после миграции {version}");
+            assert_eq!(count("SELECT count(*) FROM categories"), 2, "{at}");
+            assert_eq!(
+                count("SELECT sum(amount) FROM transactions WHERE deleted_at IS NULL"),
+                1_425_000,
+                "{at}"
+            );
+            assert_eq!(count("SELECT sum(amount) FROM incomes"), 10_000_000, "{at}");
+            assert_eq!(
+                count("SELECT amount FROM category_limits WHERE category_id = 1"),
+                4_000_000,
+                "{at}"
+            );
+            let title: String = conn
+                .query_row("SELECT title FROM transactions WHERE id = 1", [], |r| {
+                    r.get(0)
+                })
+                .unwrap();
+            assert_eq!(title, "Хлеб", "{at}");
+            let integrity: String = conn
+                .query_row("PRAGMA integrity_check", [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(integrity, "ok", "{at}");
+        }
+    }
+
+    /// Откат на старую версию приложения не портит базу: более новая схема не открывается,
+    /// файл остаётся как был.
+    #[test]
+    fn upgrade_refuses_a_database_newer_than_the_app_without_touching_it() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        register_functions(&conn).unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        let newer = SCRIPTS.len() + 1;
+        conn.pragma_update(None, "user_version", i64::try_from(newer).unwrap())
+            .unwrap();
+        assert!(migrations().to_latest(&mut conn).is_err());
+        let version: i64 = conn
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(usize::try_from(version).unwrap(), newer);
+    }
+
+    #[test]
+    fn migration_012_adds_the_carry_table_and_keeps_existing_data() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        register_functions(&conn).unwrap();
+        migrations().to_version(&mut conn, 11).unwrap();
+        conn.execute_batch(
+            "INSERT INTO categories (id, name, kind, color, sort_order, created_at, updated_at)
+                 VALUES (1, 'Продукты', 'mandatory', '#3AA567', 0, 'x', 'x');
+             INSERT INTO transactions (month, category_id, title, amount, status, sort_key, created_at, updated_at)
+                 VALUES ('2026-09', 1, 'Хлеб', 25000, 'paid', 0, 'x', 'x');",
+        )
+        .unwrap();
+        migrations().to_latest(&mut conn).unwrap();
+        let count = |sql: &str| -> i64 { conn.query_row(sql, [], |r| r.get(0)).unwrap() };
+        assert_eq!(count("SELECT count(*) FROM transactions"), 1);
+        assert_eq!(count("SELECT count(*) FROM month_carry"), 0);
+        conn.execute(
+            "INSERT INTO month_carry (month, carried_at) VALUES ('2026-10', 'x')",
+            [],
+        )
+        .unwrap();
+        assert!(
+            conn.execute(
+                "INSERT INTO month_carry (month, carried_at) VALUES ('2026-10', 'y')",
+                []
+            )
+            .is_err(),
+            "месяц переносится один раз"
+        );
     }
 
     #[test]

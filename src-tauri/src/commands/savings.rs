@@ -3,7 +3,7 @@
 use tauri::{AppHandle, State};
 
 use crate::AppError;
-use crate::dto::{Int53, SavingsOverviewDto, SavingsParamsDto};
+use crate::dto::{Int53, SavingsOverviewDto, SavingsParamsDto, SavingsProgressDto};
 use crate::events::{ChangeScope, data_changed};
 use crate::services::savings as service;
 use crate::state::AppState;
@@ -51,4 +51,16 @@ pub async fn savings_fixed_set(
         .await?;
     data_changed(&app, ChangeScope::Savings, Vec::new());
     Ok(())
+}
+
+/// Накопленное за весь период и взносы по месяцам.
+#[tauri::command]
+#[specta::specta]
+pub async fn savings_progress(
+    state: State<'_, AppState>,
+    month: String,
+) -> Result<SavingsProgressDto, AppError> {
+    state
+        .with_session(move |db| service::progress(db, &month))
+        .await
 }

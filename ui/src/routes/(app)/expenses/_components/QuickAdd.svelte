@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { PLACEHOLDERS } from '$lib/i18n/placeholders';
   import { Button, Kbd, Modal, MoneyInput, StatusSegmented } from '$lib/components';
   import type { TxStatusDto } from '$lib/api/bindings';
   import { formatMoney, monthRange } from '$lib/format';
@@ -22,7 +23,23 @@
     void vm.save(event.shiftKey);
   }
 
+  // «Ещё одну»: после сохранения следующая сумма набирается сразу.
+  $effect(() => {
+    if (!vm.focusAmount) return;
+    vm.focusAmount = false;
+    document.getElementById('qa-amount')?.focus();
+  });
+
   function onChipKeydown(event: KeyboardEvent, index: number): void {
+    // Enter на категории выбирает её и сохраняет трату (⇧Enter — и остаётся в форме).
+    if (event.key === 'Enter' && !event.isComposing) {
+      event.preventDefault();
+      event.stopPropagation();
+      const chip = vm.chips[index];
+      if (chip) vm.categoryId = chip.id;
+      void vm.save(event.shiftKey);
+      return;
+    }
     const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
     if (step === 0) return;
     event.preventDefault();
@@ -42,11 +59,29 @@
 >
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="form" onkeydown={onKeydown}>
-    <MoneyInput id="qa-amount" label="Сумма" size="lg" autofocus bind:value={vm.amount} />
+    <MoneyInput
+      id="qa-amount"
+      label="Сумма"
+      size="lg"
+      autofocus
+      placeholder={PLACEHOLDERS.amountExample}
+      error={vm.formError === 'Введите сумму' ? vm.formError : null}
+      bind:value={vm.amount}
+    />
 
     <div class="group">
       <span class="lbl" id="qa-category">Категория</span>
-      <div class="chips" role="radiogroup" aria-labelledby="qa-category">
+      <div
+        class="chips"
+        role="radiogroup"
+        aria-labelledby="qa-category"
+        aria-describedby={vm.formError === 'Выберите категорию' ? 'qa-category-error' : undefined}
+      >
+        {#if vm.chips.length === 0}
+          <p class="hint" id="qa-no-categories">
+            Нет категорий расходов. Добавьте их в «Категориях».
+          </p>
+        {/if}
         {#each vm.chips as chip, index (chip.id)}
           <button
             type="button"
@@ -63,6 +98,9 @@
           >
         {/each}
       </div>
+      {#if vm.formError === 'Выберите категорию'}
+        <p class="err" id="qa-category-error" role="alert">{vm.formError}</p>
+      {/if}
       {#if vm.limitWarning}
         <p class="warn" role="status">
           После этой траты «{vm.limitWarning.category}» превысит лимит на
@@ -74,7 +112,13 @@
     <div class="row">
       <div class="group">
         <label class="lbl" for="qa-title">Наименование</label>
-        <input id="qa-title" class="field" autocomplete="off" bind:value={vm.title} />
+        <input
+          id="qa-title"
+          class="field"
+          autocomplete="off"
+          placeholder={PLACEHOLDERS.quickTitle}
+          bind:value={vm.title}
+        />
         {#if vm.suggestions.length > 0}
           <ul class="suggest" aria-label="Подсказки из истории">
             {#each vm.suggestions as suggestion (suggestion.title)}
@@ -120,7 +164,6 @@
     <Button
       variant="secondary"
       size="lg"
-      disabled={!vm.canSave}
       onclick={() => {
         void vm.save(true);
       }}>Ещё одну <Kbd>⇧↵</Kbd></Button
@@ -128,7 +171,6 @@
     <Button
       size="lg"
       loading={vm.saving}
-      disabled={!vm.canSave}
       onclick={() => {
         void vm.save(false);
       }}>Сохранить <Kbd>↵</Kbd></Button
@@ -183,6 +225,11 @@
   .suggest button:focus-visible {
     outline: none;
     box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .hint {
+    margin: 0;
+    color: var(--muted);
+    font-size: var(--fs-13);
   }
   .warn {
     display: flex;

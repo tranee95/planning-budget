@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { PLACEHOLDERS } from '$lib/i18n/placeholders';
   import { rise } from '$lib/motion';
   import Search from '@lucide/svelte/icons/search';
   import X from '@lucide/svelte/icons/x';
@@ -111,7 +112,7 @@
       <input
         class="name"
         aria-label="Название фильтра"
-        placeholder="Название"
+        placeholder={PLACEHOLDERS.filterName}
         maxlength="60"
         autocomplete="off"
         autofocus

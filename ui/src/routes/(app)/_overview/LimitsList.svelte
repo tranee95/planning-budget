@@ -2,12 +2,13 @@
   import { resolve } from '$app/paths';
   import { Card, Progress } from '$lib/components';
   import { formatMoney } from '$lib/format';
+  import { FORMULAS } from '$lib/formulas';
   import type { LimitLine } from '../overview.svelte';
 
   let { lines }: { lines: LimitLine[] } = $props();
 </script>
 
-<Card title="Лимиты месяца">
+<Card title="Лимиты месяца" formula={FORMULAS.limits}>
   {#snippet actions()}
     <a href={resolve('/expenses')}>Все категории →</a>
   {/snippet}

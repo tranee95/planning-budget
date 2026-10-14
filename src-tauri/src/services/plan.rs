@@ -72,6 +72,14 @@ pub fn copy_from_previous(
     load(db, to)
 }
 
+/// Автоперенос плана в новый месяц (U-1): число созданных строк, 0 — переносить нечего или уже
+/// переносили.
+pub fn carry_forward(db: &mut Db, month: &str, now: DateTime<Utc>) -> Result<u32, AppError> {
+    let to = parse_month(month, "month")?;
+    let created = db.plan_carry_forward(to, now)?;
+    Ok(u32::try_from(created).unwrap_or(u32::MAX))
+}
+
 fn wizard_input(input: &PlanWizardInputDto) -> PlanWizardInput {
     PlanWizardInput {
         incomes: input

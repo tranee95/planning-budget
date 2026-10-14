@@ -2,11 +2,11 @@
 
 use chrono::{DateTime, NaiveDate, Utc};
 use planning_budget_core::{BasisPoints, CategoryId, Money, YearMonth};
-use planning_budget_storage::{CategoryPatch, Db, NewCategory};
+use planning_budget_storage::{CategoryPatch, Db, NewCategory, default_categories};
 
 use super::{month_of, parse_month};
 use crate::AppError;
-use crate::dto::{CategoryDto, CategoryInput, CategoryPatchDto, LimitEntryDto};
+use crate::dto::{CategoryDto, CategoryInput, CategoryPatchDto, DefaultCategoryDto, LimitEntryDto};
 
 fn category_error(id: CategoryId) -> impl Fn(planning_budget_storage::StorageError) -> AppError {
     move |e| AppError::from_storage(e, "category", id.0)
@@ -18,6 +18,30 @@ pub fn list(db: &Db, include_archived: bool) -> Result<Vec<CategoryDto>, AppErro
         .iter()
         .map(CategoryDto::from)
         .collect())
+}
+
+/// Стартовый набор категорий для экрана выбора при первом запуске.
+pub fn defaults() -> Result<Vec<DefaultCategoryDto>, AppError> {
+    Ok(default_categories()?
+        .into_iter()
+        .map(|c| DefaultCategoryDto {
+            name: c.name,
+            kind: c.kind.into(),
+            required: c.required,
+        })
+        .collect())
+}
+
+/// Создаёт выбранные категории стартового набора плюс обязательные. Работает только пока
+/// в таблице нет ни одной категории (архивные тоже считаются); иначе ничего не меняет, так что
+/// повтор команды не дублирует. Возвращает список и число созданных.
+pub fn seed(
+    db: &mut Db,
+    names: &[String],
+    now: DateTime<Utc>,
+) -> Result<(Vec<CategoryDto>, usize), AppError> {
+    let added = db.seed_categories(now, Some(names))?;
+    Ok((list(db, false)?, added))
 }
 
 pub fn create(

@@ -12,7 +12,7 @@ test('справка: «Как пользоваться» и «Горячие к
 
   await page.getByRole('tab', { name: 'Горячие клавиши' }).click();
   await expect(page.getByText('поиск и команды', { exact: true })).toBeVisible();
-  await expect(page.getByText('новая трата')).toBeVisible();
+  await expect(page.getByText('предыдущий и следующий месяц')).toBeVisible();
   expect(problems).toEqual([]);
 });
 

@@ -140,6 +140,9 @@ pub struct MonthSummaryDto {
     pub repaid: i64,
     #[specta(type = specta_typescript::Number)]
     pub free: i64,
+    /// «По факту»: свободный остаток без записей со статусом «План».
+    #[specta(type = specta_typescript::Number)]
+    pub free_actual: i64,
     #[specta(type = specta_typescript::Number)]
     pub free_cum: i64,
     #[specta(type = specta_typescript::Number)]
@@ -156,6 +159,8 @@ pub struct MonthSummaryDto {
     pub savings_gap: i64,
     #[specta(type = specta_typescript::Number)]
     pub per_week: i64,
+    /// Недели до конца месяца (дни ÷ 7) для «На неделю»; `None` вне текущего месяца.
+    pub weeks_left: Option<f64>,
     pub corridor: CorridorDto,
     #[specta(type = specta_typescript::Number)]
     pub top_up_to_min: i64,
@@ -177,6 +182,7 @@ impl From<&MonthSummary> for MonthSummaryDto {
             borrowed: s.borrowed.kopecks(),
             repaid: s.repaid.kopecks(),
             free: s.free.kopecks(),
+            free_actual: s.free_actual.kopecks(),
             free_cum: s.free_cum.kopecks(),
             savings_cum: s.savings_cum.kopecks(),
             savings_rate_bp: s.savings_rate_bp,
@@ -186,6 +192,7 @@ impl From<&MonthSummary> for MonthSummaryDto {
             savings_plan: s.savings_plan.kopecks(),
             savings_gap: s.savings_gap.kopecks(),
             per_week: s.per_week.kopecks(),
+            weeks_left: s.weeks_left,
             corridor: s.corridor.into(),
             top_up_to_min: s.top_up_to_min.kopecks(),
             top_up_to_norm: s.top_up_to_norm.kopecks(),

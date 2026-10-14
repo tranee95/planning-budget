@@ -6,15 +6,26 @@
     value: T;
     onchange: (value: T) => void;
     disabled?: boolean;
+    /** Подпись остаётся для скринридеров, но не занимает места над полем (в строке с кнопками). */
+    hideLabel?: boolean;
     /** Значения, которые сейчас выбрать нельзя, и причина (показывается подсказкой). */
     blocked?: (value: T) => string | null;
   };
 
-  let { id, label, options, value, onchange, disabled = false, blocked }: Props = $props();
+  let {
+    id,
+    label,
+    options,
+    value,
+    onchange,
+    disabled = false,
+    hideLabel = false,
+    blocked
+  }: Props = $props();
 </script>
 
 <div class="field">
-  <label for={id}>{label}</label>
+  <label for={id} class:sr-only={hideLabel}>{label}</label>
   <select
     {id}
     {value}
@@ -43,6 +54,14 @@
   label {
     color: var(--muted);
     font-size: var(--fs-12);
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
   select {
     height: var(--h-control);

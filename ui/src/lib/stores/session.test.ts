@@ -2,6 +2,7 @@ import { clearMocks } from '@tauri-apps/api/mocks';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { handlers, resetMockVault } from '../api/mock/handlers';
 import { installMocks } from '../api/mock/install';
+import { prefs } from './prefs.svelte';
 import { onLock, routeFor, session } from './session.svelte';
 
 beforeEach(() => {
@@ -118,6 +119,13 @@ test('afterReset: хранилища нет, код и задержка сбро
   expect(session.phase).toBe('setup');
   expect(session.recoveryCode).toBeNull();
   expect(session.retryUntil).toBe(0);
+});
+
+test('afterReset: настройки перечитываются, чтобы вернувшееся знакомство показалось', () => {
+  const load = vi.spyOn(prefs, 'load').mockResolvedValue();
+  session.afterReset();
+  expect(load).toHaveBeenCalledTimes(1);
+  load.mockRestore();
 });
 
 test.each([

@@ -13,6 +13,7 @@ mod search;
 mod settings;
 mod summary;
 mod transactions;
+mod updates;
 mod vault;
 
 pub use analytics::*;
@@ -27,4 +28,5 @@ pub use search::*;
 pub use settings::*;
 pub use summary::*;
 pub use transactions::*;
+pub use updates::*;
 pub use vault::*;

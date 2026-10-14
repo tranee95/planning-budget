@@ -9,6 +9,7 @@ use crate::AppError;
 use crate::dto::{
     AccumulationDto, ChartDataDto, ChartSeriesDto, ChartUnitDto, ForecastKindDto,
     ForecastScenarioDto, SavingsMonthDto, SavingsOverviewDto, SavingsParamsDto, SavingsPlanKindDto,
+    SavingsProgressCategoryDto, SavingsProgressDto, SavingsProgressMonthDto,
 };
 
 fn scenario_kind(s: Scenario) -> ForecastKindDto {
@@ -219,4 +220,74 @@ pub fn fixed_set(
         Money::from_kopecks(amount),
     )?;
     Ok(())
+}
+
+/// Накопленное за весь период и взносы по месяцам `month`.
+pub fn progress(db: &Db, month: &str) -> Result<SavingsProgressDto, AppError> {
+    let current = parse_month(month, "month")?;
+    let from = db
+        .savings_first_deposit_month()?
+        .unwrap_or(current)
+        .min(current);
+    let data = db.dataset(from, current)?;
+    let report = Ledger::new(&data)?.savings_progress(current)?;
+    let months: Vec<SavingsProgressMonthDto> = report
+        .months
+        .iter()
+        .map(|m| SavingsProgressMonthDto {
+            month: m.month.to_string(),
+            deposited: m.deposited.kopecks(),
+            cumulative: m.cumulative.kopecks(),
+        })
+        .collect();
+    let known: std::collections::BTreeMap<i64, &planning_budget_core::Category> =
+        data.categories.iter().map(|c| (c.id.0, c)).collect();
+    let categories: Vec<SavingsProgressCategoryDto> = report
+        .categories
+        .iter()
+        .filter_map(|c| {
+            let category = known.get(&c.category_id.0)?;
+            Some(SavingsProgressCategoryDto {
+                category_id: c.category_id.0,
+                name: category.name.clone(),
+                color: category.color.clone(),
+                archived: category.archived,
+                total: c.total.kopecks(),
+            })
+        })
+        .collect();
+    // Ряд на каждое накопление: график показывает, из чего состоит каждый месяц.
+    let series: Vec<ChartSeriesDto> = report
+        .categories
+        .iter()
+        .filter_map(|c| {
+            let category = known.get(&c.category_id.0)?;
+            Some(ChartSeriesDto {
+                name: category.name.clone(),
+                color: format!("category:{}", c.category_id.0),
+                values: c.amounts.iter().map(|m| rub(*m)).collect(),
+            })
+        })
+        .collect();
+    let chart = ChartDataDto {
+        categories: report
+            .months
+            .iter()
+            .map(|m| format!("{} {}", short_month(m.month), m.month.year()))
+            .collect(),
+        category_tokens: months
+            .iter()
+            .map(|m| format!("month:{}", m.month))
+            .collect(),
+        series,
+        reference_lines: Vec::new(),
+        totals: None,
+        unit: ChartUnitDto::Rub,
+    };
+    Ok(SavingsProgressDto {
+        months,
+        total: report.total.kopecks(),
+        categories,
+        chart,
+    })
 }

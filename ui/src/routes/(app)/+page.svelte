@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
   import { Button, CorridorBar, EmptyState, Kpi, Skeleton } from '$lib/components';
+  import { FORMULAS } from '$lib/formulas';
   import { month } from '$lib/stores/month.svelte';
   import LimitsList from './_overview/LimitsList.svelte';
   import PlanCard from './_overview/PlanCard.svelte';
@@ -62,9 +63,11 @@
     {/if}
 
     <div class="kpis">
-      <div class="card"><Kpi label="Доход" amount={summary.income} hint={vm.incomeHint} /></div>
       <div class="card">
-        <Kpi label="Расходы" amount={summary.expenses}>
+        <Kpi label="Доход" amount={summary.income} hint={vm.incomeHint} formula={FORMULAS.income} />
+      </div>
+      <div class="card">
+        <Kpi label="Расходы" amount={summary.expenses} formula={FORMULAS.expenses}>
           {#if delta !== null}
             <span class="hint">
               <span class="delta" class:good={delta <= 0}
@@ -76,7 +79,7 @@
         </Kpi>
       </div>
       <div class="card">
-        <Kpi label="Сбережения" amount={summary.savings}>
+        <Kpi label="Сбережения" amount={summary.savings} formula={FORMULAS.savings}>
           {#if vm.settings !== null && summary.savingsRateBp !== null}
             <CorridorBar
               value={summary.savingsRateBp}
@@ -88,10 +91,24 @@
         </Kpi>
       </div>
       <div class="card">
-        <Kpi label="Свободный остаток" amount={summary.free} hint="после трат и сбережений" />
+        <Kpi
+          label="Свободный остаток"
+          amount={summary.free}
+          hint="после трат и сбережений, с учётом плана"
+          formula={FORMULAS.free}
+        >
+          <span class="hint actual">{vm.freeActualHint}</span>
+        </Kpi>
       </div>
       <div class="card">
-        <Kpi label="На неделю" amount={summary.perWeek} hint="остаток ÷ недели месяца" />
+        <Kpi
+          label="На неделю"
+          amount={summary.perWeek}
+          hint="остаток ÷ недели, с учётом плана"
+          formula={FORMULAS.perWeek}
+        >
+          {#if vm.weeksHint !== null}<span class="hint">{vm.weeksHint}</span>{/if}
+        </Kpi>
       </div>
     </div>
 

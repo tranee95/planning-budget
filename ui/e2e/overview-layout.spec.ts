@@ -33,7 +33,7 @@ async function openOverview(page: Page, data: Data): Promise<void> {
     }
     await expect(page.locator('.topbar').getByText('Сентябрь 2026')).toBeVisible();
   }
-  await page.getByText('Лимиты месяца').waitFor();
+  await page.getByRole('heading', { name: 'Лимиты месяца' }).waitFor();
 }
 
 type Measure = {

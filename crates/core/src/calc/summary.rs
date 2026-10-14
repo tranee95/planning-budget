@@ -4,7 +4,7 @@ use super::{KindAmounts, Ledger, PlanEntry, StatusAmounts};
 use crate::error::{CoreError, MoneyError};
 use crate::model::{BasisPoints, CategoryId, CategoryKind, TxStatus};
 use crate::money::Money;
-use crate::period::YearMonth;
+use crate::period::{CalendarDay, YearMonth};
 
 /// Положение нормы сбережений относительно коридора.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -30,6 +30,8 @@ pub struct MonthSummary {
     /// Оплаченные погашения месяца (выплата, не расход).
     pub repaid: Money,
     pub free: Money,
+    /// «По факту»: `free` без записей со статусом «План».
+    pub free_actual: Money,
     pub free_cum: Money,
     pub savings_cum: Money,
     pub savings_rate: Option<f64>,
@@ -42,7 +44,10 @@ pub struct MonthSummary {
     pub savings_plan: Money,
     /// Факт − план; отрицательное значение — недобор.
     pub savings_gap: Money,
+    /// «На неделю»: остаток ÷ недели; в текущем месяце — ÷ оставшиеся недели.
     pub per_week: Money,
+    /// Оставшиеся недели месяца (дни до конца месяца ÷ 7); только для текущего месяца.
+    pub weeks_left: Option<f64>,
     pub corridor: Corridor,
     /// Сколько доложить до нижней границы коридора.
     pub top_up_to_min: Money,
@@ -99,7 +104,27 @@ impl YearSummary {
 
 impl Ledger<'_> {
     /// Сводка месяца `month`; накопительные значения считаются с января того же года.
+    /// «На неделю» — остаток ÷ `weeks_per_month`; без «сегодня» оставшихся недель нет.
     pub fn month_summary(&self, month: YearMonth) -> Result<MonthSummary, CoreError> {
+        self.summary_of(month, None)
+    }
+
+    /// Сводка месяца с «сегодня»: если `today` в этом месяце, «На неделю» = остаток ÷ оставшиеся
+    /// недели (дни от сегодня до конца месяца включительно ÷ 7, не меньше одного дня), иначе
+    /// прежнее правило.
+    pub fn month_summary_at(
+        &self,
+        month: YearMonth,
+        today: CalendarDay,
+    ) -> Result<MonthSummary, CoreError> {
+        self.summary_of(month, Some(today).filter(|t| t.month() == month))
+    }
+
+    fn summary_of(
+        &self,
+        month: YearMonth,
+        today: Option<CalendarDay>,
+    ) -> Result<MonthSummary, CoreError> {
         let settings = &self.data().settings;
         let totals = self.totals(month);
         let income = totals.income()?;
@@ -117,7 +142,15 @@ impl Ledger<'_> {
 
         let plan_rate = self.savings_plan_rate(month);
         let savings_plan = self.savings_plan(month)?;
-        let weeks = i64::from(settings.weeks_per_month);
+        let (per_week, weeks_left) = match today {
+            Some(today) => {
+                let days = today.days_left();
+                let scaled = free.kopecks().checked_mul(7).ok_or(MoneyError::Overflow)?;
+                let per_week = Money::from_kopecks(scaled).div_round(i64::from(days))?;
+                (per_week, Some(f64::from(days) / 7.0))
+            }
+            None => (free.div_round(i64::from(settings.weeks_per_month))?, None),
+        };
 
         Ok(MonthSummary {
             month,
@@ -129,6 +162,7 @@ impl Ledger<'_> {
             borrowed: totals.borrowed,
             repaid: totals.repaid,
             free,
+            free_actual: totals.free_actual()?,
             free_cum,
             savings_cum,
             savings_rate: savings.ratio(income),
@@ -138,7 +172,8 @@ impl Ledger<'_> {
             savings_plan_off_norm: plan_rate.0 > 0 && plan_rate != settings.savings_norm,
             savings_plan,
             savings_gap: savings.checked_sub(savings_plan)?,
-            per_week: free.div_round(weeks)?,
+            per_week,
+            weeks_left,
             corridor: corridor(savings, income, settings.savings_min, settings.savings_max),
             top_up_to_min: top_up(savings, income, settings.savings_min)?,
             top_up_to_norm: top_up(savings, income, settings.savings_norm)?,

@@ -306,6 +306,7 @@ fn plan_with(income: i64, expenses: i64, savings: i64, repayments: i64) -> Month
         unplanned: Money::ZERO,
         borrowed: Money::ZERO,
         saved: Money::ZERO,
+        has_planned_lines: false,
     }
 }
 
@@ -324,4 +325,79 @@ fn balance_tells_empty_balanced_unallocated_and_over_apart() {
     assert_eq!(plan_with(0, 10, 0, 0).balance(), PlanBalance::Over);
     // Доход без плана — всё не распределено.
     assert_eq!(plan_with(100, 0, 0, 0).balance(), PlanBalance::Unallocated);
+}
+
+#[test]
+fn planned_lines_flag_looks_only_at_planned_records_of_the_month() {
+    // Мастер заполняет месяц без плановых строк: факты «Оплачено» и «Долг» ему не мешают.
+    let mut data = base();
+    spend(&mut data, "2026-10", FOOD, 30_000, TxStatus::Paid, None);
+    spend(&mut data, "2026-10", FUN, 20_000, TxStatus::Debt, None);
+    spend(&mut data, "2026-10", FUN, 3_000, TxStatus::Unplanned, None);
+    assert!(!plan(&data, "2026-10").has_planned_lines);
+    assert!(plan(&data, "2026-10").plan_expenses > Money::ZERO);
+    spend(&mut data, "2026-11", FOOD, 5_000, TxStatus::Planned, None);
+    assert!(plan(&data, "2026-11").has_planned_lines);
+    // Плановая запись другого месяца не считается.
+    assert!(!plan(&data, "2026-10").has_planned_lines);
+    assert!(!plan(&base(), "2026-10").has_planned_lines);
+}
+
+/// `actual` — записи категории без статуса «План»: оплачено, долг и внеплановые.
+#[test]
+fn actual_excludes_planned_records_and_leaves_fact_unchanged() {
+    let p = plan(&october(), "2026-10");
+    // «Продукты»: 30 000 ₽ оплачено + 5 000 ₽ плана.
+    let food = row(&p, FOOD);
+    assert_eq!(
+        (food.plan, food.fact, food.actual, food.deviation),
+        (rub(35_000), rub(35_000), rub(30_000), Money::ZERO)
+    );
+    // «Развлечения»: долг 20 000 ₽ и внеплановые 3 000 ₽ входят.
+    let fun = row(&p, FUN);
+    assert_eq!((fun.fact, fun.actual), (rub(23_000), rub(23_000)));
+    assert_eq!(row(&p, SAVE).actual, Money::ZERO);
+}
+
+#[test]
+fn actual_is_zero_for_a_month_with_only_planned_lines() {
+    let mut data = base();
+    spend(&mut data, "2026-10", FOOD, 30_000, TxStatus::Planned, None);
+    let food = row(&plan(&data, "2026-10"), FOOD);
+    assert_eq!(
+        (food.plan, food.fact, food.actual, food.deviation),
+        (rub(30_000), rub(30_000), Money::ZERO, Money::ZERO)
+    );
+}
+
+#[test]
+fn actual_in_a_locked_month_ignores_the_plan_snapshot() {
+    let mut data = october();
+    lock(&mut data, "2026-10");
+    data.transactions[0].amount = rub(32_000);
+    spend(&mut data, "2026-10", FUN, 4_000, TxStatus::Unplanned, None);
+    let p = plan(&data, "2026-10");
+    assert!(p.locked);
+    assert_eq!(row(&p, FOOD).actual, rub(32_000));
+    assert_eq!(row(&p, FOOD).plan, rub(35_000));
+    assert_eq!(row(&p, FUN).actual, rub(27_000));
+}
+
+#[test]
+fn actual_of_an_archived_category_keeps_its_row() {
+    let mut data = base();
+    spend(&mut data, "2026-10", OLD, 700, TxStatus::Paid, None);
+    spend(&mut data, "2026-10", OLD, 300, TxStatus::Planned, None);
+    let p = plan(&data, "2026-10");
+    let old = row(&p, OLD);
+    assert_eq!((old.fact, old.actual), (rub(1_000), rub(700)));
+}
+
+#[test]
+fn actual_of_savings_counts_only_non_planned_records() {
+    let mut data = base();
+    spend(&mut data, "2026-10", SAVE, 8_000, TxStatus::Paid, None);
+    spend(&mut data, "2026-10", SAVE, 6_000, TxStatus::Planned, None);
+    let save = row(&plan(&data, "2026-10"), SAVE);
+    assert_eq!((save.fact, save.actual), (rub(14_000), rub(8_000)));
 }

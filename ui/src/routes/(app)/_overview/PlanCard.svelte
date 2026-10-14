@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { MonthPlanDto } from '$lib/api/bindings';
-  import { Button, Card, Kpi, StatusDot } from '$lib/components';
+  import { Button, Card, FormulaHint, Kpi, StatusDot } from '$lib/components';
   import { formatMoney } from '$lib/format';
+  import { FORMULAS } from '$lib/formulas';
   import type { PlanLine } from '../overview.svelte';
 
   type Props = {
@@ -49,12 +50,15 @@
   {/snippet}
 
   <div class="totals">
-    <Kpi label="Доход" amount={plan.income} />
-    <Kpi label="План трат" amount={plan.planExpenses} />
-    <Kpi label="План сбережений" amount={plan.planSavings} />
-    <Kpi label="План погашений" amount={plan.planRepayments} />
+    <Kpi label="Доход" amount={plan.income} formula={FORMULAS.planIncome} />
+    <Kpi label="План трат" amount={plan.planExpenses} formula={FORMULAS.planExpenses} />
+    <Kpi label="План сбережений" amount={plan.planSavings} formula={FORMULAS.planSavings} />
+    <Kpi label="План погашений" amount={plan.planRepayments} formula={FORMULAS.planRepayments} />
     <div class="unallocated {plan.balance}" aria-live="polite">
-      <span class="label">Не распределено</span>
+      <span class="label">
+        Не распределено
+        <FormulaHint label="Не распределено" lines={FORMULAS.unallocated.lines} />
+      </span>
       <span class="value num">{formatMoney(plan.unallocated)}</span>
       <span class="hint">{balanceHint}</span>
     </div>
@@ -67,8 +71,12 @@
         <tr>
           <th scope="col">Статья</th>
           <th scope="col">План</th>
-          <th scope="col">Потрачено</th>
-          <th scope="col">Отклонение</th>
+          <th scope="col">Фактически</th>
+          <th scope="col">Расход с планом</th>
+          <th scope="col">
+            Отклонение
+            <FormulaHint label={FORMULAS.planFact.label} lines={FORMULAS.planFact.lines} />
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -76,11 +84,12 @@
           <tr>
             <th scope="row">{category.name}</th>
             <td class="num">{formatMoney(row.plan)}</td>
+            <td class="num">{formatMoney(row.actual)}</td>
             <td class="num">{formatMoney(row.fact)}</td>
             <td class="num dev" class:over={row.deviation > 0}>{signed(row.deviation)}</td>
           </tr>
         {:else}
-          <tr><td class="empty" colspan="4">План пока пуст.</td></tr>
+          <tr><td class="empty" colspan="5">План пока пуст.</td></tr>
         {/each}
       </tbody>
     </table>
@@ -120,9 +129,13 @@
           <dd class="num">{formatMoney(plan.borrowed)}</dd>
         </div>
         <div>
-          <dt>Отложено</dt>
+          <dt>
+            Отложено
+            <FormulaHint label={FORMULAS.planSaved.label} lines={FORMULAS.planSaved.lines} />
+          </dt>
           <dd class="num">
-            {formatMoney(plan.saved)} <span class="of">/ {formatMoney(plan.planSavings)}</span>
+            {formatMoney(plan.saved)}
+            <span class="of">из плана {formatMoney(plan.planSavings)}</span>
           </dd>
         </div>
       </dl>
@@ -158,6 +171,9 @@
     min-width: 0;
   }
   .unallocated .label {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
     font-size: var(--fs-12);
   }
   .unallocated .value {

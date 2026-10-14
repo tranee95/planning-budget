@@ -17,7 +17,9 @@ pub use debts::{
 pub(crate) use limits::usage;
 pub use limits::{BudgetBalance, CategoryYearRow, LimitLevel, LimitRow, MonthLimits};
 pub use plan::{LockSnapshot, MonthPlan, PlanBalance, PlanCopyRow, PlanRow};
-pub use savings::{Accumulation, SavingsOverview};
+pub use savings::{
+    Accumulation, SavingsOverview, SavingsProgress, SavingsProgressCategory, SavingsProgressMonth,
+};
 pub use summary::{Corridor, MonthSummary, YearSummary};
 
 use crate::error::{CoreError, MoneyError};
@@ -163,13 +165,39 @@ pub(crate) struct MonthTotals {
     pub borrowed: Money,
     /// Оплаченные погашения месяца: выплата, не расход.
     pub repaid: Money,
+    /// Записи со статусом «План» вне накоплений: в «по факту» не входят.
+    pub planned_expenses: Money,
+    /// Записи со статусом «План» в накоплениях.
+    pub planned_savings: Money,
 }
 
 impl MonthTotals {
     /// Добавляет суммы трат серии; доходы месяца считаются отдельным проходом.
     fn merge_expenses(&mut self, other: &Self) -> Result<(), MoneyError> {
         self.by_status.merge(&other.by_status)?;
+        self.planned_expenses = self.planned_expenses.checked_add(other.planned_expenses)?;
+        self.planned_savings = self.planned_savings.checked_add(other.planned_savings)?;
         self.by_kind.merge(&other.by_kind)
+    }
+
+    /// Учёт одной траты: статус, тип категории и плановая доля.
+    fn add_expense(
+        &mut self,
+        status: TxStatus,
+        kind: CategoryKind,
+        amount: Money,
+    ) -> Result<(), MoneyError> {
+        self.by_status.add(status, amount)?;
+        self.by_kind.add(kind, amount)?;
+        if status == TxStatus::Planned {
+            let slot = if kind == CategoryKind::Savings {
+                &mut self.planned_savings
+            } else {
+                &mut self.planned_expenses
+            };
+            *slot = slot.checked_add(amount)?;
+        }
+        Ok(())
     }
 
     pub fn income(&self) -> Result<Money, MoneyError> {
@@ -183,6 +211,18 @@ impl MonthTotals {
             .checked_sub(self.by_kind.savings)?
             .checked_add(self.borrowed)?
             .checked_sub(self.repaid)
+    }
+
+    /// «Свободный остаток по факту»: `free` без записей со статусом «План».
+    pub fn free_actual(&self) -> Result<Money, MoneyError> {
+        self.free()?
+            .checked_add(self.planned_expenses)?
+            .checked_add(self.planned_savings)
+    }
+
+    /// Накоплено без плановых записей: «Отложено».
+    pub fn savings_actual(&self) -> Result<Money, MoneyError> {
+        self.by_kind.savings.checked_sub(self.planned_savings)
     }
 }
 
@@ -244,8 +284,7 @@ impl<'a> Ledger<'a> {
             }
             match &mut month_run {
                 Some((run_month, totals)) if *run_month == tx.month => {
-                    totals.by_status.add(tx.status, tx.amount)?;
-                    totals.by_kind.add(kind, tx.amount)?;
+                    totals.add_expense(tx.status, kind, tx.amount)?;
                 }
                 run => {
                     if let Some((done_month, done)) = run.take() {
@@ -255,8 +294,7 @@ impl<'a> Ledger<'a> {
                             .merge_expenses(&done)?;
                     }
                     let mut totals = MonthTotals::default();
-                    totals.by_status.add(tx.status, tx.amount)?;
-                    totals.by_kind.add(kind, tx.amount)?;
+                    totals.add_expense(tx.status, kind, tx.amount)?;
                     *run = Some((tx.month, totals));
                 }
             }

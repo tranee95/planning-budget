@@ -9,6 +9,8 @@ const prefs = (over: Partial<Prefs>): Prefs => ({
   reducedMotion: 'system',
   autolockMinutes: 5,
   introDone: true,
+  checkUpdates: true,
+  lastUpdateCheck: null,
   ...over
 });
 

@@ -5,7 +5,9 @@ use planning_budget_core::CategoryId;
 use tauri::{AppHandle, State};
 
 use crate::AppError;
-use crate::dto::{CategoryDto, CategoryInput, CategoryPatchDto, Int53, LimitEntryDto};
+use crate::dto::{
+    CategoryDto, CategoryInput, CategoryPatchDto, DefaultCategoryDto, Int53, LimitEntryDto,
+};
 use crate::events::{ChangeScope, data_changed};
 use crate::services::categories as service;
 use crate::state::AppState;
@@ -19,6 +21,30 @@ pub async fn categories_list(
     state
         .with_session(move |db| service::list(db, include_archived))
         .await
+}
+
+/// Встроенный стартовый набор: данных пользователя в нём нет, сессия не нужна.
+#[tauri::command]
+#[specta::specta]
+pub async fn categories_defaults() -> Result<Vec<DefaultCategoryDto>, AppError> {
+    service::defaults()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn categories_seed(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    names: Vec<String>,
+) -> Result<Vec<CategoryDto>, AppError> {
+    let (list, added) = state
+        .with_session(move |db| service::seed(db, &names, Utc::now()))
+        .await?;
+    if added > 0 {
+        data_changed(&app, ChangeScope::Categories, Vec::new());
+        data_changed(&app, ChangeScope::Savings, Vec::new());
+    }
+    Ok(list)
 }
 
 #[tauri::command]

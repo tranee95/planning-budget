@@ -13,6 +13,8 @@ pub struct PlanRow {
     pub plan: Money,
     /// Все траты категории за месяц, любой статус.
     pub fact: Money,
+    /// Записи категории без статуса «План»: оплачено, долг и внеплановые.
+    pub actual: Money,
     /// `fact − plan`: положительное — потрачено больше плана.
     pub deviation: Money,
 }
@@ -35,8 +37,10 @@ pub struct MonthPlan {
     pub unplanned: Money,
     /// Взято в долг в этом месяце.
     pub borrowed: Money,
-    /// Отложено (факт по накоплениям).
+    /// Отложено: записи накоплений без статуса «План», как на экране «Сбережения».
     pub saved: Money,
+    /// В месяце есть записи со статусом «План»: мастер плана заполняет только месяц без них.
+    pub has_planned_lines: bool,
 }
 
 /// Итог распределения дохода: что показать рядом с «Не распределено».
@@ -137,7 +141,9 @@ impl Ledger<'_> {
                     .copied()
                     .unwrap_or(Money::ZERO)
             };
-            let fact = self.category_total(month, category.id)?;
+            let by_status = self.category_by_status(month, category.id);
+            let fact = by_status.total()?;
+            let actual = fact.checked_sub(by_status.planned)?;
             if is_savings {
                 plan_savings = plan_savings.checked_add(plan)?;
             } else {
@@ -150,6 +156,7 @@ impl Ledger<'_> {
                 category_id: category.id,
                 plan,
                 fact,
+                actual,
                 deviation: fact.checked_sub(plan)?,
             });
         }
@@ -172,7 +179,12 @@ impl Ledger<'_> {
             rows,
             unplanned: totals.by_status.unplanned,
             borrowed: totals.borrowed,
-            saved: totals.by_kind.savings,
+            saved: totals.savings_actual()?,
+            has_planned_lines: self
+                .data()
+                .transactions
+                .iter()
+                .any(|t| t.month == month && t.status == TxStatus::Planned),
         })
     }
 

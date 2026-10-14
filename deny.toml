@@ -49,8 +49,9 @@ multiple-versions = "warn"
 wildcards = "deny"
 allow-wildcard-paths = true
 deny = [
-    { crate = "reqwest" },
-    { crate = "hyper" },
+    # Сеть допустима только для проверки обновлений: HTTP-стек входит в дерево лишь через плагин.
+    { crate = "reqwest", wrappers = ["tauri-plugin-updater"] },
+    { crate = "hyper", wrappers = ["reqwest", "hyper-rustls", "hyper-util"] },
     { crate = "ureq" },
     { crate = "isahc" },
     { crate = "surf" },

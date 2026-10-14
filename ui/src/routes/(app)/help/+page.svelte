@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Button, Card, Kbd, StatusDot, Tabs } from '$lib/components';
-  import { HELP_EXTRA, INTRO_STEPS, KEY_GROUPS, STATUS_EXPLAINED } from '$lib/help/content';
+  import { HELP_SECTIONS, KEY_GROUPS, STATUS_EXPLAINED } from '$lib/help/content';
   import { onboarding } from '$lib/stores/onboarding.svelte';
 
   const TABS = [
@@ -9,7 +9,7 @@
   ] as const;
 
   let tab = $state<'guide' | 'keys'>('guide');
-  const sections = [...INTRO_STEPS, ...HELP_EXTRA];
+  const sections = HELP_SECTIONS;
 </script>
 
 <svelte:head>

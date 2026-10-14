@@ -4,6 +4,7 @@
   type Props = {
     id: string;
     label: string;
+    placeholder?: string;
     /** Копейки; `null` — поле пусто. */
     value?: number | null;
     error?: string | null;
@@ -15,6 +16,7 @@
   let {
     id,
     label,
+    placeholder,
     value = $bindable(null),
     error = null,
     size = 'md',
@@ -86,6 +88,7 @@
       inputmode="decimal"
       autocomplete="off"
       {autofocus}
+      {placeholder}
       value={text}
       aria-invalid={shownError ? 'true' : undefined}
       aria-describedby={shownError ? `${id}-error` : undefined}

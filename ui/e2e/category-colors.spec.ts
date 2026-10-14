@@ -1,8 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { openSeptember } from './september';
 
 test('карточка категории на Расходах: сверху полоса цвета категории', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto('/expenses?vault=open');
+  await openSeptember(page);
   const card = page.locator('article.card').first();
   await expect(card).toBeVisible();
   const { category, stripe } = await card.evaluate((el) => {

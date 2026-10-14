@@ -33,6 +33,11 @@ pub struct Prefs {
     pub autolock_minutes: Option<u16>,
     /// Знакомство при первом запуске пройдено или пропущено.
     pub intro_done: bool,
+    /// Проверять обновления при запуске. Включено по умолчанию.
+    pub check_updates: bool,
+    /// Время последней успешной проверки, секунды Unix; `None` — ещё не проверяли. Служебное поле.
+    #[specta(type = Option<specta_typescript::Number>)]
+    pub last_update_check: Option<i64>,
 }
 
 impl Default for Prefs {
@@ -44,6 +49,8 @@ impl Default for Prefs {
             reduced_motion: ReducedMotion::System,
             autolock_minutes: None,
             intro_done: false,
+            check_updates: true,
+            last_update_check: None,
         }
     }
 }
@@ -56,4 +63,5 @@ pub struct PrefsPatch {
     pub ui_scale: Option<u8>,
     pub reduced_motion: Option<ReducedMotion>,
     pub intro_done: Option<bool>,
+    pub check_updates: Option<bool>,
 }

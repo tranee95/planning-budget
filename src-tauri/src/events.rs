@@ -31,6 +31,13 @@ pub struct SystemThemeChanged {
     pub dark: bool,
 }
 
+/// Прогресс загрузки обновления: процент 0–100, `None` — размер неизвестен.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, tauri_specta::Event)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateProgress {
+    pub percent: Option<u8>,
+}
+
 /// Закрывает сессию и сообщает окну. Без открытой сессии ничего не делает.
 pub fn lock_session(app: &AppHandle, reason: LockReason) {
     if app.state::<AppState>().lock() {

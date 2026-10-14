@@ -18,6 +18,7 @@ export { default as Kpi } from './Kpi.svelte';
 export { default as Segmented } from './Segmented.svelte';
 export { default as Tabs } from './Tabs.svelte';
 export { default as Tooltip } from './Tooltip.svelte';
+export { default as FormulaHint } from './FormulaHint.svelte';
 export { default as MoneyInput } from './MoneyInput.svelte';
 export { default as Modal } from './Modal.svelte';
 export { default as Sheet } from './Sheet.svelte';

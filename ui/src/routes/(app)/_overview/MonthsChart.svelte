@@ -2,6 +2,7 @@
   import type { MonthSummaryDto } from '$lib/api/bindings';
   import { Card, Segmented } from '$lib/components';
   import { formatMoney, formatMonth } from '$lib/format';
+  import { FORMULAS } from '$lib/formulas';
   import type { ChartRange } from '../overview.svelte';
 
   type Props = {
@@ -56,7 +57,7 @@
   };
 </script>
 
-<Card title="Доходы, расходы и сбережения">
+<Card title="Доходы, расходы и сбережения" formula={FORMULAS.monthsChart}>
   {#snippet actions()}
     <Segmented
       label="Период графика"

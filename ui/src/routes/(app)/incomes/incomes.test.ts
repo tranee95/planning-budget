@@ -1,5 +1,5 @@
 import { clearMocks } from '@tauri-apps/api/mocks';
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { resetMockBudget } from '$lib/api/mock/budget';
 import { installMocks } from '$lib/api/mock/install';
 import { toasts } from '$lib/stores/toasts.svelte';
@@ -148,4 +148,135 @@ it('статус трат исключает доходы из результа�
   vm.filter.set('статус:оплачено');
   await vm.load('2026-09');
   expect(vm.incomes).toEqual([]);
+});
+
+// ---- UX-1: правка и удаление дохода ----
+
+it('правка: клик открывает редактор с текущими значениями, сохранение меняет доход и итоги', async () => {
+  const vm = new IncomesVm();
+  await vm.load('2026-09');
+  const salary = vm.incomes.find((i) => i.sourceName === 'Зарплата');
+  if (!salary) throw new Error('нет дохода');
+  const before = vm.totals.total;
+  vm.openEdit(salary.id);
+  expect(vm.editorOpen).toBe(true);
+  expect(vm.editing?.id).toBe(salary.id);
+  expect(
+    await vm.submit({
+      sourceName: 'Зарплата (аванс)',
+      amount: salary.amount + 1_000_000,
+      date: null,
+      status: salary.status
+    })
+  ).toBe(true);
+  expect(vm.editorOpen).toBe(false);
+  expect(vm.editing).toBeNull();
+  const updated = vm.incomes.find((i) => i.id === salary.id);
+  expect(updated).toMatchObject({
+    sourceName: 'Зарплата (аванс)',
+    amount: salary.amount + 1_000_000
+  });
+  expect(vm.totals.total).toBe(before + 1_000_000);
+  expect(toasts.items.at(-1)?.message).toBe('Сохранено: Зарплата (аванс)');
+});
+
+it('правка отменяется ⌘Z и возвращается повтором', async () => {
+  const vm = new IncomesVm();
+  await vm.load('2026-09');
+  const salary = vm.incomes[0];
+  if (!salary) throw new Error('нет дохода');
+  vm.openEdit(salary.id);
+  await vm.submit({
+    sourceName: salary.sourceName,
+    amount: 1_234_500,
+    date: null,
+    status: salary.status
+  });
+  expect(vm.incomes.find((i) => i.id === salary.id)?.amount).toBe(1_234_500);
+  await undoStack.undo();
+  expect(vm.incomes.find((i) => i.id === salary.id)?.amount).toBe(salary.amount);
+  await undoStack.redo();
+  expect(vm.incomes.find((i) => i.id === salary.id)?.amount).toBe(1_234_500);
+});
+
+it('правка с пустым источником или нулевой суммой не отправляется', async () => {
+  const vm = new IncomesVm();
+  await vm.load('2026-09');
+  const salary = vm.incomes[0];
+  if (!salary) throw new Error('нет дохода');
+  vm.openEdit(salary.id);
+  expect(await vm.submit({ sourceName: '  ', amount: 100, date: null, status: 'received' })).toBe(
+    false
+  );
+  expect(await vm.submit({ sourceName: 'Х', amount: 0, date: null, status: 'received' })).toBe(
+    false
+  );
+  expect(vm.editorOpen).toBe(true);
+  expect(vm.incomes.find((i) => i.id === salary.id)?.sourceName).toBe(salary.sourceName);
+});
+
+it('удаление: доход исчезает, итоги пересчитываются, тост «Вернуть» возвращает его', async () => {
+  const vm = new IncomesVm();
+  await vm.load('2026-09');
+  const extra = vm.incomes.find((i) => i.sourceName === 'Подработка');
+  if (!extra) throw new Error('нет дохода');
+  const before = vm.totals.total;
+  await vm.remove(extra.id);
+  expect(vm.incomes.some((i) => i.id === extra.id)).toBe(false);
+  expect(vm.totals.total).toBe(before - extra.amount);
+  const toast = toasts.items.at(-1);
+  expect(toast?.message).toBe('Доход удалён');
+  expect(toast?.action?.label).toBe('Вернуть');
+  toasts.runAction(toast?.id ?? 0);
+  await vi.waitFor(() => {
+    expect(vm.incomes.some((i) => i.id === extra.id)).toBe(true);
+  });
+  expect(vm.totals.total).toBe(before);
+});
+
+it('удаление отменяется ⌘Z', async () => {
+  const vm = new IncomesVm();
+  await vm.load('2026-09');
+  const first = vm.incomes[0];
+  if (!first) throw new Error('нет дохода');
+  await vm.remove(first.id);
+  await undoStack.undo();
+  expect(vm.incomes.some((i) => i.id === first.id)).toBe(true);
+});
+
+it('правка: дата вне месяца дохода отклоняется, дату можно очистить', async () => {
+  const vm = new IncomesVm();
+  await vm.load('2026-09');
+  const salary = vm.incomes[0];
+  if (!salary) throw new Error('нет дохода');
+  vm.openEdit(salary.id);
+  expect(
+    await vm.submit({
+      sourceName: salary.sourceName,
+      amount: salary.amount,
+      date: '2026-10-05',
+      status: salary.status
+    })
+  ).toBe(false);
+  expect(toasts.items.at(-1)?.message).toBe('Дата должна быть в этом месяце');
+  expect(vm.editorOpen).toBe(true);
+  expect(
+    await vm.submit({
+      sourceName: salary.sourceName,
+      amount: salary.amount,
+      date: '2026-09-05',
+      status: salary.status
+    })
+  ).toBe(true);
+  expect(vm.incomes.find((i) => i.id === salary.id)?.date).toBe('2026-09-05');
+  vm.openEdit(salary.id);
+  expect(
+    await vm.submit({
+      sourceName: salary.sourceName,
+      amount: salary.amount,
+      date: null,
+      status: salary.status
+    })
+  ).toBe(true);
+  expect(vm.incomes.find((i) => i.id === salary.id)?.date).toBeNull();
 });

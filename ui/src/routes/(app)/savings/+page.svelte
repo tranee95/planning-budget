@@ -1,24 +1,23 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { Button, EmptyState, Kpi, Skeleton } from '$lib/components';
-  import { formatMoney } from '$lib/format';
-  import AccumulationList from './_components/AccumulationList.svelte';
-  import AccumulationParams from './_components/AccumulationParams.svelte';
-  import BrokerSoon from './_components/BrokerSoon.svelte';
-  import SavingsFact from './_components/SavingsFact.svelte';
-  import SavingsForecast from './_components/SavingsForecast.svelte';
+  import { onMount, untrack } from 'svelte';
+  import { Button, Chart, EmptyState, Kpi, Modal, Skeleton } from '$lib/components';
+  import { formatMonth } from '$lib/format';
+  import { FORMULAS } from '$lib/formulas';
+  import { month } from '$lib/stores/month.svelte';
+  import SavingsList from './_components/SavingsList.svelte';
   import { SavingsVm, setSavingsVm } from './savings.svelte';
 
   const vm = new SavingsVm();
   setSavingsVm(vm);
 
-  onMount(() => {
-    void vm.load();
-    return vm.connect();
+  $effect(() => {
+    const current = month.current;
+    untrack(() => {
+      void vm.load(current);
+    });
   });
 
-  const data = $derived(vm.data);
-  const optimistic = $derived(data?.totalScenarios.find((s) => s.scenario === 'a') ?? null);
+  onMount(() => vm.connect());
 </script>
 
 <svelte:head>
@@ -27,63 +26,102 @@
 
 <div class="screen">
   {#if vm.error}
-    <EmptyState title="Не удалось построить расчёт" hint={vm.error}>
+    <EmptyState title="Не удалось загрузить сбережения" hint={vm.error}>
       {#snippet actions()}
         <Button
           variant="secondary"
           onclick={() => {
-            void vm.load();
+            void vm.load(month.current);
           }}>Повторить</Button
         >
       {/snippet}
     </EmptyState>
-  {:else if data === null}
-    <Skeleton height="420px" />
+  {:else if vm.loading && vm.progress === null}
+    <Skeleton height="240px" />
   {:else}
     <div class="kpis">
       <div class="card">
         <Kpi
-          label="Баланс накоплений"
-          amount={data.totalBalance}
-          hint={`на конец ${String(data.year)} года · ${String(data.items.length)} накопл.`}
+          label="Откладываю в месяц"
+          amount={vm.planTotal}
+          hint={`план на ${formatMonth(vm.month)}`}
+          formula={FORMULAS.savingsPlan}
         />
-      </div>
-      <div class="card">
-        <Kpi label="План взноса в месяц" amount={data.monthPlan} hint="сумма планов накоплений" />
       </div>
       <div class="card">
         <Kpi
-          label="Прогноз через 5 лет ≈"
-          value={optimistic === null ? '—' : formatMoney(optimistic.y5)}
-          hint="сценарий A · не гарантирован"
+          label="Отложено в месяце"
+          amount={vm.monthTotal}
+          hint={formatMonth(vm.month)}
+          formula={FORMULAS.savingsMonth}
         />
       </div>
+      {#if vm.progress}
+        <div class="card">
+          <Kpi
+            label="Накоплено всего"
+            amount={vm.progress.total}
+            hint="за весь период"
+            formula={FORMULAS.savingsTotal}
+          />
+        </div>
+      {/if}
     </div>
-
-    <div class="body">
-      <AccumulationList />
-      <div class="detail">
-        <AccumulationParams />
-        <SavingsFact />
-        <SavingsForecast />
+    {#if vm.progress && vm.progress.months.length > 0}
+      <div class="card chart">
+        <Chart
+          data={vm.progress.chart}
+          type="stacked_bar"
+          title="Отложено по месяцам"
+          categoryColors={vm.chartColors}
+        />
       </div>
-    </div>
+    {/if}
+    <SavingsList />
   {/if}
-  <BrokerSoon />
 </div>
 
+{#if vm.closeAsk}
+  <Modal
+    title="Закрыть цель?"
+    width={460}
+    onclose={() => {
+      vm.cancelClose();
+    }}
+  >
+    <p class="ask">
+      Цель «{vm.closeAsk.name}» уйдёт из списка накоплений. Отложенные суммы останутся в «Накоплено
+      всего» и на графике, вернуть цель можно через «Показать закрытые цели».
+    </p>
+    {#snippet footer()}
+      <Button
+        variant="ghost"
+        onclick={() => {
+          vm.cancelClose();
+        }}>Отмена</Button
+      >
+      <Button
+        variant="primary"
+        onclick={() => {
+          void vm.confirmClose();
+        }}>Закрыть цель</Button
+      >
+    {/snippet}
+  </Modal>
+{/if}
+
 <style>
+  .ask {
+    margin: 0;
+    font-size: var(--fs-13);
+    line-height: var(--lh-body);
+  }
   .screen {
     container-type: inline-size;
     display: flex;
     flex-direction: column;
     gap: var(--sp-4);
     padding-bottom: var(--sp-6);
-  }
-  .kpis {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--sp-4);
   }
   .card {
     padding: var(--sp-5);
@@ -92,22 +130,12 @@
     background: var(--surface);
     box-shadow: var(--shadow);
   }
-  .body {
+  .kpis {
     display: grid;
-    grid-template-columns: 300px minmax(0, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: var(--sp-4);
-    align-items: start;
   }
-  .detail {
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-4);
-    min-width: 0;
-  }
-  @container (max-width: 900px) {
-    .kpis,
-    .body {
-      grid-template-columns: minmax(0, 1fr);
-    }
+  .chart {
+    height: 320px;
   }
 </style>

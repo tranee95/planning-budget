@@ -3,7 +3,7 @@
   import { formatMoney } from '$lib/format';
   import { rise, stagger } from '$lib/motion';
   import { getExpensesVm, type CategoryBlock } from '../expenses.svelte';
-  import AddRow from './AddRow.svelte';
+  import AddRow from '$lib/components/amount-rows/AddRow.svelte';
   import TxRow from './TxRow.svelte';
 
   let { block, index }: { block: CategoryBlock; index: number } = $props();
@@ -64,8 +64,9 @@
       <TxRow
         {row}
         editing={vm.editingId === row.id}
-        onedit={(id: number) => {
-          vm.startEdit(id);
+        focus={vm.editFocus}
+        onedit={(id: number, focus: 'title' | 'amount') => {
+          vm.startEdit(id, focus);
         }}
         oncycle={(id: number) => {
           void vm.cycleStatus(id);
@@ -75,6 +76,9 @@
         }}
         oncancel={() => {
           vm.cancelEdit();
+        }}
+        ondelete={(id: number) => {
+          void vm.deleteOne(id);
         }}
       />
     {/each}

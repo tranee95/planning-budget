@@ -5,6 +5,8 @@
   import { cubicOut } from 'svelte/easing';
   import { formatMoney } from '$lib/format';
   import { dur } from '$lib/motion';
+  import type { FormulaText } from '$lib/formulas';
+  import FormulaHint from './FormulaHint.svelte';
 
   type Props = {
     label: string;
@@ -14,10 +16,12 @@
     amount?: number;
     /** Инсайт одной строкой: «−8% к среднему». */
     hint?: string;
+    /** Как считается значение: рядом с подписью появляется «?» с формулой. */
+    formula?: FormulaText;
     children?: Snippet;
   };
 
-  let { label, value = '', amount, hint, children }: Props = $props();
+  let { label, value = '', amount, hint, formula, children }: Props = $props();
 
   const tween = new Tween(0, { easing: cubicOut });
   $effect(() => {
@@ -31,7 +35,10 @@
 </script>
 
 <div class="kpi">
-  <span class="label">{label}</span>
+  <span class="label">
+    {label}
+    {#if formula}<FormulaHint label={formula.label ?? label} lines={formula.lines} />{/if}
+  </span>
   <span class="value num">{shown}</span>
   {#if hint}<span class="hint">{hint}</span>{/if}
   {@render children?.()}
@@ -45,6 +52,9 @@
     min-width: 0;
   }
   .label {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
     color: var(--muted);
     font-size: var(--fs-12);
   }

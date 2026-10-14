@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { PLACEHOLDERS } from '$lib/i18n/placeholders';
   import Search from '@lucide/svelte/icons/search';
   import { pop, scrimFade } from '$lib/motion';
   import { buildGroups, type PaletteTarget } from '$lib/palette/entries';
@@ -130,7 +131,7 @@
         aria-controls={listId}
         aria-activedescendant={activeEntry ? optionId(activeEntry.key) : undefined}
         aria-label="Поиск"
-        placeholder="Поиск и команды"
+        placeholder={PLACEHOLDERS.palette}
         autocomplete="off"
         spellcheck="false"
         autofocus

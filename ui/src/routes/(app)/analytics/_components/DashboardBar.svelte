@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { PLACEHOLDERS } from '$lib/i18n/placeholders';
   import Pencil from '@lucide/svelte/icons/pencil';
   import Plus from '@lucide/svelte/icons/plus';
   import Trash2 from '@lucide/svelte/icons/trash-2';
@@ -106,7 +107,12 @@
           Дашборд «{vm.active?.name}» и все его графики будут удалены. Данные бюджета не изменятся.
         </p>
       {:else}
-        <TextField id="dashboard-name" label="Название" bind:value={name} />
+        <TextField
+          id="dashboard-name"
+          label="Название"
+          placeholder={PLACEHOLDERS.dashboardName}
+          bind:value={name}
+        />
       {/if}
     </form>
     {#snippet footer()}

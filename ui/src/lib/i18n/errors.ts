@@ -30,6 +30,8 @@ export const messages: Record<string, string> = {
   'errors.io.recovery_file': 'Не удалось записать файл с ключом.',
   'errors.io.delete': 'Не удалось удалить файлы данных.',
   'errors.io.prefs': 'Не удалось сохранить настройки.',
+  'errors.io.update':
+    'Не удалось установить обновление. Проверьте подключение и попробуйте ещё раз: хранилище не затронуто.',
   'errors.prefs.invalid': 'Недопустимое значение настройки.',
   'errors.filter.name_empty': 'Укажите название фильтра.',
   'errors.filter.name_too_long': 'Название фильтра не длиннее 60 символов.',
@@ -76,8 +78,6 @@ export const messages: Record<string, string> = {
   'errors.category.color_invalid': 'Цвет категории задан неверно.',
   'errors.category.in_use':
     'На категорию ссылаются записи, правила импорта, долги или снимки плана: удалить её нельзя, только убрать в архив.',
-  'errors.category.last_savings':
-    'Нельзя убрать последнюю категорию сбережений: в этом году в ней есть записи.',
   'errors.category.name_empty': 'Укажите название категории.',
   'errors.category.name_taken': 'Категория с таким названием уже есть.',
   'errors.category.reorder_mismatch': 'Список категорий изменился. Обновите экран и повторите.',
@@ -102,7 +102,8 @@ export const messages: Record<string, string> = {
   'errors.plan.already_locked': 'План этого месяца уже зафиксирован.',
   'errors.plan.not_locked': 'План этого месяца не зафиксирован.',
   'errors.plan.locked': 'План этого месяца зафиксирован: сначала разблокируйте его.',
-  'errors.plan.not_empty': 'В этом месяце уже есть плановые строки: копировать план некуда.',
+  'errors.plan.not_empty':
+    'В этом месяце уже есть строки со статусом «План». Откройте «Расходы» и измените или удалите их.',
   'errors.plan.line_is_savings': 'Накопления задаются отдельно, а не строкой расходов.',
   'errors.plan.same_month': 'Выберите другой месяц: нельзя копировать план в тот же месяц.',
   'errors.settings.bad_value': 'Недопустимое значение настройки.',

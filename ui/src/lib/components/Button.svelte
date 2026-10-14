@@ -3,7 +3,7 @@
   import type { HTMLButtonAttributes } from 'svelte/elements';
 
   type Props = {
-    variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+    variant?: 'primary' | 'success' | 'secondary' | 'ghost' | 'danger';
     size?: 'sm' | 'md' | 'lg';
     loading?: boolean;
     children: Snippet;
@@ -81,6 +81,16 @@
   .primary:hover:not(:disabled) {
     background: var(--accent);
     filter: brightness(1.06);
+  }
+  /* Действие «добавить»: зелёная кнопка (токены статуса «оплачено»), белый текст с контрастом выше AA. */
+  .success {
+    background: var(--paid);
+    border-color: var(--paid);
+    color: var(--accent-ink);
+  }
+  .success:hover:not(:disabled) {
+    background: var(--paid);
+    filter: brightness(1.12);
   }
   .ghost {
     background: transparent;

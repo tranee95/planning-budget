@@ -10,7 +10,7 @@
   import { formatMonth } from '$lib/format';
   import { tags } from '$lib/stores/tags.svelte';
   import { getExpensesVm, type SortColumn } from '../expenses.svelte';
-  import InlineEdit from './InlineEdit.svelte';
+  import InlineEdit from '$lib/components/amount-rows/InlineEdit.svelte';
   import TagPicker from './TagPicker.svelte';
 
   const vm = getExpensesVm();
@@ -38,7 +38,7 @@
   const categoryNames = $derived(new Map(categories.items.map((c) => [c.id, c.name])));
   const categoryOptions = $derived([
     { value: '', label: 'Перенести в категорию…' },
-    ...categories.items.map((c) => ({ value: String(c.id), label: c.name }))
+    ...categories.spending.map((c) => ({ value: String(c.id), label: c.name }))
   ]);
   const allChecked = $derived(
     vm.visible.length > 0 && vm.visible.every((t) => vm.checked.has(t.id))
@@ -73,6 +73,7 @@
         <Select
           id="bulk-category"
           label="Категория"
+          hideLabel
           options={categoryOptions}
           value=""
           onchange={(value: string) => {
@@ -135,6 +136,7 @@
           {#if vm.editingId === row.id}
             <InlineEdit
               {row}
+              focus={vm.editFocus}
               onsave={(patch: { title: string; amount: number }) => {
                 void vm.saveEdit(patch);
               }}
@@ -147,7 +149,7 @@
               type="button"
               class="link"
               onclick={() => {
-                vm.startEdit(row.id);
+                vm.startEdit(row.id, 'title');
               }}>{row.title}</button
             >
           {/if}
@@ -164,7 +166,15 @@
             }}>{tagNames(row.tagIds) || '—'}</button
           >
         {:else if column.id === 'amount'}
-          {#if vm.editingId !== row.id}{formatMoney(row.amount)}{/if}
+          {#if vm.editingId !== row.id}
+            <button
+              type="button"
+              class="link"
+              onclick={() => {
+                vm.startEdit(row.id, 'amount');
+              }}>{formatMoney(row.amount)}</button
+            >
+          {/if}
         {:else}
           <button
             type="button"
@@ -180,7 +190,10 @@
         {#if vm.filtered}
           <EmptyState title="Ничего не найдено" hint="Измените запрос или уберите лишние чипы." />
         {:else}
-          <EmptyState title="В этом месяце нет трат" hint="Добавьте первую в режиме «Блоки»." />
+          <EmptyState
+            title="Нет трат с выбранными статусами"
+            hint="Снимите отметку статуса над таблицей."
+          />
         {/if}
       {/snippet}
     </DataTable>
@@ -201,6 +214,7 @@
 
 <style>
   .wrap {
+    container-type: inline-size;
     display: flex;
     flex-direction: column;
     gap: var(--sp-3);
@@ -218,6 +232,12 @@
     align-items: center;
     gap: var(--sp-4);
     min-height: 56px;
+  }
+  /* Панель выбранных не помещается в одну строку: резервируем две, чтобы таблица не прыгала. */
+  @container (max-width: 1100px) {
+    .bar {
+      min-height: 104px;
+    }
   }
   .actions {
     display: flex;

@@ -18,4 +18,5 @@ pub mod search;
 pub mod settings;
 pub mod summary;
 pub mod transactions;
+pub mod updates;
 pub mod vault;

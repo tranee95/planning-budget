@@ -3,6 +3,7 @@
   import type { ChartDataDto, ChartOptionsDto, ChartSpecDto } from '$lib/api/bindings';
   import { cssReader, resolveColor, type CategoryColors } from '$lib/charts/colors';
   import { drillQuery } from '$lib/charts/drill';
+  import { enqueueInit } from '$lib/charts/init-queue';
   import { formatValue } from '$lib/charts/format';
   import { PLAIN_OPTIONS, toEcharts } from '$lib/charts/toEcharts';
   import ChartTable from './ChartTable.svelte';
@@ -80,20 +81,26 @@
     if (!visible || !plotted || host === undefined || chart !== undefined) return;
     const node = host;
     let cancelled = false;
+    let cancelQueued = (): void => {};
     void import('$lib/charts/echarts').then(({ echarts }) => {
       if (cancelled) return;
-      const instance = echarts.init(node, undefined, { renderer: 'canvas' });
-      instance.on('click', (params) => {
-        if (params.componentType !== 'series' || ondrill === undefined || spec === undefined)
-          return;
-        const query = drillQuery(spec, data, params.dataIndex, params.seriesIndex ?? 0);
-        if (query !== null) ondrill(query);
+      // Сборка идёт через очередь: по одному графику за такт, без долгой задачи на всю страницу.
+      cancelQueued = enqueueInit(() => {
+        if (cancelled) return;
+        const instance = echarts.init(node, undefined, { renderer: 'canvas' });
+        instance.on('click', (params) => {
+          if (params.componentType !== 'series' || ondrill === undefined || spec === undefined)
+            return;
+          const query = drillQuery(spec, data, params.dataIndex, params.seriesIndex ?? 0);
+          if (query !== null) ondrill(query);
+        });
+        chart = instance;
+        render();
       });
-      chart = instance;
-      render();
     });
     return () => {
       cancelled = true;
+      cancelQueued();
     };
   });
 
@@ -105,9 +112,13 @@
     dark.addEventListener('change', render);
 
     const resize = new ResizeObserver(() => chart?.resize());
-    const intersect = new IntersectionObserver(([entry]) => {
-      if (entry?.isIntersecting === true) visible = true;
-    });
+    // Запас в 600 px: график под экраном собирается заранее, а не посреди прокрутки.
+    const intersect = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting === true) visible = true;
+      },
+      { rootMargin: '600px 0px' }
+    );
     if (host !== undefined) {
       resize.observe(host);
       intersect.observe(host);
@@ -154,6 +165,10 @@
   .plot {
     flex: 1;
     min-height: 120px;
+  }
+  /* Пока страница прокручивается, график не ловит указатель: под курсором он бы перерисовывал подсветку на каждом шаге. */
+  :global(html[data-scrolling]) .plot {
+    pointer-events: none;
   }
   .plot[hidden] {
     display: none;

@@ -1,5 +1,7 @@
 import { clearMocks } from '@tauri-apps/api/mocks';
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { analyticsApi } from '$lib/api/data';
+import { resultCache } from '$lib/api/result-cache';
 import { emptyMockDashboards, resetMockDashboards } from '$lib/api/mock/dashboards';
 import { installMocks } from '$lib/api/mock/install';
 import { toasts } from '$lib/stores/toasts.svelte';
@@ -7,6 +9,7 @@ import { undoStack } from '$lib/stores/undo.svelte';
 import { AnalyticsVm } from './analytics.svelte';
 
 beforeEach(() => {
+  resultCache.clear();
   installMocks();
   resetMockDashboards();
   toasts.clear();
@@ -14,6 +17,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   clearMocks();
 });
 
@@ -127,4 +131,64 @@ it('последний дашборд удалить нельзя: тост с �
   await vm.deleteDashboard(vm.activeId ?? 0);
   expect(vm.dashboards).toHaveLength(1);
   expect(toasts.items.at(-1)?.message).toBe('Последний дашборд удалить нельзя.');
+});
+
+// ---- Q-10: кеш данных графиков ----
+
+it('повторный показ без изменений данных берёт графики из кеша: расчёт Rust не вызывается', async () => {
+  const vm = await loaded();
+  const run = vi.spyOn(analyticsApi, 'runMany');
+  await vm.refreshData();
+  expect(run).not.toHaveBeenCalled();
+  expect([...vm.data.values()].every((d) => d.status === 'ready')).toBe(true);
+  // Новый экземпляр (переход на другой экран и обратно) тоже получает данные из кеша.
+  const again = new AnalyticsVm();
+  await again.load();
+  expect(run).not.toHaveBeenCalled();
+  expect([...again.data.values()].every((d) => d.status === 'ready')).toBe(true);
+});
+
+it('кеш готов сразу: карточки получают данные, пока расчёт не вызывается', async () => {
+  await loaded();
+  const run = vi.spyOn(analyticsApi, 'runMany');
+  const vm = new AnalyticsVm();
+  await vm.load();
+  expect(run).not.toHaveBeenCalled();
+  expect(vm.cards.every((c) => vm.data.get(c.id)?.status === 'ready')).toBe(true);
+});
+
+it('изменение данных очищает кеш: графики пересчитываются', async () => {
+  const vm = await loaded();
+  resultCache.clear();
+  const run = vi.spyOn(analyticsApi, 'runMany');
+  await vm.refreshData();
+  expect(run).toHaveBeenCalledTimes(1);
+  expect(run.mock.calls[0]?.[0]).toHaveLength(9);
+});
+
+it('при частичном кеше считаются только недостающие графики', async () => {
+  const vm = await loaded();
+  const first = vm.cards[0];
+  if (!first) throw new Error('нет карточек');
+  // Правка спецификации одного графика даёт новый ключ: считается он один.
+  vm.cards = vm.cards.map((c) =>
+    c.id === first.id ? { ...c, spec: { ...c.spec, title: 'Другое название' } } : c
+  );
+  const run = vi.spyOn(analyticsApi, 'runMany');
+  await vm.refreshData();
+  expect(run).toHaveBeenCalledTimes(1);
+  expect(run.mock.calls[0]?.[0]).toHaveLength(1);
+});
+
+it('ошибка расчёта графика в кеш не попадает', async () => {
+  const vm = await loaded();
+  resultCache.clear();
+  vi.spyOn(analyticsApi, 'runMany').mockRejectedValueOnce(new Error('boom'));
+  await vm.refreshData();
+  expect([...vm.data.values()].every((d) => d.status === 'error')).toBe(true);
+  vi.restoreAllMocks();
+  const run = vi.spyOn(analyticsApi, 'runMany');
+  await vm.refreshData();
+  expect(run).toHaveBeenCalled();
+  expect([...vm.data.values()].every((d) => d.status === 'ready')).toBe(true);
 });

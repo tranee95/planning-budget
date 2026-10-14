@@ -20,5 +20,5 @@ pub use model::{
     SavingsRateEntry, Settings, Tag, TagId, Transaction, TxId, TxStatus,
 };
 pub use money::Money;
-pub use period::YearMonth;
+pub use period::{CalendarDay, YearMonth};
 pub use seed::load_seed;

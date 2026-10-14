@@ -41,7 +41,7 @@ export const sections: readonly NavItem[] = [
     monthScoped: true
   },
   { href: '/analytics', label: 'Аналитика', icon: ChartColumn, monthScoped: false },
-  { href: '/savings', label: 'Сбережения', icon: PiggyBank, monthScoped: false },
+  { href: '/savings', label: 'Сбережения', icon: PiggyBank, monthScoped: true },
   { href: '/debts', label: 'Долги', icon: HandCoins, monthScoped: true }
 ];
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { PLACEHOLDERS } from '$lib/i18n/placeholders';
   import {
     Button,
     MoneyInput,
@@ -58,10 +59,21 @@
       </p>
     {/if}
 
-    <TextField id="debt-lender" label="У кого или что" required bind:value={vm.draft.lender} />
+    <TextField
+      id="debt-lender"
+      label="У кого или что"
+      required
+      placeholder={PLACEHOLDERS.debtLender}
+      bind:value={vm.draft.lender}
+    />
 
     {#if vm.fromTransaction === null && vm.scheduleEditable}
-      <MoneyInput id="debt-amount" label="Сумма" bind:value={vm.draft.amount} />
+      <MoneyInput
+        id="debt-amount"
+        label="Сумма"
+        placeholder={PLACEHOLDERS.debtAmount}
+        bind:value={vm.draft.amount}
+      />
     {:else if vm.fromTransaction === null && debt}
       <p class="fact">Сумма: <b class="num">{formatMoney(debt.amount)}</b></p>
     {/if}
@@ -81,6 +93,7 @@
       id="debt-comment"
       label="Комментарий"
       required={false}
+      placeholder={PLACEHOLDERS.debtComment}
       bind:value={vm.draft.comment}
     />
 
@@ -121,7 +134,12 @@
           }}
         />
         {#if vm.draft.kind === 'equal'}
-          <TextField id="debt-months" label="Количество месяцев" bind:value={vm.draft.months} />
+          <TextField
+            id="debt-months"
+            label="Количество месяцев"
+            placeholder={PLACEHOLDERS.debtMonths}
+            bind:value={vm.draft.months}
+          />
         {:else}
           <Select
             id="debt-single-month"
@@ -167,12 +185,14 @@
         vm.close();
       }}>Отмена</Button
     >
+    {#if vm.saveHint}<p class="save-hint" id="debt-save-hint">{vm.saveHint}</p>{/if}
     <Button
       type="submit"
       form="debt-form"
       variant="primary"
       loading={vm.saving}
       disabled={!vm.canSave}
+      aria-describedby={vm.saveHint ? 'debt-save-hint' : undefined}
     >
       Сохранить
     </Button>
@@ -233,6 +253,14 @@
   }
   .amount {
     font-weight: var(--fw-medium);
+  }
+  .save-hint {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    align-self: center;
+    color: var(--muted);
+    font-size: var(--fs-12);
   }
   .error {
     margin: 0;

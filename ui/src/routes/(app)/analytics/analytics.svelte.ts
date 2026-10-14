@@ -1,9 +1,15 @@
 import { getContext, setContext } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
-import { type ChartCardDto, type ChartSpecDto, type DashboardDto } from '$lib/api/bindings';
+import {
+  type ChartCardDto,
+  type ChartDataDto,
+  type ChartSpecDto,
+  type DashboardDto
+} from '$lib/api/bindings';
 import { ApiError } from '$lib/api/call';
 import { onDataChanged } from '$lib/api/data-events';
 import { analyticsApi, dashboardsApi } from '$lib/api/data';
+import { dayKey, resultCache } from '$lib/api/result-cache';
 import type { CardData } from '$lib/charts/card-data';
 import {
   COLUMNS,
@@ -93,13 +99,25 @@ export class AnalyticsVm {
     for (const card of cards) {
       if (!this.data.has(card.id)) this.data.set(card.id, { status: 'loading' });
     }
-    // Один вызов на все карточки: бэкенд читает набор данных и считает Ledger один раз.
+    // Готовые результаты берутся из кеша (данные не менялись с прошлого показа), остальные
+    // считаются одним вызовом: бэкенд читает набор данных и считает Ledger один раз.
+    const epoch = resultCache.epoch;
+    const missing: { card: ChartCardDto; key: string }[] = [];
+    for (const card of cards) {
+      // Пресеты периодов привязаны к текущей дате: в ключе есть день.
+      const key = `charts|${dayKey()}|${JSON.stringify(card.spec)}`;
+      const hit = resultCache.get(key) as ChartDataDto | undefined;
+      if (hit !== undefined) this.data.set(card.id, { status: 'ready', data: hit });
+      else missing.push({ card, key });
+    }
+    if (missing.length === 0) return;
     try {
-      const results = await analyticsApi.runMany(cards.map((card) => card.spec));
+      const results = await analyticsApi.runMany(missing.map((m) => m.card.spec));
       if (generation !== this.#generation) return;
-      cards.forEach((card, i) => {
+      missing.forEach(({ card, key }, i) => {
         const result = results[i];
         if (result?.data) {
+          resultCache.set(key, result.data, epoch);
           this.data.set(card.id, { status: 'ready', data: result.data });
         } else {
           const messageKey = result?.errorKey ?? '';
@@ -112,7 +130,7 @@ export class AnalyticsVm {
     } catch (e) {
       if (generation !== this.#generation) return;
       const message = errorText(e);
-      for (const card of cards) this.data.set(card.id, { status: 'error', message });
+      for (const { card } of missing) this.data.set(card.id, { status: 'error', message });
     }
   }
 

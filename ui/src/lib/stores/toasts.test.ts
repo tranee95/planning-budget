@@ -27,6 +27,15 @@ describe('toasts', () => {
     expect(toasts.items).toHaveLength(0);
   });
 
+  it('тост с тем же ключом заменяет предыдущий', () => {
+    toasts.push({ message: 'Статус: План', key: 'status' });
+    toasts.push({ message: 'Статус: Долг', key: 'status' });
+    toasts.push({ message: 'Другое' });
+    expect(toasts.items.map((t) => t.message)).toEqual(['Статус: Долг', 'Другое']);
+    vi.advanceTimersByTime(5000);
+    expect(toasts.items).toHaveLength(0);
+  });
+
   it('ошибка не пропадает сама', () => {
     toasts.push({ message: 'Не удалось сохранить', kind: 'error', code: 'DB_BUSY' });
     vi.advanceTimersByTime(60_000);

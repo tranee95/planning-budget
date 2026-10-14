@@ -37,6 +37,9 @@ pub struct PlanRowDto {
     pub plan: i64,
     #[specta(type = specta_typescript::Number)]
     pub fact: i64,
+    /// Записи категории без статуса «План»: оплачено, долг и внеплановые.
+    #[specta(type = specta_typescript::Number)]
+    pub actual: i64,
     /// `fact − plan`: положительное — потрачено больше плана.
     #[specta(type = specta_typescript::Number)]
     pub deviation: i64,
@@ -48,6 +51,7 @@ impl From<&PlanRow> for PlanRowDto {
             category_id: r.category_id.0,
             plan: r.plan.kopecks(),
             fact: r.fact.kopecks(),
+            actual: r.actual.kopecks(),
             deviation: r.deviation.kopecks(),
         }
     }
@@ -98,6 +102,8 @@ pub struct MonthPlanDto {
     /// Отложено (факт по накоплениям).
     #[specta(type = specta_typescript::Number)]
     pub saved: i64,
+    /// В месяце есть записи со статусом «План»: мастер плана его не заполнит.
+    pub has_planned_lines: bool,
 }
 
 impl From<&MonthPlan> for MonthPlanDto {
@@ -116,6 +122,7 @@ impl From<&MonthPlan> for MonthPlanDto {
             unplanned: p.unplanned.kopecks(),
             borrowed: p.borrowed.kopecks(),
             saved: p.saved.kopecks(),
+            has_planned_lines: p.has_planned_lines,
         }
     }
 }

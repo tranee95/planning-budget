@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+  import { PLACEHOLDERS } from '$lib/i18n/placeholders';
   import { Button, Kbd, Modal, MoneyInput, Segmented } from '$lib/components';
   import type { IncomeStatusDto } from '$lib/api/bindings';
   import { monthRange } from '$lib/format';
@@ -12,10 +14,12 @@
     { value: 'expected', label: 'Ожидается' }
   ] as const;
 
-  let amount = $state<number | null>(null);
-  let sourceName = $state('');
-  let date = $state('');
-  let status = $state<IncomeStatusDto>('received');
+  // Поля заполняются один раз при открытии: правка берёт значения дохода, создание — пустые.
+  const editing = untrack(() => vm.editing);
+  let amount = $state<number | null>(editing?.amount ?? null);
+  let sourceName = $state(editing?.sourceName ?? '');
+  let date = $state(editing?.date ?? '');
+  let status = $state<IncomeStatusDto>(editing?.status ?? 'received');
   let saving = $state(false);
 
   const canSave = $derived(amount !== null && amount > 0 && sourceName.trim() !== '');
@@ -24,7 +28,7 @@
     if (!canSave || saving || amount === null) return;
     saving = true;
     try {
-      await vm.create({ sourceName, amount, date: date === '' ? null : date, status });
+      await vm.submit({ sourceName, amount, date: date === '' ? null : date, status });
     } finally {
       saving = false;
     }
@@ -39,18 +43,31 @@
 </script>
 
 <Modal
-  title="Новый доход"
+  title={editing === null ? 'Новый доход' : 'Доход'}
   onclose={() => {
     vm.closeEditor();
   }}
 >
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="form" onkeydown={onKeydown}>
-    <MoneyInput id="income-amount" label="Сумма" size="lg" autofocus bind:value={amount} />
+    <MoneyInput
+      id="income-amount"
+      label="Сумма"
+      size="lg"
+      autofocus
+      placeholder={PLACEHOLDERS.incomeAmount}
+      bind:value={amount}
+    />
     <div class="row">
       <div class="group">
         <label class="lbl" for="income-source">Источник</label>
-        <input id="income-source" class="field" autocomplete="off" bind:value={sourceName} />
+        <input
+          id="income-source"
+          class="field"
+          autocomplete="off"
+          placeholder={PLACEHOLDERS.income}
+          bind:value={sourceName}
+        />
       </div>
       <div class="group">
         <label class="lbl" for="income-date">Дата</label>

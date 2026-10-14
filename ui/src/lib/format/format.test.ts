@@ -3,13 +3,47 @@ import {
   checkMoney,
   formatDay,
   formatMonth,
+  formatMonthPrepositional,
   formatMoney,
   formatMoneyExact,
   formatPercent,
+  formatWeeks,
   monthRange,
   parseMoney,
+  pluralRu,
   shiftMonth
 } from './index';
+
+describe('pluralRu', () => {
+  const open = ['открытый', 'открытых', 'открытых'] as const;
+  it.each([
+    [0, 'открытых'],
+    [1, 'открытый'],
+    [2, 'открытых'],
+    [5, 'открытых'],
+    [11, 'открытых'],
+    [21, 'открытый'],
+    [22, 'открытых'],
+    [101, 'открытый']
+  ])('%i → %s', (n, word) => {
+    expect(pluralRu(n, open)).toBe(word);
+  });
+
+  it('три разные формы: категория, категории, категорий', () => {
+    const forms = ['категория', 'категории', 'категорий'] as const;
+    expect([1, 2, 4, 5, 11, 12, 14, 21, 25].map((n) => pluralRu(n, forms))).toEqual([
+      'категория',
+      'категории',
+      'категории',
+      'категорий',
+      'категорий',
+      'категорий',
+      'категорий',
+      'категория',
+      'категорий'
+    ]);
+  });
+});
 
 const NB = ' ';
 const MINUS = '−';
@@ -53,6 +87,33 @@ describe('formatMonth', () => {
   it('принимает YYYY-MM и пишет русское название', () => {
     expect(formatMonth('2026-09')).toBe('Сентябрь 2026');
     expect(formatMonth('2026-09', 'short')).toBe('Сентябрь');
+  });
+});
+
+describe('formatMonthPrepositional', () => {
+  it('предложный падеж всех двенадцати месяцев с годом', () => {
+    const expected = [
+      'январе',
+      'феврале',
+      'марте',
+      'апреле',
+      'мае',
+      'июне',
+      'июле',
+      'августе',
+      'сентябре',
+      'октябре',
+      'ноябре',
+      'декабре'
+    ];
+    expected.forEach((name, i) => {
+      const month = `2026-${String(i + 1).padStart(2, '0')}`;
+      expect(formatMonthPrepositional(month)).toBe(`${name} 2026`);
+    });
+  });
+
+  it('formatMonth остаётся в именительном падеже', () => {
+    expect(formatMonth('2026-09')).toBe('Сентябрь 2026');
   });
 });
 
@@ -108,5 +169,14 @@ describe('monthRange', () => {
     expect(monthRange('2026-12').last).toBe('2026-12-31');
     expect(monthRange('2026-02').last).toBe('2026-02-28');
     expect(monthRange('2028-02').last).toBe('2028-02-29');
+  });
+});
+
+describe('formatWeeks', () => {
+  it('недели с одним знаком после запятой и запятой как разделителем', () => {
+    expect(formatWeeks(16 / 7)).toBe('2,3');
+    expect(formatWeeks(1 / 7)).toBe('0,1');
+    expect(formatWeeks(30 / 7)).toBe('4,3');
+    expect(formatWeeks(2)).toBe('2,0');
   });
 });

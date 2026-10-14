@@ -31,6 +31,10 @@
   </p>
   <LockForm />
   <ChangePasswordForm {vm} />
+</section>
+
+<section class="card" aria-labelledby="danger-title">
+  <h2 id="danger-title">Опасные действия</h2>
   <RekeyForm {vm} />
 </section>
 

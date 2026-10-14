@@ -5,10 +5,11 @@
   import { page } from '$app/state';
   import { Button, EmptyState, Kpi, Skeleton, Switch } from '$lib/components';
   import { formatMoney, formatMonth } from '$lib/format';
+  import { FORMULAS } from '$lib/formulas';
   import { month } from '$lib/stores/month.svelte';
   import DebtList from './_components/DebtList.svelte';
   import DebtSheet from './_components/DebtSheet.svelte';
-  import { DebtsVm, setDebtsVm } from './debts.svelte';
+  import { DebtsVm, openCountText, setDebtsVm } from './debts.svelte';
 
   const vm = new DebtsVm();
   setDebtsVm(vm);
@@ -87,7 +88,8 @@
         <Kpi
           label="Остаток долгов"
           amount={overview.remainingTotal}
-          hint={`${String(overview.openCount)} открытых`}
+          hint={openCountText(overview.openCount)}
+          formula={FORMULAS.debtsRemaining}
         />
       </div>
       <div class="card">
@@ -95,27 +97,24 @@
           label={`К оплате: ${formatMonth(month.current)}`}
           amount={overview.paymentsPlanned}
           hint={`оплачено ${formatMoney(overview.paymentsPaid)}`}
+          formula={FORMULAS.debtsMonth}
         />
       </div>
       <div class="card">
-        <Kpi label="Закрыто" value={String(overview.closedCount)} hint="за всё время" />
+        <Kpi
+          label="Закрыто"
+          value={String(overview.closedCount)}
+          hint="за всё время"
+          formula={FORMULAS.debtsClosed}
+        />
       </div>
     </div>
 
     {#if overview.debts.length === 0}
       <EmptyState
         title={overview.closedCount > 0 ? 'Открытых долгов нет' : 'Долгов пока нет'}
-        hint="Долг можно создать вручную или из траты со статусом «Долг»."
-      >
-        {#snippet actions()}
-          <Button
-            variant="primary"
-            onclick={() => {
-              vm.startNew();
-            }}>Добавить долг</Button
-          >
-        {/snippet}
-      </EmptyState>
+        hint="Нажмите «+ Долг» или создайте его из траты со статусом «Долг»."
+      />
     {:else}
       <DebtList
         debts={overview.debts}

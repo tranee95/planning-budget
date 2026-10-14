@@ -7,7 +7,7 @@ use planning_budget_core::{CategoryId, IncomeId, TxId};
 use planning_budget_storage::Db;
 use tempfile::TempDir;
 
-use super::{categories, devseed, records};
+use super::{categories, devseed, plan, records, summary};
 use crate::AppError;
 use crate::dto::{
     CategoryInput, CategoryKindDto, CategoryPatchDto, IncomeInput, IncomePatchDto, IncomeStatusDto,
@@ -419,5 +419,64 @@ fn storage_and_import_errors_map_to_app_error_keys() {
     assert_eq!(
         keyed(ImportError::UnknownKind { row: 12 }),
         ("errors.import.legacy.unknown_kind".to_owned(), Some(12))
+    );
+}
+
+// ---- UX-1: правка и удаление дохода из UI ----
+
+#[test]
+fn income_patch_json_null_clears_the_date_and_a_missing_field_keeps_it() {
+    // UI всегда шлёт `date` (строка или null): null очищает дату, отсутствие поля её не трогает.
+    let cleared: IncomePatchDto = serde_json::from_str(r#"{"date":null,"amount":100}"#).unwrap();
+    assert_eq!(cleared.date, Some(None));
+    let set: IncomePatchDto = serde_json::from_str(r#"{"date":"2026-09-05"}"#).unwrap();
+    assert_eq!(set.date, Some(Some("2026-09-05".to_owned())));
+    let untouched: IncomePatchDto = serde_json::from_str(r#"{"amount":100}"#).unwrap();
+    assert_eq!(untouched.date, None);
+}
+
+#[test]
+fn editing_and_deleting_an_income_changes_the_month_totals() {
+    let (_dir, mut db) = seeded();
+    let month = "2026-11";
+    let base = summary::month(&db, month, today()).unwrap().summary;
+    let created = records::income_create(&mut db, income_input(month, 500_000), now()).unwrap();
+    let id = IncomeId(created.id);
+    let with = summary::month(&db, month, today()).unwrap().summary;
+    assert_eq!(with.income, base.income + 500_000);
+    assert_eq!(with.income_expected, base.income_expected + 500_000);
+
+    // Правка суммы и статуса пересчитывает итоги и план.
+    records::income_update(
+        &mut db,
+        id,
+        IncomePatchDto {
+            amount: Some(900_000),
+            status: Some(IncomeStatusDto::Received),
+            date: Some(None),
+            ..IncomePatchDto::default()
+        },
+        now(),
+    )
+    .unwrap();
+    let edited = summary::month(&db, month, today()).unwrap().summary;
+    assert_eq!(edited.income, base.income + 900_000);
+    assert_eq!(edited.income_received, base.income_received + 900_000);
+    assert_eq!(edited.income_expected, base.income_expected);
+    assert_eq!(
+        plan::month(&db, month).unwrap().income,
+        base.income + 900_000
+    );
+
+    // Удаление убирает доход из итогов, восстановление возвращает.
+    records::income_delete(&mut db, id, now()).unwrap();
+    assert_eq!(
+        summary::month(&db, month, today()).unwrap().summary.income,
+        base.income
+    );
+    records::income_restore(&mut db, id, now()).unwrap();
+    assert_eq!(
+        summary::month(&db, month, today()).unwrap().summary.income,
+        base.income + 900_000
     );
 }

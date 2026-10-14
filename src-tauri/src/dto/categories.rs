@@ -109,3 +109,13 @@ impl From<&Tag> for TagDto {
         }
     }
 }
+
+/// Категория стартового набора для экрана выбора при первом запуске.
+#[derive(Debug, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct DefaultCategoryDto {
+    pub name: String,
+    pub kind: CategoryKindDto,
+    /// Нельзя снять: «Сбережения» и «Прочее».
+    pub required: bool,
+}

@@ -4,22 +4,33 @@ import {
   type CategoryDto,
   type LimitRowDto,
   type MonthOverviewDto,
+  type MonthPlanDto,
   type TransactionDto,
   type TxStatusDto
 } from '$lib/api/bindings';
-import { searchApi, summaryApi, transactionsApi } from '$lib/api/data';
-import { STATUS_ORDER } from '$lib/components/status';
+import { planApi, searchApi, summaryApi, transactionsApi } from '$lib/api/data';
+import { STATUS_LABEL, STATUS_ORDER } from '$lib/components/status';
 import { QueryFilter } from '$lib/filters/query-filter.svelte';
 import { errorText } from '$lib/i18n/errors';
 import { categories } from '$lib/stores/categories.svelte';
 import { connectScreen } from '$lib/stores/connect-screen';
 import { tags } from '$lib/stores/tags.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
-import { undoStack } from '$lib/stores/undo.svelte';
+import { undoStack, type UndoEntry } from '$lib/stores/undo.svelte';
+import { shiftMonth } from '$lib/format';
 import { createDebtFromTransaction } from '../debts/open';
 import { sortRows, type SortColumn } from './table-sort';
 
 export type { SortColumn };
+
+/** «1 статья», «2 статьи», «5 статей». */
+function articles(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return `${String(n)} статья`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${String(n)} статьи`;
+  return `${String(n)} статей`;
+}
 
 /** Наборы тегов равны независимо от порядка. */
 function sameIds(a: number[], b: number[]): boolean {
@@ -56,9 +67,17 @@ export class ExpensesVm {
   editorOpen = $state(false);
   /** Строка, открытая для инлайн-правки. */
   editingId = $state<number | null>(null);
+  /** Поле, в котором стоит курсор при открытии правки: клик по названию — название, остальное — сумма. */
+  editFocus = $state<'title' | 'amount'>('amount');
+  /** План месяца и наличие данных в прошлом месяце: нужны только пустому состоянию. */
+  plan = $state.raw<MonthPlanDto | null>(null);
+  previousHasData = $state(false);
+  copyBusy = $state(false);
   /** Категория, в карточке которой открыта строка добавления. */
   addingTo = $state<number | null>(null);
   #addRequestId = crypto.randomUUID();
+  #committing = false;
+  #saving = false;
 
   #month = '';
   #req = 0;
@@ -69,16 +88,21 @@ export class ExpensesVm {
     return this.#month;
   }
 
+  /** Строки без накоплений: они показываются на «Сбережениях». */
+  spendingRows = $derived(
+    this.transactions.filter((t) => categories.byId.get(t.categoryId)?.kind !== 'savings')
+  );
+
   visible = $derived(
     this.statusFilter.size === 0
-      ? this.transactions
-      : this.transactions.filter((t) => this.statusFilter.has(t.status))
+      ? this.spendingRows
+      : this.spendingRows.filter((t) => this.statusFilter.has(t.status))
   );
 
   /** Карточки категорий: строки уже отфильтрованы, лимиты и факт пришли из Rust. */
   blocks = $derived.by<CategoryBlock[]>(() => {
     const limits = new SvelteMap(this.overview?.limits.map((l) => [l.categoryId, l]));
-    return categories.items.map((category) => ({
+    return categories.spending.map((category) => ({
       category,
       rows: this.visible.filter((t) => t.categoryId === category.id),
       limit: limits.get(category.id) ?? null
@@ -107,8 +131,33 @@ export class ExpensesVm {
   /** Запрос применяется к списку: таблица показывает результат поиска, а не месяц. */
   filtered = $derived(this.mode === 'table' && this.filter.active);
 
-  isEmpty = $derived(!this.loading && this.error === null && this.transactions.length === 0);
+  isEmpty = $derived(!this.loading && this.error === null && this.spendingRows.length === 0);
   hasSelection = $derived(this.selected !== null);
+
+  /** В месяце нет трат и это не результат поиска: вместо сетки и итогов показывается пустое состояние. */
+  showEmpty = $derived(this.isEmpty && !this.filtered);
+
+  /** Статей расходов в плане месяца (суммы плана больше нуля). */
+  planItems = $derived(
+    this.plan === null
+      ? 0
+      : this.plan.rows.filter(
+          (r) => r.plan > 0 && categories.spending.some((c) => c.id === r.categoryId)
+        ).length
+  );
+
+  emptyHint = $derived(this.planItems > 0 ? `В плане ${articles(this.planItems)}` : null);
+
+  noCategories = $derived(categories.loaded && categories.spending.length === 0);
+
+  /** План можно перенести: он ещё не заполнен и не зафиксирован, а в прошлом месяце есть данные. */
+  canCopyPlan = $derived(
+    !this.noCategories &&
+      this.previousHasData &&
+      this.plan !== null &&
+      !this.plan.locked &&
+      this.plan.planExpenses === 0
+  );
 
   async load(month: string): Promise<void> {
     const req = ++this.#req;
@@ -127,11 +176,48 @@ export class ExpensesVm {
       this.overview = overview;
       this.transactions = transactions;
       this.#resolvePendingEdit(req);
+      await this.#loadEmptyContext(month, req);
     } catch (e) {
       if (req === this.#req) this.error = errorText(e);
     } finally {
       if (req === this.#req) this.loading = false;
     }
+  }
+
+  /**
+   * Для пустого месяца читает план и итог прошлого месяца. Это подсказки: сбой чтения не мешает
+   * экрану, кнопка «Скопировать план» просто не появится.
+   */
+  async #loadEmptyContext(month: string, req: number): Promise<void> {
+    if (this.spendingRows.length > 0 || this.filtered) return;
+    try {
+      const [plan, previous] = await Promise.all([
+        planApi.month(month),
+        summaryApi.month(shiftMonth(month, -1))
+      ]);
+      if (req !== this.#req) return;
+      this.plan = plan;
+      this.previousHasData = previous.summary.expenses > 0;
+    } catch {
+      if (req !== this.#req) return;
+      this.plan = null;
+      this.previousHasData = false;
+    }
+  }
+
+  /** Переносит план прошлого месяца в пустой; ошибка — тостом. */
+  async copyPlan(): Promise<void> {
+    if (this.copyBusy) return;
+    this.copyBusy = true;
+    try {
+      await planApi.copyFromPrevious(this.#month);
+    } catch (e) {
+      toasts.push({ kind: 'error', message: errorText(e) });
+      return;
+    } finally {
+      this.copyBusy = false;
+    }
+    await this.load(this.#month);
   }
 
   /** Строки экрана: траты месяца или, при применённом запросе, результат поиска по всем месяцам. */
@@ -221,13 +307,32 @@ export class ExpensesVm {
       });
     }
     if (before !== undefined && before !== status) {
-      undoStack.record({
-        label: 'смена статуса',
-        undo: () => this.#applyStatus(id, before),
-        redo: () => this.#applyStatus(id, status)
-      });
+      this.#recordWithToast(
+        {
+          label: 'смена статуса',
+          undo: () => this.#applyStatus(id, before),
+          redo: () => this.#applyStatus(id, status)
+        },
+        `Статус: ${STATUS_LABEL[status]}`,
+        'tx-status'
+      );
     }
     await this.#refreshOverview();
+  }
+
+  /** Запись в стек отмены и тост с «Отменить»; тост с тем же ключом заменяет прежний. */
+  #recordWithToast(entry: UndoEntry, message: string, key: string): void {
+    undoStack.record(entry);
+    toasts.push({
+      message,
+      key,
+      action: {
+        label: 'Отменить',
+        run: () => {
+          void undoStack.undo(entry);
+        }
+      }
+    });
   }
 
   /** Итоги лимитов читаются у Rust после записи. Сбой чтения не отменяет уже сохранённую запись. */
@@ -284,11 +389,21 @@ export class ExpensesVm {
   async bulkDelete(): Promise<void> {
     const ids = this.checkedVisible;
     if (ids.length === 0) return;
+    this.checked.clear();
+    await this.#deleteIds(ids);
+  }
+
+  /** Удаляет одну сумму (крестик в строке); выбор других строк не меняется. */
+  async deleteOne(id: number): Promise<void> {
+    this.checked.delete(id);
+    await this.#deleteIds([id]);
+  }
+
+  async #deleteIds(ids: number[]): Promise<void> {
     const results = await Promise.allSettled(ids.map((id) => transactionsApi.remove(id)));
     const removed = ids.filter((_, i) => results[i]?.status === 'fulfilled');
     const failed = results.find((r) => r.status === 'rejected');
     if (failed) toasts.push({ kind: 'error', message: errorText(failed.reason) });
-    this.checked.clear();
     await this.load(this.#month);
     if (removed.length === 0) return;
     const entry = {
@@ -367,8 +482,10 @@ export class ExpensesVm {
     }
   }
 
-  startEdit(id: number): void {
+  /** Открывает правку строки; без `focus` курсор встаёт в сумму (Enter на строке, ссылка из палитры). */
+  startEdit(id: number, focus: 'title' | 'amount' = 'amount'): void {
     this.addingTo = null;
+    this.editFocus = focus;
     this.editingId = id;
   }
 
@@ -381,19 +498,42 @@ export class ExpensesVm {
     const id = this.editingId;
     if (id === null) return;
     const title = patch.title?.trim();
-    if (title === '' || (patch.amount !== undefined && patch.amount <= 0)) return;
+    if (title === '' || (patch.amount !== undefined && patch.amount <= 0) || this.#saving) return;
+    const row = this.transactions.find((t) => t.id === id);
+    if (row && (title ?? row.title) === row.title && (patch.amount ?? row.amount) === row.amount) {
+      this.editingId = null;
+      return;
+    }
+    this.#saving = true;
     try {
-      const { current } = await transactionsApi.update(id, {
+      const { current, previous } = await transactionsApi.update(id, {
         ...(title === undefined ? {} : { title }),
         ...(patch.amount === undefined ? {} : { amount: patch.amount })
       });
       this.transactions = this.transactions.map((t) => (t.id === id ? current : t));
       this.editingId = null;
+      this.#recordEdit(previous, current);
     } catch (e) {
       toasts.push({ kind: 'error', message: errorText(e) });
       return;
+    } finally {
+      this.#saving = false;
     }
     await this.#refreshOverview();
+  }
+
+  /** Правка названия или суммы: в стек отмены и тост «Сумма изменена» / «Строка изменена». */
+  #recordEdit(previous: TransactionDto, current: TransactionDto): void {
+    const apply = (to: TransactionDto) => async (): Promise<void> => {
+      await transactionsApi.update(to.id, { title: to.title, amount: to.amount });
+      await this.load(this.#month);
+    };
+    const titleChanged = previous.title !== current.title;
+    this.#recordWithToast(
+      { label: 'правка строки', undo: apply(previous), redo: apply(current) },
+      titleChanged ? 'Строка изменена' : 'Сумма изменена',
+      'tx-edit'
+    );
   }
 
   startAdd(categoryId: number): void {
@@ -405,11 +545,14 @@ export class ExpensesVm {
     this.addingTo = null;
   }
 
-  /** Создаёт трату со статусом «План» в открытой карточке. */
+  /** Создаёт трату со статусом «План» в открытой карточке; без наименования берётся название категории. */
   async commitAdd(draft: { title: string; amount: number }): Promise<void> {
     const categoryId = this.addingTo;
-    const title = draft.title.trim();
-    if (categoryId === null || title === '' || draft.amount <= 0) return;
+    if (categoryId === null || draft.amount <= 0 || this.#committing) return;
+    const title = draft.title.trim() || categories.byId.get(categoryId)?.name || '';
+    if (title === '') return;
+    // Enter и уход фокуса приходят подряд: вторая отправка до ответа первой не нужна.
+    this.#committing = true;
     try {
       const created = await transactionsApi.create(this.#addRequestId, {
         month: this.#month,
@@ -427,6 +570,8 @@ export class ExpensesVm {
     } catch (e) {
       toasts.push({ kind: 'error', message: errorText(e) });
       return;
+    } finally {
+      this.#committing = false;
     }
     await this.#refreshOverview();
   }
@@ -434,14 +579,6 @@ export class ExpensesVm {
   /** Подписки экрана; страница вызывает в `onMount`, возвращает cleanup. */
   connect(): () => void {
     return connectScreen({
-      shortcut: {
-        id: 'expenses.add',
-        code: 'KeyN',
-        label: 'Новая трата',
-        run: () => {
-          this.openEditor();
-        }
-      },
       month: () => this.#month,
       anyMonth: () => this.filtered,
       reload: () => void this.load(this.#month)

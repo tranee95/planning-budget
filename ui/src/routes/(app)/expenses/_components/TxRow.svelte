@@ -3,18 +3,28 @@
   import { StatusDot } from '$lib/components';
   import { STATUS_LABEL } from '$lib/components/status';
   import { formatMoney } from '$lib/format';
-  import InlineEdit from './InlineEdit.svelte';
+  import InlineEdit from '$lib/components/amount-rows/InlineEdit.svelte';
 
   type Props = {
     row: TransactionDto;
     editing: boolean;
-    onedit: (id: number) => void;
+    /** Поле, в котором откроется правка. */
+    focus: 'title' | 'amount';
+    onedit: (id: number, focus: 'title' | 'amount') => void;
     oncycle: (id: number) => void;
     onsave: (patch: { title: string; amount: number }) => void;
     oncancel: () => void;
+    ondelete: (id: number) => void;
   };
 
-  let { row, editing, onedit, oncycle, onsave, oncancel }: Props = $props();
+  const uid = $props.id();
+  let { row, editing, focus, onedit, oncycle, onsave, oncancel, ondelete }: Props = $props();
+
+  /** Клик по сумме ставит курсор в сумму, по названию — в название; Enter на кнопке (без клика) — в сумму. */
+  function openEdit(event: MouseEvent): void {
+    const inName = event.target instanceof Element && event.target.closest('.name') !== null;
+    onedit(row.id, inName ? 'title' : 'amount');
+  }
 </script>
 
 <li class="row {row.status}">
@@ -30,18 +40,22 @@
     <StatusDot status={row.status} />
   </button>
   {#if editing}
-    <InlineEdit {row} {onsave} {oncancel} />
+    <InlineEdit {row} {focus} {onsave} {oncancel} />
   {:else}
-    <button
-      type="button"
-      class="body"
-      onclick={() => {
-        onedit(row.id);
-      }}
-    >
-      <span class="name">{row.title}</span>
+    <button type="button" class="body" onclick={openEdit}>
+      <span class="name" id="tx-name-{uid}">{row.title}</span>
       <span class="num sum">{formatMoney(row.amount)}</span>
     </button>
+    <button
+      type="button"
+      class="remove"
+      aria-label="Удалить"
+      aria-describedby="tx-name-{uid}"
+      title="Удалить"
+      onclick={() => {
+        ondelete(row.id);
+      }}>×</button
+    >
   {/if}
 </li>
 
@@ -99,6 +113,22 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .remove {
+    flex-shrink: 0;
+    min-width: 24px;
+    min-height: 24px;
+    border: 0;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--muted);
+    font-size: var(--fs-16, 16px);
+    line-height: 1;
+    cursor: pointer;
+  }
+  .remove:hover {
+    background: var(--line-2);
+    color: var(--text);
   }
   .sum {
     font-weight: var(--fw-medium);

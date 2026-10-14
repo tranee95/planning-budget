@@ -19,6 +19,8 @@ export class IncomesVm {
   /** `null` — все статусы. */
   statusFilter = $state<IncomeStatusDto | null>(null);
   editorOpen = $state(false);
+  /** Доход, который правят в редакторе; `null` — редактор создаёт новый. */
+  editing = $state.raw<IncomeDto | null>(null);
   /** Запрос панели фильтров: пока он применён, список — результат поиска по всем месяцам. */
   filter = new QueryFilter();
   filtered = $derived(this.filter.active);
@@ -86,11 +88,103 @@ export class IncomesVm {
   }
 
   openEditor(): void {
+    this.editing = null;
+    this.editorOpen = true;
+  }
+
+  /** Открывает редактор с текущими значениями дохода (клик по строке). */
+  openEdit(id: number): void {
+    const income = this.incomes.find((i) => i.id === id);
+    if (income === undefined) return;
+    this.editing = income;
     this.editorOpen = true;
   }
 
   closeEditor(): void {
     this.editorOpen = false;
+    this.editing = null;
+  }
+
+  /** Сохраняет редактор: правка открытого дохода или создание нового. */
+  submit(draft: {
+    sourceName: string;
+    amount: number;
+    date: string | null;
+    status: IncomeStatusDto;
+  }): Promise<boolean> {
+    return this.editing === null ? this.create(draft) : this.#update(this.editing, draft);
+  }
+
+  async #update(
+    before: IncomeDto,
+    draft: { sourceName: string; amount: number; date: string | null; status: IncomeStatusDto }
+  ): Promise<boolean> {
+    const sourceName = draft.sourceName.trim();
+    if (sourceName === '' || draft.amount <= 0) return false;
+    if (draft.date !== null) {
+      const { first, last } = monthRange(before.month);
+      if (draft.date < first || draft.date > last) {
+        toasts.push({ kind: 'error', message: 'Дата должна быть в этом месяце' });
+        return false;
+      }
+    }
+    const patch = { sourceName, amount: draft.amount, date: draft.date, status: draft.status };
+    try {
+      await incomesApi.update(before.id, patch);
+    } catch (e) {
+      toasts.push({ kind: 'error', message: errorText(e) });
+      return false;
+    }
+    this.closeEditor();
+    const previous = {
+      sourceName: before.sourceName,
+      amount: before.amount,
+      date: before.date,
+      status: before.status
+    };
+    undoStack.record({
+      label: 'доход изменён',
+      undo: () => this.#applyPatch(before.id, previous),
+      redo: () => this.#applyPatch(before.id, patch)
+    });
+    toasts.push({ message: `Сохранено: ${sourceName}` });
+    await this.load(this.#month);
+    return true;
+  }
+
+  async #applyPatch(
+    id: number,
+    patch: { sourceName: string; amount: number; date: string | null; status: IncomeStatusDto }
+  ): Promise<void> {
+    await incomesApi.update(id, patch);
+    await this.load(this.#month);
+  }
+
+  /** Удаляет доход (мягко): вернуть можно тостом или ⌘Z. */
+  async remove(id: number): Promise<void> {
+    const income = this.incomes.find((i) => i.id === id);
+    try {
+      await incomesApi.remove(id);
+    } catch (e) {
+      toasts.push({ kind: 'error', message: errorText(e) });
+      return;
+    }
+    const entry = {
+      label: `доход «${income?.sourceName ?? ''}» удалён`,
+      undo: () => this.#toggleDeleted(id, false),
+      redo: () => this.#toggleDeleted(id, true)
+    };
+    undoStack.record(entry);
+    toasts.push({
+      message: 'Доход удалён',
+      action: {
+        label: 'Вернуть',
+        run: () => {
+          void undoStack.undo(entry);
+        }
+      }
+    });
+    await this.load(this.#month);
   }
 
   /** Создаёт доход в месяце экрана. Пустой источник и сумма ≤ 0 не отправляются. */
@@ -183,14 +277,6 @@ export class IncomesVm {
   /** Подписки экрана; страница вызывает в `onMount`, возвращает cleanup. */
   connect(): () => void {
     return connectScreen({
-      shortcut: {
-        id: 'incomes.add',
-        code: 'KeyI',
-        label: 'Новый доход',
-        run: () => {
-          this.openEditor();
-        }
-      },
       month: () => this.#month,
       anyMonth: () => this.filtered,
       reload: () => void this.load(this.#month)

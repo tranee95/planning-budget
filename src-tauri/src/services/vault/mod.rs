@@ -103,7 +103,8 @@ pub fn create(
     let opened = Db::create(&state.paths().db(), created.dek.as_bytes())
         .map_err(AppError::from)
         .and_then(|mut db| {
-            db.seed_defaults(now)?;
+            // Категории выбирает пользователь в знакомстве (`categories_seed`).
+            db.seed_base(now)?;
             Ok(db)
         });
     match opened {
@@ -199,6 +200,14 @@ pub fn reset(
     // Порога автоблокировки больше нет; тема и масштаб остаются: это не данные бюджета.
     if let Err(err) = crate::prefs::set_autolock_minutes(&state.paths().prefs(), None) {
         tracing::warn!(?err, "autolock mirror not cleared");
+    }
+    // Новое хранилище начинается без категорий: знакомство снова предложит их выбрать.
+    let intro_again = crate::dto::PrefsPatch {
+        intro_done: Some(false),
+        ..Default::default()
+    };
+    if let Err(err) = crate::prefs::update(&state.paths().prefs(), intro_again) {
+        tracing::warn!(?err, "intro flag not reset");
     }
     Ok(())
 }

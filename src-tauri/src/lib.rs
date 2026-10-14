@@ -27,7 +27,8 @@ pub fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         .events(tauri_specta::collect_events![
             events::VaultLocked,
             events::SystemThemeChanged,
-            events::DataChanged
+            events::DataChanged,
+            events::UpdateProgress
         ])
 }
 
@@ -63,6 +64,8 @@ pub fn run() -> tauri::Result<()> {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         // Диалоги открывает только Rust; фронтенду dialog:* не выдан.
         .plugin(tauri_plugin_dialog::init())
+        // Проверка обновлений вызывается только из Rust; фронтенду updater:* не выдан.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(builder.invoke_handler())
         .on_window_event(window::on_event)
         .setup(move |app| {

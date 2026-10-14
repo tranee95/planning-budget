@@ -1,14 +1,18 @@
 <script lang="ts">
   import type { StatusAmountsDto } from '$lib/api/bindings';
-  import { StatusChip } from '$lib/components';
+  import { FormulaHint, StatusChip } from '$lib/components';
   import { STATUS_ORDER } from '$lib/components/status';
   import { formatMoney } from '$lib/format';
+  import { FORMULAS } from '$lib/formulas';
 
   let { byStatus }: { byStatus: StatusAmountsDto } = $props();
 </script>
 
 <div class="strip">
-  <span class="lbl">Статусы трат</span>
+  <span class="lbl">
+    Статусы трат
+    <FormulaHint label={FORMULAS.statusShares.label} lines={FORMULAS.statusShares.lines} />
+  </span>
   <div class="track" role="img" aria-label="Доли расходов по статусам">
     {#each STATUS_ORDER as status (status)}
       {#if byStatus[status] > 0}
@@ -38,6 +42,9 @@
     box-shadow: var(--shadow);
   }
   .lbl {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
     min-width: 96px;
     color: var(--muted);
     font-size: var(--fs-12);

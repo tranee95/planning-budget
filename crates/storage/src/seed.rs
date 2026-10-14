@@ -1,10 +1,12 @@
 //! Сиды при создании хранилища: категории, лимиты, настройки.
 
 use chrono::{DateTime, SecondsFormat, Utc};
+use planning_budget_core::CategoryKind;
 use planning_budget_core::analytics::standard_dashboard;
 use rusqlite::params;
 use serde::Deserialize;
 
+use crate::categories::kind_from_str;
 use crate::writes::{
     NewCategory, insert_category, insert_limit, insert_rate, upsert_savings_params,
 };
@@ -49,11 +51,43 @@ struct SeedCategory {
     limit: Option<i64>,
     sort_order: i64,
     note: Option<String>,
+    /// Категорию нельзя снять при выборе стартового набора.
+    #[serde(default)]
+    required: bool,
+}
+
+/// Категория стартового набора для экрана выбора при первом запуске.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DefaultCategory {
+    pub name: String,
+    pub kind: CategoryKind,
+    /// «Сбережения» и «Прочее»: без них не работают норма сбережений и приём трат без статьи.
+    pub required: bool,
+}
+
+fn embedded_categories() -> Result<Vec<SeedCategory>, StorageError> {
+    serde_json::from_str(CATEGORIES_JSON).map_err(|_| StorageError::SeedAsset)
+}
+
+/// Стартовый набор категорий в порядке `sort_order`.
+///
+/// # Errors
+/// Битый встроенный ресурс (ловит тест).
+pub fn default_categories() -> Result<Vec<DefaultCategory>, StorageError> {
+    embedded_categories()?
+        .into_iter()
+        .map(|c| {
+            Ok(DefaultCategory {
+                kind: kind_from_str(&c.kind)?,
+                name: c.name,
+                required: c.required,
+            })
+        })
+        .collect()
 }
 
 impl Db {
-    /// Заливает категории, лимиты и процент сбережений (`valid_from` = месяц `now`), стандартный
-    /// дашборд и настройки по умолчанию.
+    /// Заливает весь стартовый набор категорий, стандартный дашборд и настройки по умолчанию.
     ///
     /// Повторный вызов ничего не меняет: категории и дашборд сидируются только в пустую
     /// таблицу, настройки — только отсутствующие ключи.
@@ -61,48 +95,18 @@ impl Db {
     /// # Errors
     /// Ошибка SQLite или битый встроенный ресурс (последнее ловит тест).
     pub fn seed_defaults(&mut self, now: DateTime<Utc>) -> Result<(), StorageError> {
-        let categories: Vec<SeedCategory> =
-            serde_json::from_str(CATEGORIES_JSON).map_err(|_| StorageError::SeedAsset)?;
-        let stamp = now.to_rfc3339_opts(SecondsFormat::Secs, true);
-        let month = now.format("%Y-%m").to_string();
+        self.seed_base(now)?;
+        self.seed_categories(now, None).map(|_| ())
+    }
 
+    /// Стандартный дашборд и настройки по умолчанию, без категорий: их при первом запуске
+    /// выбирает пользователь (`seed_categories`).
+    ///
+    /// # Errors
+    /// Ошибка SQLite.
+    pub fn seed_base(&mut self, now: DateTime<Utc>) -> Result<(), StorageError> {
+        let stamp = now.to_rfc3339_opts(SecondsFormat::Secs, true);
         let tx = self.conn.transaction()?;
-        let existing: i64 = tx.query_row("SELECT count(*) FROM categories", [], |r| r.get(0))?;
-        if existing == 0 {
-            for (idx, cat) in categories.iter().enumerate() {
-                let color = PALETTE
-                    .get(idx % PALETTE.len())
-                    .copied()
-                    .unwrap_or("#6C7480");
-                let id = insert_category(
-                    &tx,
-                    &NewCategory {
-                        id: None,
-                        name: &cat.name,
-                        kind: &cat.kind,
-                        color,
-                        sort_order: cat.sort_order,
-                        note: cat.note.as_deref(),
-                        archived_at: None,
-                        stamp: &stamp,
-                    },
-                )?;
-                if let Some(amount) = cat.limit {
-                    insert_limit(&tx, id, &month, amount)?;
-                }
-                if cat.kind == "savings" {
-                    insert_rate(&tx, id, &month, DEFAULT_SAVINGS_RATE_BP, None)?;
-                    upsert_savings_params(
-                        &tx,
-                        id,
-                        DEFAULT_ANNUAL_RATE_BP,
-                        DEFAULT_COUPON_TAX_BP,
-                        0,
-                        &month,
-                    )?;
-                }
-            }
-        }
         insert_standard_dashboard(&tx, &stamp)?;
         {
             let mut insert_setting =
@@ -113,6 +117,71 @@ impl Db {
         }
         tx.commit()?;
         Ok(())
+    }
+
+    /// Заливает категории стартового набора: все при `names = None`, иначе выбранные по
+    /// названию плюс обязательные. Лимиты и процент сбережений получают `valid_from` = месяц `now`.
+    /// Работает только в пустой таблице категорий; возвращает число добавленных (0, если
+    /// категории уже есть). Неизвестные названия игнорируются.
+    ///
+    /// # Errors
+    /// Ошибка SQLite или битый встроенный ресурс.
+    pub fn seed_categories(
+        &mut self,
+        now: DateTime<Utc>,
+        names: Option<&[String]>,
+    ) -> Result<usize, StorageError> {
+        // Цвет задаёт место в полном наборе: у «Подписок» он один и тот же при любом выборе.
+        let mut categories: Vec<(usize, SeedCategory)> = embedded_categories()?
+            .into_iter()
+            .enumerate()
+            .filter(|(_, c)| c.required || names.is_none_or(|n| n.contains(&c.name)))
+            .collect();
+        // Порядок задаёт файл; в базе он пересчитывается подряд, без пропусков на месте снятых.
+        categories.sort_by_key(|(_, c)| c.sort_order);
+        let stamp = now.to_rfc3339_opts(SecondsFormat::Secs, true);
+        let month = now.format("%Y-%m").to_string();
+
+        let tx = self.conn.transaction()?;
+        let existing: i64 = tx.query_row("SELECT count(*) FROM categories", [], |r| r.get(0))?;
+        if existing != 0 {
+            return Ok(0);
+        }
+        for (position, (idx, cat)) in categories.iter().enumerate() {
+            let color = PALETTE
+                .get(idx % PALETTE.len())
+                .copied()
+                .unwrap_or("#6C7480");
+            let id = insert_category(
+                &tx,
+                &NewCategory {
+                    id: None,
+                    name: &cat.name,
+                    kind: &cat.kind,
+                    color,
+                    sort_order: i64::try_from(position).unwrap_or(i64::MAX),
+                    note: cat.note.as_deref(),
+                    archived_at: None,
+                    stamp: &stamp,
+                },
+            )?;
+            if let Some(amount) = cat.limit {
+                insert_limit(&tx, id, &month, amount)?;
+            }
+            if cat.kind == "savings" {
+                insert_rate(&tx, id, &month, DEFAULT_SAVINGS_RATE_BP, None)?;
+                upsert_savings_params(
+                    &tx,
+                    id,
+                    DEFAULT_ANNUAL_RATE_BP,
+                    DEFAULT_COUPON_TAX_BP,
+                    0,
+                    &month,
+                )?;
+            }
+        }
+        tx.commit()?;
+        Ok(categories.len())
     }
 
     /// Добавляет стандартный дашборд по явному действию пользователя. Нужен хранилищам,

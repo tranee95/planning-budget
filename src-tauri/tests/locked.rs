@@ -35,6 +35,11 @@ const WORKS_WITHOUT_SESSION: &[&str] = &[
     "open_data_dir",
     // Чистый разбор строки запроса: данных бюджета не читает.
     "query_parse",
+    // Отдаёт встроенный стартовый набор категорий, без обращения к БД.
+    "categories_defaults",
+    // Проверка и установка обновлений: данных бюджета не читают.
+    "update_check",
+    "update_install",
 ];
 
 const MARKER: &str = "#[tauri::command]";

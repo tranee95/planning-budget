@@ -72,6 +72,7 @@
   {
     "name": "Прочее",
     "kind": "wants",
+    "required": true,
     "sort_order": 14
   },
   {
@@ -82,6 +83,7 @@
   {
     "name": "Сбережения",
     "kind": "savings",
+    "required": true,
     "sort_order": 16
   }
 ]

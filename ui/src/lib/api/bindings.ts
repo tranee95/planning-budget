@@ -34,7 +34,20 @@ export const commands = {
 	 */
 	systemDark: () => typedError<boolean, AppError>(__TAURI_INVOKE("system_dark")),
 	prefsSet: (patch: PrefsPatch) => typedError<Prefs, AppError>(__TAURI_INVOKE("prefs_set", { patch })),
+	/**
+	 *  Проверяет обновления. `manual = false` — автопроверка при запуске: уважает тумблер в
+	 *  «Настройках» и не чаще раза в сутки; `manual = true` — кнопка «Проверить сейчас».
+	 */
+	updateCheck: (manual: boolean) => typedError<UpdateStatusDto, AppError>(__TAURI_INVOKE("update_check", { manual })),
+	/**
+	 *  Скачивает обновление, проверяет подпись, закрывает сессию и ставит; затем приложение
+	 *  перезапускается. Прогресс идёт событием `UpdateProgress`.
+	 */
+	updateInstall: () => typedError<null, AppError>(__TAURI_INVOKE("update_install")),
 	categoriesList: (includeArchived: boolean) => typedError<CategoryDto[], AppError>(__TAURI_INVOKE("categories_list", { includeArchived })),
+	/**  Встроенный стартовый набор: данных пользователя в нём нет, сессия не нужна. */
+	categoriesDefaults: () => typedError<DefaultCategoryDto[], AppError>(__TAURI_INVOKE("categories_defaults")),
+	categoriesSeed: (names: string[]) => typedError<CategoryDto[], AppError>(__TAURI_INVOKE("categories_seed", { names })),
 	categoriesCreate: (input: CategoryInput) => typedError<CategoryDto, AppError>(__TAURI_INVOKE("categories_create", { input })),
 	categoriesUpdate: (id: Int53, patch: CategoryPatchDto_Deserialize) => typedError<CategoryDto, AppError>(__TAURI_INVOKE("categories_update", { id, patch })),
 	categoriesArchive: (id: Int53) => typedError<null, AppError>(__TAURI_INVOKE("categories_archive", { id })),
@@ -91,6 +104,8 @@ export const commands = {
 	savingsParamsSet: (categoryId: Int53, params: SavingsParamsDto) => typedError<null, AppError>(__TAURI_INVOKE("savings_params_set", { categoryId, params })),
 	/**  Фиксированный план накопления в месяц с `valid_from` (вместо процента от дохода). */
 	savingsFixedSet: (categoryId: Int53, validFrom: string, amount: Int53) => typedError<null, AppError>(__TAURI_INVOKE("savings_fixed_set", { categoryId, validFrom, amount })),
+	/**  Накопленное за весь период и взносы по месяцам. */
+	savingsProgress: (month: string) => typedError<SavingsProgressDto, AppError>(__TAURI_INVOKE("savings_progress", { month })),
 	debtsList: (month: string, includeClosed: boolean) => typedError<DebtsOverviewDto, AppError>(__TAURI_INVOKE("debts_list", { month, includeClosed })),
 	debtsCreate: (input: DebtInput) => typedError<DebtDto, AppError>(__TAURI_INVOKE("debts_create", { input })),
 	/**  Долг из траты со статусом «Долг»: сумма, статья и месяц берутся из траты. */
@@ -109,6 +124,11 @@ export const commands = {
 	planUnlock: (month: string) => typedError<MonthPlanDto, AppError>(__TAURI_INVOKE("plan_unlock", { month })),
 	/**  «Скопировать план из прошлого месяца» в `month`. */
 	planCopyFromPrevious: (month: string) => typedError<MonthPlanDto, AppError>(__TAURI_INVOKE("plan_copy_from_previous", { month })),
+	/**
+	 *  Автоперенос плана из последнего месяца с данными в новый (один раз на месяц). Возвращает число
+	 *  созданных строк; события об изменении уходят, только если что-то создано.
+	 */
+	planCarryForward: (month: string) => typedError<number, AppError>(__TAURI_INVOKE("plan_carry_forward", { month })),
 	/**  Предпросмотр мастера первого месяца: «Не распределено» по введённому, без записи. */
 	planPreview: (month: string, input: PlanWizardInputDto) => typedError<MonthPlanDto, AppError>(__TAURI_INVOKE("plan_preview", { month, input })),
 	/**  Мастер первого месяца: доходы, плановые траты и план накоплений, затем «План готов». */
@@ -142,6 +162,7 @@ export const commands = {
 export const events = {
 	dataChanged: makeEvent<DataChanged>("data-changed"),
 	systemThemeChanged: makeEvent<SystemThemeChanged>("system-theme-changed"),
+	updateProgress: makeEvent<UpdateProgress>("update-progress"),
 	vaultLocked: makeEvent<VaultLocked>("vault-locked"),
 };
 
@@ -450,6 +471,14 @@ export type DebtsOverviewDto = {
 	paymentsPaid: number,
 };
 
+/**  Категория стартового набора для экрана выбора при первом запуске. */
+export type DefaultCategoryDto = {
+	name: string,
+	kind: CategoryKindDto,
+	/**  Нельзя снять: «Сбережения» и «Прочее». */
+	required: boolean,
+};
+
 /**  Экран сохранённого фильтра: «Расходы» или «Доходы». */
 export type FilterScreenDto = "expenses" | "incomes";
 
@@ -648,6 +677,8 @@ export type MonthPlanDto = {
 	borrowed: number,
 	/**  Отложено (факт по накоплениям). */
 	saved: number,
+	/**  В месяце есть записи со статусом «План»: мастер плана его не заполнит. */
+	hasPlannedLines: boolean,
 };
 
 /**  Строка листа «Сводка» за месяц. */
@@ -663,6 +694,8 @@ export type MonthSummaryDto = {
 	/**  Оплаченные погашения месяца: выплата, не расход. */
 	repaid: number,
 	free: number,
+	/**  «По факту»: свободный остаток без записей со статусом «План». */
+	freeActual: number,
 	freeCum: number,
 	savingsCum: number,
 	/**  Норма сбережений в базисных пунктах; `None` без дохода. */
@@ -674,6 +707,8 @@ export type MonthSummaryDto = {
 	savingsPlan: number,
 	savingsGap: number,
 	perWeek: number,
+	/**  Недели до конца месяца (дни ÷ 7) для «На неделю»; `None` вне текущего месяца. */
+	weeksLeft: number | null,
 	corridor: CorridorDto,
 	topUpToMin: number,
 	topUpToNorm: number,
@@ -700,6 +735,8 @@ export type PlanRowDto = {
 	categoryId: number,
 	plan: number,
 	fact: number,
+	/**  Записи категории без статуса «План»: оплачено, долг и внеплановые. */
+	actual: number,
 	/**  `fact − plan`: положительное — потрачено больше плана. */
 	deviation: number,
 };
@@ -726,6 +763,10 @@ export type Prefs = {
 	autolockMinutes: number | null,
 	/**  Знакомство при первом запуске пройдено или пропущено. */
 	introDone: boolean,
+	/**  Проверять обновления при запуске. Включено по умолчанию. */
+	checkUpdates: boolean,
+	/**  Время последней успешной проверки, секунды Unix; `None` — ещё не проверяли. Служебное поле. */
+	lastUpdateCheck: number | null,
 };
 
 export type PrefsPatch = {
@@ -734,6 +775,7 @@ export type PrefsPatch = {
 	uiScale?: number | null,
 	reducedMotion?: ReducedMotion | null,
 	introDone?: boolean | null,
+	checkUpdates?: boolean | null,
 };
 
 /**  Причина мягкой подсказки: токен с известным ключом не распознан и ушёл в текст. */
@@ -803,6 +845,34 @@ export type SavingsParamsDto = {
 
 /**  Как задан план накопления в месяц. */
 export type SavingsPlanKindDto = "percent" | "fixed";
+
+/**  Накопление в графике «Отложено по месяцам»: в том числе закрытая цель. */
+export type SavingsProgressCategoryDto = {
+	categoryId: number,
+	name: string,
+	/**  Цвет категории (HEX): им рисуется ряд графика. */
+	color: string,
+	/**  Цель закрыта (категория в архиве). */
+	archived: boolean,
+	total: number,
+};
+
+/**  Накопленное за весь период. */
+export type SavingsProgressDto = {
+	months: SavingsProgressMonthDto[],
+	total: number,
+	/**  Накопления, у которых есть суммы (в том числе закрытые): ряды графика и итоги по ним. */
+	categories: SavingsProgressCategoryDto[],
+	/**  Столбцы «Отложено» по месяцам, по ряду на каждое накопление (с накоплением). */
+	chart: ChartDataDto,
+};
+
+/**  Взносы месяца и накопленное к его концу. */
+export type SavingsProgressMonthDto = {
+	month: string,
+	deposited: number,
+	cumulative: number,
+};
 
 /**  Строка графика на входе: месяц и сумма. */
 export type SchedulePaymentDto = {
@@ -997,6 +1067,33 @@ export type TxStatusDto = "paid" | "debt" | "unplanned" | "planned";
 export type TxUpdateResultDto = {
 	current: TransactionDto,
 	previous: TransactionDto,
+};
+
+/**  Прогресс загрузки обновления: процент 0–100, `None` — размер неизвестен. */
+export type UpdateProgress = {
+	percent: number | null,
+};
+
+/**  Итог проверки обновлений. */
+export type UpdateState = 
+/**  Автопроверка выключена в «Настройках». */
+"disabled" | 
+/**  Автопроверка уже была меньше суток назад. */
+"skipped" | 
+/**  Установлена последняя версия. */
+"upToDate" | 
+/**  Есть новая версия. */
+"available" | 
+/**  Не удалось проверить (нет сети, манифест недоступен или подпись не сошлась). */
+"failed";
+
+export type UpdateStatusDto = {
+	state: UpdateState,
+	currentVersion: string,
+	/**  Версия обновления при `state = available`. */
+	version: string | null,
+	/**  Заметки релиза из манифеста: обычный текст, не больше 2 000 символов. */
+	notes: string | null,
 };
 
 /**  Хранилище заблокировано: фронтенд очищает stores с данными и уходит на `/lock`. */

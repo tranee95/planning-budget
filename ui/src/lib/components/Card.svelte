@@ -1,15 +1,22 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import type { FormulaText } from '$lib/formulas';
+  import FormulaHint from './FormulaHint.svelte';
 
-  type Props = { title?: string; actions?: Snippet; children: Snippet };
+  type Props = { title?: string; formula?: FormulaText; actions?: Snippet; children: Snippet };
 
-  let { title, actions, children }: Props = $props();
+  let { title, formula, actions, children }: Props = $props();
 </script>
 
 <section class="card">
   {#if title || actions}
     <header>
-      {#if title}<h2>{title}</h2>{/if}
+      {#if title}
+        <div class="heading">
+          <h2>{title}</h2>
+          {#if formula}<FormulaHint label={formula.label ?? title} lines={formula.lines} />{/if}
+        </div>
+      {/if}
       {#if actions}<div class="actions">{@render actions()}</div>{/if}
     </header>
   {/if}
@@ -32,6 +39,12 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--sp-3);
+  }
+  .heading {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-width: 0;
   }
   h2 {
     margin: 0;

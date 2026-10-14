@@ -1,5 +1,5 @@
 import { clearMocks } from '@tauri-apps/api/mocks';
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { resetMockBudget } from '$lib/api/mock/budget';
 import { installMocks } from '$lib/api/mock/install';
 import { categories } from '$lib/stores/categories.svelte';
@@ -156,6 +156,63 @@ it('правка месяцев пересобирает график, возв�
   vm.draft.months = '3';
   await vm.refreshSchedule();
   expect(vm.schedule.map((r) => r.month)).toEqual(['2026-10', '2026-11', '2026-12']);
+});
+
+it('счётчик открытых долгов склоняется: 1 открытый, 2 открытых, 5 открытых', async () => {
+  const vm = new DebtsVm();
+  await vm.load('2026-09');
+  for (let i = 0; i < 5; i++) {
+    vm.startNew();
+    vm.draft.lender = `Долг ${String(i + 1)}`;
+    vm.draft.amount = 100_000;
+    vm.draft.months = '1';
+    await vm.refreshSchedule();
+    await vm.save();
+    if (i === 0) expect(vm.subtitle).toBe('1 открытый');
+    if (i === 1) expect(vm.subtitle).toBe('2 открытых');
+  }
+  expect(vm.subtitle).toBe('5 открытых');
+});
+
+it('под неактивной «Сохранить» — одна строка о том, чего не хватает', async () => {
+  const vm = new DebtsVm();
+  await vm.load('2026-09');
+  vm.startNew();
+  expect(vm.saveHint).toBe('Укажите, у кого или что');
+  vm.draft.lender = 'Брат';
+  expect(vm.saveHint).toBe('Введите сумму');
+  vm.draft.amount = 500_000;
+  vm.draft.months = 'x';
+  await vm.refreshSchedule();
+  expect(vm.saveHint).toBe('Проверьте график погашения');
+  vm.draft.months = '2';
+  await vm.refreshSchedule();
+  expect(vm.canSave).toBe(true);
+  expect(vm.saveHint).toBeNull();
+});
+
+it('после создания показывается тост «Долг создан» с отменой', async () => {
+  const vm = new DebtsVm();
+  await vm.load('2026-09');
+  await createThreeMonthDebt(vm);
+  expect(toasts.items).toHaveLength(1);
+  expect(toasts.items[0]?.message).toBe('Долг «Кредитная карта» создан');
+  expect(toasts.items[0]?.action?.label).toBe('Отменить');
+  toasts.items[0]?.action?.run();
+  await vi.waitFor(() => {
+    expect(vm.overview?.debts).toEqual([]);
+  });
+});
+
+it('правка существующего долга тост о создании не показывает', async () => {
+  const vm = new DebtsVm();
+  await vm.load('2026-09');
+  await createThreeMonthDebt(vm);
+  toasts.items = [];
+  vm.select(vm.overview?.debts[0]?.id ?? 0);
+  vm.draft.comment = 'заметка';
+  await vm.save();
+  expect(toasts.items).toEqual([]);
 });
 
 it('удаление возвращается тостом «Вернуть»', async () => {

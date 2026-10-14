@@ -1,8 +1,9 @@
 <script lang="ts">
+  import { PLACEHOLDERS } from '$lib/i18n/placeholders';
   import type { CategoryKindDto } from '$lib/api/bindings';
   import { Button, MoneyInput, Segmented, TextField } from '$lib/components';
   import { CATEGORY_COLORS } from '$lib/category-colors';
-  import { formatMoney, formatMonth, formatPercent } from '$lib/format';
+  import { formatMoney, formatMonth } from '$lib/format';
   import { pop } from '$lib/motion';
   import { getCategoriesVm } from '../categories.svelte';
 
@@ -11,18 +12,16 @@
   const KINDS = [
     { value: 'mandatory', label: 'Обязательные' },
     { value: 'wants', label: 'Желания' },
-    { value: 'loans', label: 'Займы' },
-    { value: 'savings', label: 'Сбережения' }
+    { value: 'loans', label: 'Займы' }
   ] as const;
 
-  const KIND_LABEL = Object.fromEntries(KINDS.map((k) => [k.value, k.label])) as Record<
-    CategoryKindDto,
-    string
-  >;
+  const KIND_LABEL: Record<CategoryKindDto, string> = {
+    ...Object.fromEntries(KINDS.map((k) => [k.value, k.label])),
+    savings: 'Сбережения'
+  } as Record<CategoryKindDto, string>;
 
   const isNew = $derived(vm.selected === 'new');
   const row = $derived(vm.rows.find((r) => r.category.id === vm.selected) ?? null);
-  const isSavings = $derived(vm.draft.kind === 'savings');
   const title = $derived(isNew ? 'Новая категория' : (vm.current?.name ?? ''));
   /** «Экономия при лимите» = среднее − лимит, если среднее выше. */
   const saving = $derived(
@@ -38,7 +37,12 @@
       void vm.save();
     }}
   >
-    <TextField id="cat-name" label="Название" bind:value={vm.draft.name} />
+    <TextField
+      id="cat-name"
+      label="Название"
+      placeholder={PLACEHOLDERS.categoryName}
+      bind:value={vm.draft.name}
+    />
 
     <div class="group">
       <span class="lbl" id="cat-color-label">Цвет</span>
@@ -76,52 +80,28 @@
       {/if}
     </div>
 
-    {#if isSavings}
-      <TextField
-        id="cat-rate"
-        label="Процент плана от дохода"
-        required={false}
-        bind:value={vm.draft.rate}
-        placeholder="14"
-        hint="Действует с {formatMonth(vm.month)}. Прошлые месяцы сохранят свой процент."
+    <div class="group">
+      <MoneyInput
+        id="cat-limit"
+        label="Лимит в месяц"
+        placeholder={PLACEHOLDERS.categoryLimit}
+        bind:value={vm.draft.limit}
       />
-      <TextField
-        id="cat-month-rate"
-        label="Процент только на {formatMonth(vm.month)}"
-        required={false}
-        bind:value={vm.draft.monthRate}
-        placeholder="не меняется"
-        hint={vm.monthPlanBp === null
-          ? null
-          : `План месяца: ${formatPercent(vm.monthPlanBp)} дохода`}
-      />
-      {#if vm.current}
-        {@const id = vm.current.id}
-        <Button
-          size="sm"
-          onclick={() => {
-            void vm.clearMonthRate(id);
-          }}>Сбросить процент месяца</Button
-        >
-      {/if}
-    {:else}
-      <div class="group">
-        <MoneyInput id="cat-limit" label="Лимит в месяц" bind:value={vm.draft.limit} />
-        <span class="hint">
-          Действует с {formatMonth(vm.month)}. Прошлые месяцы сохранят свои лимиты.
-        </span>
-      </div>
-    {/if}
+      <span class="hint">
+        Действует с {formatMonth(vm.month)}. Прошлые месяцы сохранят свои лимиты.
+      </span>
+    </div>
 
     <TextField
       id="cat-note"
       label="Обоснование"
+      placeholder={PLACEHOLDERS.categoryNote}
       required={false}
       bind:value={vm.draft.note}
       hint="Почему такой лимит: видно только вам."
     />
 
-    {#if row !== null && !isSavings}
+    {#if row !== null}
       <dl class="stats">
         <div>
           <dt>Среднее за год</dt>
@@ -146,7 +126,8 @@
         {@const id = vm.current.id}
         <Button
           onclick={() => {
-            void vm.setArchived(id, !archived);
+            if (archived) void vm.setArchived(id, false);
+            else vm.askArchive(id);
           }}>{archived ? 'Вернуть из архива' : 'В архив'}</Button
         >
       {:else}

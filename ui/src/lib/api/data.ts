@@ -24,6 +24,8 @@ import { call } from './call';
 
 export const categoriesApi = {
   list: (includeArchived = false) => call(commands.categoriesList(includeArchived)),
+  defaults: () => call(commands.categoriesDefaults()),
+  seed: (names: string[]) => call(commands.categoriesSeed(names)),
   create: (input: CategoryInput) => call(commands.categoriesCreate(input)),
   update: (id: number, patch: CategoryPatchDto_Deserialize) =>
     call(commands.categoriesUpdate(id, patch)),
@@ -98,6 +100,7 @@ export const planApi = {
   lock: (month: string) => call(commands.planLock(month)),
   unlock: (month: string) => call(commands.planUnlock(month)),
   copyFromPrevious: (month: string) => call(commands.planCopyFromPrevious(month)),
+  carryForward: (month: string) => call(commands.planCarryForward(month)),
   preview: (month: string, input: PlanWizardInputDto) => call(commands.planPreview(month, input)),
   wizardApply: (month: string, input: PlanWizardInputDto) =>
     call(commands.planWizardApply(month, input))
@@ -159,5 +162,6 @@ export const savingsApi = {
   setParams: (categoryId: number, params: SavingsParamsDto) =>
     call(commands.savingsParamsSet(categoryId, params)),
   setFixedPlan: (categoryId: number, validFrom: string, amount: number) =>
-    call(commands.savingsFixedSet(categoryId, validFrom, amount))
+    call(commands.savingsFixedSet(categoryId, validFrom, amount)),
+  progress: (month: string) => call(commands.savingsProgress(month))
 };

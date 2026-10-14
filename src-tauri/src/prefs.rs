@@ -28,6 +28,15 @@ struct OnDisk {
     /// Нет ключа в существующем файле — установка старше знакомства: её владелец не новичок.
     #[serde(default)]
     intro_done: Option<bool>,
+    /// Нет ключа в старом файле — проверка включена, как по умолчанию.
+    #[serde(default = "default_check_updates")]
+    check_updates: bool,
+    #[serde(default)]
+    last_update_check: Option<i64>,
+}
+
+fn default_check_updates() -> bool {
+    Prefs::default().check_updates
 }
 
 fn default_theme() -> crate::dto::Theme {
@@ -64,6 +73,8 @@ pub fn load(path: &Path) -> Prefs {
             reduced_motion: d.reduced_motion,
             autolock_minutes: d.autolock_minutes,
             intro_done: d.intro_done.unwrap_or(true),
+            check_updates: d.check_updates,
+            last_update_check: d.last_update_check,
         })
         .unwrap_or_default()
 }
@@ -96,6 +107,9 @@ pub fn update(path: &Path, patch: PrefsPatch) -> Result<Prefs, AppError> {
     if let Some(done) = patch.intro_done {
         prefs.intro_done = done;
     }
+    if let Some(enabled) = patch.check_updates {
+        prefs.check_updates = enabled;
+    }
     if let Some(scale) = patch.ui_scale {
         if !SCALE_RANGE.contains(&scale) {
             return Err(invalid("uiScale"));
@@ -115,6 +129,17 @@ pub fn update(path: &Path, patch: PrefsPatch) -> Result<Prefs, AppError> {
     }
     save(path, &prefs)?;
     Ok(prefs)
+}
+
+/// Запоминает время последней успешной проверки обновлений (секунды Unix).
+///
+/// # Errors
+/// `Io` при ошибке записи.
+pub fn set_last_update_check(path: &Path, secs: i64) -> Result<(), AppError> {
+    let _guard = WRITE.lock().unwrap_or_else(PoisonError::into_inner);
+    let mut prefs = load(path);
+    prefs.last_update_check = Some(secs);
+    save(path, &prefs)
 }
 
 /// Записывает копию порога автоблокировки для экрана входа (`None` — после сброса данных: порога
@@ -160,6 +185,54 @@ mod tests {
         assert_eq!(prefs.autolock_minutes, None);
         // Существующий файл без ключа: установка старше знакомства, показывать его не нужно.
         assert!(prefs.intro_done);
+    }
+
+    #[test]
+    fn update_check_is_on_by_default_and_for_files_without_the_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ui-prefs.json");
+        assert!(load(&path).check_updates);
+        fs::write(
+            &path,
+            br#"{"theme":"dark","locale":"ru-RU","uiScale":100,"reducedMotion":"system"}"#,
+        )
+        .unwrap();
+        let old = load(&path);
+        assert!(old.check_updates);
+        assert_eq!(old.last_update_check, None);
+    }
+
+    #[test]
+    fn update_switch_is_saved_and_survives_other_patches() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ui-prefs.json");
+        let off = PrefsPatch {
+            check_updates: Some(false),
+            ..PrefsPatch::default()
+        };
+        assert!(!update(&path, off).unwrap().check_updates);
+        let theme = PrefsPatch {
+            theme: Some(Theme::Dark),
+            ..PrefsPatch::default()
+        };
+        assert!(!update(&path, theme).unwrap().check_updates);
+        assert!(!load(&path).check_updates);
+    }
+
+    #[test]
+    fn last_update_check_is_stored_without_touching_the_rest() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ui-prefs.json");
+        let dark = PrefsPatch {
+            theme: Some(Theme::Dark),
+            ..PrefsPatch::default()
+        };
+        update(&path, dark).unwrap();
+        set_last_update_check(&path, 1_800_000_000).unwrap();
+        let prefs = load(&path);
+        assert_eq!(prefs.last_update_check, Some(1_800_000_000));
+        assert_eq!(prefs.theme, Theme::Dark);
+        assert!(prefs.check_updates);
     }
 
     #[test]
@@ -312,7 +385,9 @@ mod tests {
             keys,
             [
                 "autolockMinutes",
+                "checkUpdates",
                 "introDone",
+                "lastUpdateCheck",
                 "locale",
                 "reducedMotion",
                 "theme",

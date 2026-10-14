@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { PLACEHOLDERS } from '$lib/i18n/placeholders';
   import { onMount } from 'svelte';
   import { Button, TextField } from '$lib/components';
   import { SavingsVm } from '../savings.svelte';
@@ -21,9 +22,27 @@
     хватает».
   </p>
   <div class="row">
-    <TextField id="sv-min" label="Нижняя граница, %" bind:value={vm.min} disabled={!vm.loaded} />
-    <TextField id="sv-norm" label="Норма, %" bind:value={vm.norm} disabled={!vm.loaded} />
-    <TextField id="sv-max" label="Верхняя граница, %" bind:value={vm.max} disabled={!vm.loaded} />
+    <TextField
+      id="sv-min"
+      label="Нижняя граница, %"
+      placeholder={PLACEHOLDERS.percent}
+      bind:value={vm.min}
+      disabled={!vm.loaded}
+    />
+    <TextField
+      id="sv-norm"
+      label="Норма, %"
+      placeholder={PLACEHOLDERS.percent}
+      bind:value={vm.norm}
+      disabled={!vm.loaded}
+    />
+    <TextField
+      id="sv-max"
+      label="Верхняя граница, %"
+      placeholder={PLACEHOLDERS.percent}
+      bind:value={vm.max}
+      disabled={!vm.loaded}
+    />
   </div>
   {#if vm.error}<p class="error" role="alert">{vm.error}</p>{/if}
   <Button type="submit" variant="primary" loading={vm.saving} disabled={!vm.loaded}

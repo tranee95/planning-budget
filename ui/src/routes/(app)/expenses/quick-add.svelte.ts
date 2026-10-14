@@ -24,7 +24,20 @@ function localToday(): string {
  */
 export class QuickAddVm {
   amount = $state<number | null>(null);
-  categoryId = $state<number | null>(null);
+  /** Категория: выбирает пользователь; пока он не выбрал, подставляется самая частая. */
+  get categoryId(): number | null {
+    return this.#categoryId;
+  }
+  set categoryId(value: number | null) {
+    this.#categoryId = value;
+    this.#chosen = true;
+  }
+  #categoryId = $state<number | null>(null);
+  #chosen = false;
+  /** Была попытка сохранить: ошибки заполнения показываются только после неё. */
+  #attempted = $state(false);
+  /** Форме нужно вернуть фокус в поле суммы («ещё одну»). */
+  focusAmount = $state(false);
   /** Наименование: ввод запускает запрос подсказок после паузы. */
   get title(): string {
     return this.#title;
@@ -51,6 +64,7 @@ export class QuickAddVm {
 
   constructor(expenses: ExpensesVm, today: () => string = localToday) {
     this.#expenses = expenses;
+    this.#preselect();
     const day = today();
     this.date = day.startsWith(expenses.month) ? day : '';
     // В зафиксированном месяце новая трата по умолчанию вне плана.
@@ -59,15 +73,30 @@ export class QuickAddVm {
       .categoryUsage()
       .then((rows) => {
         this.usage = new SvelteMap(rows.map((r) => [r.categoryId, r.uses]));
+        this.#preselect();
       })
       .catch(() => {
         // Без частоты категории остаются в порядке настроек.
       });
   }
 
+  /** Подставляет самую частую категорию, пока пользователь сам не выбрал. */
+  #preselect(): void {
+    if (this.#chosen) return;
+    this.#categoryId = this.chips[0]?.id ?? null;
+  }
+
+  /** Снимает выбор категории (для проверки ошибки «Выберите категорию»). */
+  clearCategory(): void {
+    this.#categoryId = null;
+    this.#chosen = true;
+  }
+
   /** Категории: чаще используемые — раньше, при равенстве — в порядке настроек. */
   chips = $derived.by<CategoryDto[]>(() =>
-    [...categories.items].sort((a, b) => (this.usage.get(b.id) ?? 0) - (this.usage.get(a.id) ?? 0))
+    [...categories.spending].sort(
+      (a, b) => (this.usage.get(b.id) ?? 0) - (this.usage.get(a.id) ?? 0)
+    )
   );
 
   /** Дата вне месяца экрана: строка попала бы в один месяц, а датирована другим. */
@@ -78,12 +107,16 @@ export class QuickAddVm {
   });
 
   canSave = $derived(
-    this.amount !== null &&
-      this.amount > 0 &&
-      this.categoryId !== null &&
-      this.title.trim() !== '' &&
-      this.dateError === null
+    this.amount !== null && this.amount > 0 && this.categoryId !== null && this.dateError === null
   );
+
+  /** Что мешает сохранить; показывается после первой попытки и пропадает, когда поле исправлено. */
+  formError = $derived.by<string | null>(() => {
+    if (!this.#attempted) return null;
+    if (this.amount === null || this.amount <= 0) return 'Введите сумму';
+    if (this.categoryId === null) return 'Выберите категорию';
+    return null;
+  });
 
   /**
    * Предпросмотр лимита по мере ввода: остаток категории из сводки Rust минус вводимая сумма.
@@ -132,10 +165,15 @@ export class QuickAddVm {
 
   /** Сохраняет трату. `another` — остаться в форме для следующей (⇧Enter). */
   async save(another: boolean): Promise<void> {
-    if (!this.canSave || this.saving) return;
+    if (this.saving) return;
+    if (!this.canSave) {
+      this.#attempted = true;
+      return;
+    }
     const { amount, categoryId } = this;
     if (amount === null || categoryId === null) return;
-    const title = this.title.trim();
+    // Без наименования трата называется по категории, как в карточке на «Расходах».
+    const title = this.title.trim() || (categories.byId.get(categoryId)?.name ?? '');
     this.saving = true;
     try {
       const created = await transactionsApi.create(this.#requestId, {
@@ -154,6 +192,8 @@ export class QuickAddVm {
       if (another) {
         this.amount = null;
         this.title = '';
+        this.#attempted = false;
+        this.focusAmount = true;
       } else {
         this.#expenses.closeEditor();
       }

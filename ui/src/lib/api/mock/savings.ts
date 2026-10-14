@@ -5,7 +5,8 @@ import type {
   ForecastScenarioDto,
   SavingsMonthDto,
   SavingsOverviewDto,
-  SavingsParamsDto
+  SavingsParamsDto,
+  SavingsProgressDto
 } from '../bindings';
 
 /**
@@ -30,6 +31,9 @@ const defaultParams = (): SavingsParamsDto => ({
 
 let params = new Map<number, SavingsParamsDto>();
 let fixedPlans = new Map<number, number>();
+/** Суммы накоплений за месяцы (обычные оплаченные траты в категориях-сбережениях). */
+export type SavingsFact = { categoryId: number; month: string; amount: number };
+let savingsFacts: () => SavingsFact[] = () => [];
 
 export function resetMockSavings(): void {
   params = new Map();
@@ -41,6 +45,9 @@ export function resetMockSavings(): void {
 export function setMockFixedPlan(categoryId: number, amount: number): void {
   fixedPlans.set(categoryId, amount);
 }
+
+export const mockFixedPlan = (categoryId: number): number | null =>
+  fixedPlans.get(categoryId) ?? null;
 
 export function clearMockFixedPlan(categoryId: number): void {
   fixedPlans.delete(categoryId);
@@ -105,7 +112,10 @@ function accumulation(category: CategoryDto, year: number, planRateBp: number): 
       months.push({ month: key, savings: 0, coupon: 0, balance: 0, deposited: 0, couponIncome: 0 });
       continue;
     }
-    const savings = year === 2026 && m <= MONTHS_WITH_DATA ? MONTHLY_SAVINGS : 0;
+    const entered = savingsFacts()
+      .filter((f) => f.categoryId === category.id && f.month === key)
+      .reduce((sum, f) => sum + f.amount, 0);
+    const savings = (year === 2026 && m <= MONTHS_WITH_DATA ? MONTHLY_SAVINGS : 0) + entered;
     const coupon = balance * monthly;
     balance += savings + coupon;
     deposited += savings;
@@ -153,8 +163,11 @@ function accumulation(category: CategoryDto, year: number, planRateBp: number): 
 
 export function createSavingsHandlers(
   savingsCategories: () => CategoryDto[],
-  planRateBp: (categoryId: number) => number
+  planRateBp: (categoryId: number) => number,
+  facts: () => SavingsFact[],
+  allSavingsCategories: () => CategoryDto[]
 ) {
+  savingsFacts = facts;
   const known = (id: number) => savingsCategories().some((c) => c.id === id);
   return {
     savings_overview: (args: { year: number }): SavingsOverviewDto => {
@@ -196,6 +209,56 @@ export function createSavingsHandlers(
       }
       params.set(args.categoryId, args.params);
       return null;
+    },
+    savings_progress: (args: { month: string }): SavingsProgressDto => {
+      const year = Number(args.month.slice(0, 4));
+      // Все накопления, в том числе закрытые цели: их суммы остаются в итоге и на графике.
+      const perCategory = new Map<number, Map<string, number>>();
+      const perMonth = new Map<string, number>();
+      for (const c of allSavingsCategories()) {
+        const own = new Map<string, number>();
+        for (const m of accumulation(c, year, planRateBp(c.id)).months) {
+          if (m.month > args.month || m.savings === 0) continue;
+          own.set(m.month, m.savings);
+          perMonth.set(m.month, (perMonth.get(m.month) ?? 0) + m.savings);
+        }
+        if (own.size > 0) perCategory.set(c.id, own);
+      }
+      const keys = [...perMonth.keys()].sort();
+      const first = keys.find((k) => (perMonth.get(k) ?? 0) > 0);
+      const months: SavingsProgressDto['months'] = [];
+      let total = 0;
+      for (const month of keys.filter((k) => first !== undefined && k >= first)) {
+        const deposited = perMonth.get(month) ?? 0;
+        total += deposited;
+        months.push({ month, deposited, cumulative: total });
+      }
+      const included = allSavingsCategories().filter((c) => perCategory.has(c.id));
+      return {
+        months,
+        total,
+        categories: included.map((c) => ({
+          categoryId: c.id,
+          name: c.name,
+          color: c.color,
+          archived: c.archived,
+          total: months.reduce((sum, m) => sum + (perCategory.get(c.id)?.get(m.month) ?? 0), 0)
+        })),
+        chart: {
+          categories: months.map(
+            (m) => `${SHORT[Number(m.month.slice(5)) - 1] ?? ''} ${m.month.slice(0, 4)}`
+          ),
+          categoryTokens: months.map((m) => `month:${m.month}`),
+          series: included.map((c) => ({
+            name: c.name,
+            color: `category:${String(c.id)}`,
+            values: months.map((m) => (perCategory.get(c.id)?.get(m.month) ?? 0) / 100)
+          })),
+          referenceLines: [],
+          totals: null,
+          unit: 'rub'
+        }
+      };
     },
     savings_fixed_set: (args: { categoryId: number; amount: number }) => {
       if (!known(args.categoryId)) {

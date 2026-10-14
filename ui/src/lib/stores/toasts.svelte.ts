@@ -6,6 +6,8 @@ export interface ToastInput {
   /** Код ошибки для логов: показывается мелким шрифтом. */
   code?: string;
   action?: { label: string; run: () => void };
+  /** Новый тост с тем же ключом заменяет прежний: серия одинаковых событий не копит стопку. */
+  key?: string;
 }
 
 export interface ToastItem extends ToastInput {
@@ -21,6 +23,9 @@ class ToastStore {
   #timers = new Map<number, ReturnType<typeof setTimeout>>();
 
   push(input: ToastInput): number {
+    if (input.key !== undefined) {
+      for (const old of this.items.filter((t) => t.key === input.key)) this.dismiss(old.id);
+    }
     const item: ToastItem = { ...input, id: this.#next++, kind: input.kind ?? 'info' };
     this.items = [...this.items, item];
     // Ошибку закрывает пользователь: пропавшую сама ошибку можно не заметить.

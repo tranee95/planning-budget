@@ -9,6 +9,7 @@ import type {
 } from '$lib/api/bindings';
 import { LoadStamp, onDataChanged } from '$lib/api/data-events';
 import { debtsApi, transactionsApi } from '$lib/api/data';
+import { pluralRu } from '$lib/format';
 import { errorText } from '$lib/i18n/errors';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { categories } from '$lib/stores/categories.svelte';
@@ -100,11 +101,19 @@ export class DebtsVm {
       !this.saving
   );
 
+  /** Одна строка под неактивной «Сохранить»: чего не хватает форме. */
+  saveHint = $derived.by<string | null>(() => {
+    if (this.saving || this.canSave) return null;
+    if (this.draft.lender.trim() === '') return 'Укажите, у кого или что';
+    if (this.draft.amount === null || this.draft.amount <= 0) return 'Введите сумму';
+    return 'Проверьте график погашения';
+  });
+
   subtitle = $derived.by(() => {
     const o = this.overview;
     if (o === null) return '';
     if (o.openCount === 0) return 'Открытых долгов нет';
-    return `${String(o.openCount)} открытых`;
+    return openCountText(o.openCount);
   });
 
   async load(month: string): Promise<void> {
@@ -237,11 +246,14 @@ export class DebtsVm {
     try {
       const d = this.draft;
       const comment = d.comment.trim() === '' ? null : d.comment.trim();
+      let created: DebtDto | null = null;
       if (this.selected === 'new') {
         if (this.fromTransaction !== null) {
-          await debtsApi.fromTransaction(this.fromTransaction.id, d.lender, [...this.schedule]);
+          created = await debtsApi.fromTransaction(this.fromTransaction.id, d.lender, [
+            ...this.schedule
+          ]);
         } else {
-          await debtsApi.create({
+          created = await debtsApi.create({
             lender: d.lender,
             amount,
             takenMonth: d.takenMonth,
@@ -264,12 +276,31 @@ export class DebtsVm {
         await debtsApi.update(this.selected, patch);
       }
       this.close();
+      if (created !== null) this.#announceCreated(created);
       await this.load(this.#month);
     } catch (e) {
       this.fieldError = errorText(e);
     } finally {
       this.saving = false;
     }
+  }
+
+  /** Тост «Долг создан»: «Отменить» удаляет только что созданный долг (его можно вернуть). */
+  #announceCreated(debt: DebtDto): void {
+    toasts.push({
+      message: `Долг «${debt.lender}» создан`,
+      action: {
+        label: 'Отменить',
+        run: () => {
+          void debtsApi
+            .remove(debt.id)
+            .then(() => this.load(this.#month))
+            .catch((e: unknown) => {
+              toasts.push({ kind: 'error', message: errorText(e) });
+            });
+        }
+      }
+    });
   }
 
   /** Мягкое удаление с возвратом тостом «Вернуть». */
@@ -316,6 +347,10 @@ export class DebtsVm {
     });
   }
 }
+
+/** «1 открытый», «2 открытых», «5 открытых». */
+export const openCountText = (n: number): string =>
+  `${String(n)} ${pluralRu(n, ['открытый', 'открытых', 'открытых'])}`;
 
 const KEY = Symbol('DebtsVm');
 export const setDebtsVm = (vm: DebtsVm) => setContext(KEY, vm);

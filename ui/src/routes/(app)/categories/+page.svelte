@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
-  import { Button, EmptyState, Kbd, Skeleton, Switch } from '$lib/components';
+  import { Button, EmptyState, FormulaHint, Modal, Skeleton, Switch } from '$lib/components';
   import { formatMoney, formatPercent } from '$lib/format';
+  import { FORMULAS } from '$lib/formulas';
   import { month } from '$lib/stores/month.svelte';
   import CategoryEditor from './_components/CategoryEditor.svelte';
   import CategoryList from './_components/CategoryList.svelte';
@@ -18,6 +19,9 @@
   });
 
   onMount(() => vm.connect());
+
+  // Ни одной категории (даже архивной): одно действие — в пустом состоянии, не дублируем в шапке.
+  const noCategories = $derived(!vm.loading && vm.items.length === 0 && vm.settings !== null);
 </script>
 
 <svelte:head>
@@ -34,11 +38,14 @@
         vm.showArchived = checked;
       }}>Показать архив</Switch
     >
-    <Button
-      onclick={() => {
-        vm.startCreate();
-      }}>Категория</Button
-    >
+    {#if !noCategories}
+      <Button
+        variant="success"
+        onclick={() => {
+          vm.startCreate();
+        }}><span aria-hidden="true">+</span> Добавить категорию</Button
+      >
+    {/if}
   </div>
 
   {#if vm.error}
@@ -56,30 +63,44 @@
     <Skeleton height="320px" />
   {:else}
     <div class="body">
-      <section class="list" aria-label="Категории">
-        <CategoryList />
-        <div class="spacer"></div>
-        {#if vm.balance !== null}
-          <div class="balance">
-            <span class="muted">
-              Лимиты <b class="num">{formatMoney(vm.balance.limitsSum)}</b> · сбережения
-              {#if vm.settings}{formatPercent(vm.settings.savingsNormBp)}{/if}
-              <b class="num">{formatMoney(vm.balance.savingsTarget)}</b> · буфер
-              <b class="num" class:neg={vm.balance.buffer < 0}>{formatMoney(vm.balance.buffer)}</b>
-            </span>
-            {#if vm.rateMismatch && vm.settings}
-              <span class="warn">
-                Сумма процентов категорий {formatPercent(vm.monthPlanBp ?? 0)} не равна норме {formatPercent(
-                  vm.settings.savingsNormBp
-                )}: план сбережений считается по категориям, баланс — по норме.
+      {#if noCategories}
+        <section class="list" aria-label="Категории">
+          <EmptyState
+            title="Категорий пока нет"
+            hint="Категория объединяет траты и задаёт лимит на месяц. Добавьте первую."
+          >
+            {#snippet actions()}
+              <Button
+                variant="success"
+                onclick={() => {
+                  vm.startCreate();
+                }}><span aria-hidden="true">+</span> Добавить категорию</Button
+              >
+            {/snippet}
+          </EmptyState>
+        </section>
+      {:else}
+        <section class="list" aria-label="Категории">
+          <CategoryList />
+          <div class="spacer"></div>
+          {#if vm.balance !== null}
+            <div class="balance">
+              <span class="muted">
+                Лимиты <b class="num">{formatMoney(vm.balance.limitsSum)}</b> · сбережения
+                {#if vm.settings}{formatPercent(vm.settings.savingsNormBp)}{/if}
+                <b class="num">{formatMoney(vm.balance.savingsTarget)}</b> · буфер
+                <b class="num" class:neg={vm.balance.buffer < 0}>{formatMoney(vm.balance.buffer)}</b
+                >
               </span>
-            {/if}
-          </div>
-        {/if}
-        <p class="keys">
-          Порядок: перетащите строку или <Kbd>Alt</Kbd> + <Kbd>↑</Kbd>/<Kbd>↓</Kbd>
-        </p>
-      </section>
+              <FormulaHint
+                label={FORMULAS.budgetBalance.label}
+                lines={FORMULAS.budgetBalance.lines}
+              />
+            </div>
+          {/if}
+          <p class="keys">Порядок: потяните строку за ручку слева</p>
+        </section>
+      {/if}
       {#if vm.selected !== null}
         <CategoryEditor />
       {/if}
@@ -87,7 +108,41 @@
   {/if}
 </div>
 
+{#if vm.archiveAsk}
+  <Modal
+    title="Отправить в архив?"
+    width={460}
+    onclose={() => {
+      vm.cancelArchive();
+    }}
+  >
+    <p class="ask">
+      Категория «{vm.archiveAsk.name}» исчезнет из списков и быстрого добавления. Траты и история
+      останутся, вернуть её можно через «Показать архив».
+    </p>
+    {#snippet footer()}
+      <Button
+        variant="ghost"
+        onclick={() => {
+          vm.cancelArchive();
+        }}>Отмена</Button
+      >
+      <Button
+        variant="primary"
+        onclick={() => {
+          void vm.confirmArchive();
+        }}>В архив</Button
+      >
+    {/snippet}
+  </Modal>
+{/if}
+
 <style>
+  .ask {
+    margin: 0;
+    font-size: var(--fs-13);
+    line-height: var(--lh-body);
+  }
   .screen {
     display: flex;
     flex-direction: column;
@@ -141,9 +196,6 @@
   }
   .neg {
     color: var(--unpl) !important;
-  }
-  .warn {
-    color: var(--debt);
   }
   .keys {
     margin: 0;

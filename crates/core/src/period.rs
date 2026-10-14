@@ -99,6 +99,20 @@ impl YearMonth {
         Ok(Self::first_of_year(year)?.iter_to(Self::new(year, 12)?))
     }
 
+    /// Число дней в месяце (28–31, февраль високосного года — 29).
+    pub const fn days_in_month(self) -> u8 {
+        match self.month {
+            2 if self.year.is_multiple_of(4)
+                && (!self.year.is_multiple_of(100) || self.year.is_multiple_of(400)) =>
+            {
+                29
+            }
+            2 => 28,
+            4 | 6 | 9 | 11 => 30,
+            _ => 31,
+        }
+    }
+
     /// «Сентябрь».
     pub fn month_name_ru(self) -> &'static str {
         let index = usize::from(self.month).saturating_sub(1);
@@ -108,6 +122,39 @@ impl YearMonth {
     /// «Сентябрь 2026».
     pub fn ru_name(self) -> String {
         format!("{} {}", self.month_name_ru(), self.year)
+    }
+}
+
+/// Календарный день: «сегодня», которое вызывающий код передаёт в расчёт параметром
+///.
+///
+/// ```
+/// use planning_budget_core::{CalendarDay, YearMonth};
+/// let today = CalendarDay::new(YearMonth::parse("2026-09").unwrap(), 15).unwrap();
+/// assert_eq!(today.days_left(), 16);
+/// ```
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct CalendarDay {
+    month: YearMonth,
+    day: u8,
+}
+
+impl CalendarDay {
+    /// Число должно существовать в месяце.
+    pub fn new(month: YearMonth, day: u8) -> Result<Self, CoreError> {
+        if day == 0 || day > month.days_in_month() {
+            return Err(CoreError::Day);
+        }
+        Ok(Self { month, day })
+    }
+
+    pub const fn month(self) -> YearMonth {
+        self.month
+    }
+
+    /// Дни от этого числа до конца месяца включительно; не меньше одного.
+    pub const fn days_left(self) -> u8 {
+        self.month.days_in_month() - self.day + 1
     }
 }
 

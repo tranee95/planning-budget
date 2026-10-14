@@ -1,0 +1,1981 @@
+{
+ "categories": [
+  "Продукты",
+  "Жильё и связь",
+  "Транспорт",
+  "Здоровье",
+  "Кафе и доставка",
+  "Одежда",
+  "Красота",
+  "Хобби и игры",
+  "Подписки",
+  "Подарки и праздники",
+  "Дом и техника",
+  "Прочее"
+ ],
+ "files": {
+  "01-bank-statement.csv": {
+   "ops": [
+    {
+     "line": 2,
+     "date": "2026-03-02",
+     "amountKopecks": 94325,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "Такси Попутчик"
+    },
+    {
+     "line": 3,
+     "date": "2026-03-02",
+     "amountKopecks": 82864,
+     "direction": "expense",
+     "category": "Хобби и игры",
+     "newCategoryHint": null,
+     "description": "Магазин игр Пиксель"
+    },
+    {
+     "line": 4,
+     "date": "2026-03-03",
+     "amountKopecks": 272800,
+     "direction": "income",
+     "category": null,
+     "newCategoryHint": null,
+     "description": "Перевод от Анна К."
+    },
+    {
+     "line": 6,
+     "date": "2026-03-04",
+     "amountKopecks": 317416,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "АЗС Северная"
+    },
+    {
+     "line": 7,
+     "date": "2026-03-05",
+     "amountKopecks": 165768,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Аптека Здоровье+"
+    },
+    {
+     "line": 8,
+     "date": "2026-03-05",
+     "amountKopecks": 411729,
+     "direction": "expense",
+     "category": "Хобби и игры",
+     "newCategoryHint": null,
+     "description": "Магазин игр Пиксель"
+    },
+    {
+     "line": 9,
+     "date": "2026-03-11",
+     "amountKopecks": 465539,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "ЖКХ Управляющая компания Уют"
+    },
+    {
+     "line": 10,
+     "date": "2026-03-11",
+     "amountKopecks": 179012,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Доставка еды Вкусно рядом"
+    },
+    {
+     "line": 11,
+     "date": "2026-03-12",
+     "amountKopecks": 157898,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Аптека Здоровье+"
+    },
+    {
+     "line": 12,
+     "date": "2026-03-12",
+     "amountKopecks": 9904700,
+     "direction": "income",
+     "category": null,
+     "newCategoryHint": null,
+     "description": "Зарплата ООО Ромашка"
+    },
+    {
+     "line": 13,
+     "date": "2026-03-13",
+     "amountKopecks": 221758,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Аптека Здоровье+"
+    },
+    {
+     "line": 14,
+     "date": "2026-03-15",
+     "amountKopecks": 325208,
+     "direction": "expense",
+     "category": null,
+     "newCategoryHint": "Спорт",
+     "description": "Фитнес-клуб Сила"
+    },
+    {
+     "line": 15,
+     "date": "2026-03-15",
+     "amountKopecks": 439327,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Клиника Медлайн"
+    },
+    {
+     "line": 16,
+     "date": "2026-03-16",
+     "amountKopecks": 185830,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Аптека Здоровье+"
+    },
+    {
+     "line": 18,
+     "date": "2026-03-17",
+     "amountKopecks": 594460,
+     "direction": "expense",
+     "category": null,
+     "newCategoryHint": "Образование",
+     "description": "Курсы английского Лингва"
+    },
+    {
+     "line": 19,
+     "date": "2026-03-17",
+     "amountKopecks": 79159,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Пицца Дель Соле"
+    },
+    {
+     "line": 20,
+     "date": "2026-03-17",
+     "amountKopecks": 178455,
+     "direction": "expense",
+     "category": "Хобби и игры",
+     "newCategoryHint": null,
+     "description": "Магазин игр Пиксель"
+    },
+    {
+     "line": 21,
+     "date": "2026-03-18",
+     "amountKopecks": 142485,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "Метро пополнение карты"
+    },
+    {
+     "line": 22,
+     "date": "2026-03-21",
+     "amountKopecks": 344104,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Клиника Медлайн"
+    },
+    {
+     "line": 23,
+     "date": "2026-03-22",
+     "amountKopecks": 204980,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Аптека Здоровье+"
+    },
+    {
+     "line": 24,
+     "date": "2026-03-23",
+     "amountKopecks": 35684,
+     "direction": "expense",
+     "category": "Подписки",
+     "newCategoryHint": null,
+     "description": "Онлайн-кинотеатр Экран"
+    },
+    {
+     "line": 25,
+     "date": "2026-03-24",
+     "amountKopecks": 542748,
+     "direction": "expense",
+     "category": null,
+     "newCategoryHint": "Образование",
+     "description": "Курсы английского Лингва"
+    },
+    {
+     "line": 26,
+     "date": "2026-03-24",
+     "amountKopecks": 33007,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "Метро пополнение карты"
+    },
+    {
+     "line": 27,
+     "date": "2026-03-25",
+     "amountKopecks": 81200,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "Такси Попутчик"
+    }
+   ],
+   "skipLines": [
+    5,
+    17,
+    28
+   ]
+  },
+  "02-income-expense-columns.csv": {
+   "ops": [
+    {
+     "line": 2,
+     "date": "2026-03-02",
+     "amountKopecks": 294111,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "АЗС Северная"
+    },
+    {
+     "line": 3,
+     "date": "2026-03-04",
+     "amountKopecks": 56110,
+     "direction": "expense",
+     "category": "Хобби и игры",
+     "newCategoryHint": null,
+     "description": "Магазин игр Пиксель"
+    },
+    {
+     "line": 4,
+     "date": "2026-03-04",
+     "amountKopecks": 461581,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "ЖКХ Управляющая компания Уют"
+    },
+    {
+     "line": 5,
+     "date": "2026-03-04",
+     "amountKopecks": 28737,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Пекарня Хлебный дом"
+    },
+    {
+     "line": 6,
+     "date": "2026-03-04",
+     "amountKopecks": 45687,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Кофейня Бодрое утро"
+    },
+    {
+     "line": 7,
+     "date": "2026-03-06",
+     "amountKopecks": 403822,
+     "direction": "expense",
+     "category": null,
+     "newCategoryHint": "Образование",
+     "description": "Курсы английского Лингва"
+    },
+    {
+     "line": 8,
+     "date": "2026-03-09",
+     "amountKopecks": 24429,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "Такси Попутчик"
+    },
+    {
+     "line": 9,
+     "date": "2026-03-09",
+     "amountKopecks": 114439,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Пицца Дель Соле"
+    },
+    {
+     "line": 10,
+     "date": "2026-03-12",
+     "amountKopecks": 49366,
+     "direction": "expense",
+     "category": "Хобби и игры",
+     "newCategoryHint": null,
+     "description": "Книжный Страницы"
+    },
+    {
+     "line": 11,
+     "date": "2026-03-12",
+     "amountKopecks": 63919,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "Мобильная связь Телеком+"
+    },
+    {
+     "line": 12,
+     "date": "2026-03-12",
+     "amountKopecks": 491489,
+     "direction": "expense",
+     "category": "Одежда",
+     "newCategoryHint": null,
+     "description": "Магазин одежды Стиль"
+    },
+    {
+     "line": 13,
+     "date": "2026-03-13",
+     "amountKopecks": 32362,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Магазин Корзинка"
+    },
+    {
+     "line": 14,
+     "date": "2026-03-14",
+     "amountKopecks": 347900,
+     "direction": "income",
+     "category": null,
+     "newCategoryHint": null,
+     "description": "Перевод от Анна К."
+    },
+    {
+     "line": 15,
+     "date": "2026-03-15",
+     "amountKopecks": 53011,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Доставка еды Вкусно рядом"
+    },
+    {
+     "line": 16,
+     "date": "2026-03-16",
+     "amountKopecks": 79915,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "Интернет Связьком"
+    },
+    {
+     "line": 18,
+     "date": "2026-03-18",
+     "amountKopecks": 44600,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "Метро пополнение карты"
+    },
+    {
+     "line": 19,
+     "date": "2026-03-19",
+     "amountKopecks": 550644,
+     "direction": "expense",
+     "category": null,
+     "newCategoryHint": "Питомцы",
+     "description": "Ветеринарная клиника Лапка"
+    },
+    {
+     "line": 20,
+     "date": "2026-03-19",
+     "amountKopecks": 81878,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "Интернет Связьком"
+    },
+    {
+     "line": 21,
+     "date": "2026-03-21",
+     "amountKopecks": 73242,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "Интернет Связьком"
+    },
+    {
+     "line": 22,
+     "date": "2026-03-23",
+     "amountKopecks": 148305,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Магазин Корзинка"
+    },
+    {
+     "line": 23,
+     "date": "2026-03-24",
+     "amountKopecks": 9422200,
+     "direction": "income",
+     "category": null,
+     "newCategoryHint": null,
+     "description": "Зарплата ООО Ромашка"
+    },
+    {
+     "line": 24,
+     "date": "2026-03-25",
+     "amountKopecks": 302547,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "АЗС Северная"
+    },
+    {
+     "line": 25,
+     "date": "2026-03-27",
+     "amountKopecks": 61700,
+     "direction": "income",
+     "category": null,
+     "newCategoryHint": null,
+     "description": "Проценты по вкладу"
+    }
+   ],
+   "skipLines": [
+    17
+   ]
+  },
+  "03-spreadsheet-expenses.tsv": {
+   "ops": [
+    {
+     "line": 5,
+     "date": "2026-03-01",
+     "amountKopecks": 730700,
+     "direction": "expense",
+     "category": null,
+     "newCategoryHint": "Образование",
+     "description": "Курсы английского Лингва"
+    },
+    {
+     "line": 6,
+     "date": "2026-03-01",
+     "amountKopecks": 16800,
+     "direction": "expense",
+     "category": "Подписки",
+     "newCategoryHint": null,
+     "description": "Облачное хранилище Облако"
+    },
+    {
+     "line": 7,
+     "date": "2026-03-07",
+     "amountKopecks": 79400,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Пицца Дель Соле"
+    },
+    {
+     "line": 8,
+     "date": "2026-03-08",
+     "amountKopecks": 79000,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Пицца Дель Соле"
+    },
+    {
+     "line": 9,
+     "date": "2026-03-08",
+     "amountKopecks": 341200,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Супермаркет Зелёный угол"
+    },
+    {
+     "line": 10,
+     "date": "2026-03-11",
+     "amountKopecks": 64000,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "Метро пополнение карты"
+    },
+    {
+     "line": 11,
+     "date": "2026-03-14",
+     "amountKopecks": 15300,
+     "direction": "expense",
+     "category": "Подписки",
+     "newCategoryHint": null,
+     "description": "Облачное хранилище Облако"
+    },
+    {
+     "line": 12,
+     "date": "2026-03-15",
+     "amountKopecks": 79300,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "Интернет Связьком"
+    },
+    {
+     "line": 13,
+     "date": "2026-03-15",
+     "amountKopecks": 612600,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Клиника Медлайн"
+    },
+    {
+     "line": 14,
+     "date": "2026-03-16",
+     "amountKopecks": 39200,
+     "direction": "expense",
+     "category": "Подписки",
+     "newCategoryHint": null,
+     "description": "Онлайн-кинотеатр Экран"
+    },
+    {
+     "line": 15,
+     "date": "2026-03-16",
+     "amountKopecks": 332300,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "АЗС Северная"
+    },
+    {
+     "line": 16,
+     "date": "2026-03-17",
+     "amountKopecks": 513000,
+     "direction": "expense",
+     "category": null,
+     "newCategoryHint": "Питомцы",
+     "description": "Ветеринарная клиника Лапка"
+    },
+    {
+     "line": 17,
+     "date": "2026-03-18",
+     "amountKopecks": 89600,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "Интернет Связьком"
+    },
+    {
+     "line": 18,
+     "date": "2026-03-19",
+     "amountKopecks": 153300,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Пицца Дель Соле"
+    },
+    {
+     "line": 19,
+     "date": "2026-03-20",
+     "amountKopecks": 168600,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Аптека Здоровье+"
+    },
+    {
+     "line": 20,
+     "date": "2026-03-21",
+     "amountKopecks": 190200,
+     "direction": "expense",
+     "category": "Хобби и игры",
+     "newCategoryHint": null,
+     "description": "Книжный Страницы"
+    },
+    {
+     "line": 21,
+     "date": "2026-03-23",
+     "amountKopecks": 439900,
+     "direction": "expense",
+     "category": null,
+     "newCategoryHint": "Спорт",
+     "description": "Фитнес-клуб Сила"
+    },
+    {
+     "line": 22,
+     "date": "2026-03-25",
+     "amountKopecks": 37700,
+     "direction": "expense",
+     "category": "Подписки",
+     "newCategoryHint": null,
+     "description": "Облачное хранилище Облако"
+    },
+    {
+     "line": 23,
+     "date": "2026-03-25",
+     "amountKopecks": 192200,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Аптека Здоровье+"
+    },
+    {
+     "line": 24,
+     "date": "2026-03-26",
+     "amountKopecks": 57100,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Кофейня Бодрое утро"
+    },
+    {
+     "line": 25,
+     "date": "2026-03-27",
+     "amountKopecks": 319800,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Супермаркет Зелёный угол"
+    },
+    {
+     "line": 26,
+     "date": "2026-03-28",
+     "amountKopecks": 337600,
+     "direction": "expense",
+     "category": "Хобби и игры",
+     "newCategoryHint": null,
+     "description": "Магазин игр Пиксель"
+    },
+    {
+     "line": 27,
+     "date": "2026-03-28",
+     "amountKopecks": 304900,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Супермаркет Зелёный угол"
+    },
+    {
+     "line": 28,
+     "date": "2026-03-28",
+     "amountKopecks": 348700,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "АЗС Северная"
+    }
+   ],
+   "skipLines": []
+  },
+  "04-pdf-statement.txt": {
+   "ops": [
+    {
+     "line": 7,
+     "date": "2026-03-01",
+     "amountKopecks": 208127,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Доставка еды Вкусно рядом"
+    },
+    {
+     "line": 9,
+     "date": "2026-03-01",
+     "amountKopecks": 675683,
+     "direction": "expense",
+     "category": "Дом и техника",
+     "newCategoryHint": null,
+     "description": "Строительный Мастер"
+    },
+    {
+     "line": 10,
+     "date": "2026-03-01",
+     "amountKopecks": 88735,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Аптека Здоровье+"
+    },
+    {
+     "line": 11,
+     "date": "2026-03-02",
+     "amountKopecks": 740034,
+     "direction": "expense",
+     "category": "Одежда",
+     "newCategoryHint": null,
+     "description": "Магазин одежды Стиль"
+    },
+    {
+     "line": 12,
+     "date": "2026-03-03",
+     "amountKopecks": 328993,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Клиника Медлайн"
+    },
+    {
+     "line": 13,
+     "date": "2026-03-03",
+     "amountKopecks": 10681300,
+     "direction": "income",
+     "category": null,
+     "newCategoryHint": null,
+     "description": "Зарплата ООО Ромашка"
+    },
+    {
+     "line": 14,
+     "date": "2026-03-06",
+     "amountKopecks": 150026,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Аптека Здоровье+"
+    },
+    {
+     "line": 15,
+     "date": "2026-03-06",
+     "amountKopecks": 38520,
+     "direction": "expense",
+     "category": "Подписки",
+     "newCategoryHint": null,
+     "description": "Онлайн-кинотеатр Экран"
+    },
+    {
+     "line": 16,
+     "date": "2026-03-07",
+     "amountKopecks": 42903,
+     "direction": "expense",
+     "category": "Подписки",
+     "newCategoryHint": null,
+     "description": "Онлайн-кинотеатр Экран"
+    },
+    {
+     "line": 17,
+     "date": "2026-03-08",
+     "amountKopecks": 220173,
+     "direction": "expense",
+     "category": "Хобби и игры",
+     "newCategoryHint": null,
+     "description": "Магазин игр Пиксель"
+    },
+    {
+     "line": 23,
+     "date": "2026-03-11",
+     "amountKopecks": 572052,
+     "direction": "expense",
+     "category": null,
+     "newCategoryHint": "Образование",
+     "description": "Курсы английского Лингва"
+    },
+    {
+     "line": 24,
+     "date": "2026-03-11",
+     "amountKopecks": 45357,
+     "direction": "expense",
+     "category": "Подписки",
+     "newCategoryHint": null,
+     "description": "Онлайн-кинотеатр Экран"
+    },
+    {
+     "line": 25,
+     "date": "2026-03-14",
+     "amountKopecks": 38349,
+     "direction": "expense",
+     "category": "Подписки",
+     "newCategoryHint": null,
+     "description": "Облачное хранилище Облако"
+    },
+    {
+     "line": 27,
+     "date": "2026-03-15",
+     "amountKopecks": 155051,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Аптека Здоровье+"
+    },
+    {
+     "line": 28,
+     "date": "2026-03-18",
+     "amountKopecks": 18387,
+     "direction": "expense",
+     "category": "Подписки",
+     "newCategoryHint": null,
+     "description": "Облачное хранилище Облако"
+    },
+    {
+     "line": 30,
+     "date": "2026-03-20",
+     "amountKopecks": 205529,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Магазин Корзинка"
+    },
+    {
+     "line": 31,
+     "date": "2026-03-20",
+     "amountKopecks": 23315,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Кофейня Бодрое утро"
+    },
+    {
+     "line": 32,
+     "date": "2026-03-21",
+     "amountKopecks": 97463,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Доставка еды Вкусно рядом"
+    },
+    {
+     "line": 34,
+     "date": "2026-03-23",
+     "amountKopecks": 223108,
+     "direction": "expense",
+     "category": null,
+     "newCategoryHint": "Спорт",
+     "description": "Фитнес-клуб Сила"
+    },
+    {
+     "line": 35,
+     "date": "2026-03-24",
+     "amountKopecks": 786020,
+     "direction": "expense",
+     "category": "Дом и техника",
+     "newCategoryHint": null,
+     "description": "Строительный Мастер"
+    },
+    {
+     "line": 36,
+     "date": "2026-03-25",
+     "amountKopecks": 366400,
+     "direction": "income",
+     "category": null,
+     "newCategoryHint": null,
+     "description": "Перевод от Анна К."
+    },
+    {
+     "line": 37,
+     "date": "2026-03-28",
+     "amountKopecks": 359841,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "АЗС Северная"
+    }
+   ],
+   "skipLines": [
+    21
+   ]
+  },
+  "05-free-text.txt": {
+   "ops": [
+    {
+     "line": 3,
+     "date": "2026-03-02",
+     "amountKopecks": 70900,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "Метро пополнение карты"
+    },
+    {
+     "line": 4,
+     "date": "2026-03-04",
+     "amountKopecks": 16000,
+     "direction": "expense",
+     "category": "Подписки",
+     "newCategoryHint": null,
+     "description": "Облачное хранилище Облако"
+    },
+    {
+     "line": 5,
+     "date": "2026-03-06",
+     "amountKopecks": 183500,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Доставка еды Вкусно рядом"
+    },
+    {
+     "line": 6,
+     "date": "2026-03-08",
+     "amountKopecks": 174500,
+     "direction": "expense",
+     "category": null,
+     "newCategoryHint": "Питомцы",
+     "description": "Зоомагазин Хвостик"
+    },
+    {
+     "line": 7,
+     "date": "2026-03-10",
+     "amountKopecks": 107600,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Магазин Корзинка"
+    },
+    {
+     "line": 8,
+     "date": "2026-03-12",
+     "amountKopecks": 37700,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "Мобильная связь Телеком+"
+    },
+    {
+     "line": 9,
+     "date": "2026-03-14",
+     "amountKopecks": 51900,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Аптека Здоровье+"
+    },
+    {
+     "line": 10,
+     "date": "2026-03-16",
+     "amountKopecks": 35600,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "Такси Попутчик"
+    },
+    {
+     "line": 11,
+     "date": "2026-03-18",
+     "amountKopecks": 466800,
+     "direction": "expense",
+     "category": null,
+     "newCategoryHint": "Образование",
+     "description": "Курсы английского Лингва"
+    },
+    {
+     "line": 12,
+     "date": "2026-03-20",
+     "amountKopecks": 60900,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Пекарня Хлебный дом"
+    },
+    {
+     "line": 13,
+     "date": "2026-03-22",
+     "amountKopecks": 20100,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Кофейня Бодрое утро"
+    },
+    {
+     "line": 14,
+     "date": "2026-03-24",
+     "amountKopecks": 316100,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "АЗС Северная"
+    }
+   ],
+   "skipLines": []
+  },
+  "06-multi-sheet.txt": {
+   "ops": [
+    {
+     "line": 2,
+     "date": "2026-03-01",
+     "amountKopecks": 811600,
+     "direction": "expense",
+     "category": null,
+     "newCategoryHint": "Образование",
+     "description": "Курсы английского Лингва"
+    },
+    {
+     "line": 3,
+     "date": "2026-03-01",
+     "amountKopecks": 100300,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Пицца Дель Соле"
+    },
+    {
+     "line": 4,
+     "date": "2026-03-03",
+     "amountKopecks": 26600,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Магазин Корзинка"
+    },
+    {
+     "line": 5,
+     "date": "2026-03-06",
+     "amountKopecks": 72100,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "Такси Попутчик"
+    },
+    {
+     "line": 6,
+     "date": "2026-03-07",
+     "amountKopecks": 360400,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Клиника Медлайн"
+    },
+    {
+     "line": 7,
+     "date": "2026-03-08",
+     "amountKopecks": 529200,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "ЖКХ Управляющая компания Уют"
+    },
+    {
+     "line": 8,
+     "date": "2026-03-09",
+     "amountKopecks": 42500,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "Мобильная связь Телеком+"
+    },
+    {
+     "line": 9,
+     "date": "2026-03-11",
+     "amountKopecks": 133300,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "Метро пополнение карты"
+    },
+    {
+     "line": 10,
+     "date": "2026-03-13",
+     "amountKopecks": 43100,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "Мобильная связь Телеком+"
+    },
+    {
+     "line": 14,
+     "date": "2026-03-14",
+     "amountKopecks": 70405,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "Интернет Связьком"
+    },
+    {
+     "line": 15,
+     "date": "2026-03-18",
+     "amountKopecks": 76785,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "Метро пополнение карты"
+    },
+    {
+     "line": 16,
+     "date": "2026-03-21",
+     "amountKopecks": 36422,
+     "direction": "expense",
+     "category": null,
+     "newCategoryHint": "Питомцы",
+     "description": "Зоомагазин Хвостик"
+    },
+    {
+     "line": 17,
+     "date": "2026-03-21",
+     "amountKopecks": 105056,
+     "direction": "expense",
+     "category": "Хобби и игры",
+     "newCategoryHint": null,
+     "description": "Магазин игр Пиксель"
+    },
+    {
+     "line": 18,
+     "date": "2026-03-22",
+     "amountKopecks": 428071,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "ЖКХ Управляющая компания Уют"
+    },
+    {
+     "line": 19,
+     "date": "2026-03-23",
+     "amountKopecks": 110350,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Пицца Дель Соле"
+    },
+    {
+     "line": 20,
+     "date": "2026-03-24",
+     "amountKopecks": 492835,
+     "direction": "expense",
+     "category": "Дом и техника",
+     "newCategoryHint": null,
+     "description": "Строительный Мастер"
+    },
+    {
+     "line": 21,
+     "date": "2026-03-24",
+     "amountKopecks": 90293,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "Интернет Связьком"
+    },
+    {
+     "line": 22,
+     "date": "2026-03-26",
+     "amountKopecks": 324564,
+     "direction": "expense",
+     "category": "Дом и техника",
+     "newCategoryHint": null,
+     "description": "Строительный Мастер"
+    },
+    {
+     "line": 23,
+     "date": "2026-03-26",
+     "amountKopecks": 205846,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "АЗС Северная"
+    },
+    {
+     "line": 24,
+     "date": "2026-03-28",
+     "amountKopecks": 209767,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Пицца Дель Соле"
+    }
+   ],
+   "skipLines": []
+  },
+  "07-ofx-like.txt": {
+   "ops": [
+    {
+     "line": 5,
+     "date": "2026-03-01",
+     "amountKopecks": 21621,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Пекарня Хлебный дом"
+    },
+    {
+     "line": 10,
+     "date": "2026-03-02",
+     "amountKopecks": 529142,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Клиника Медлайн"
+    },
+    {
+     "line": 15,
+     "date": "2026-03-07",
+     "amountKopecks": 83728,
+     "direction": "expense",
+     "category": "Дом и техника",
+     "newCategoryHint": null,
+     "description": "Строительный Мастер"
+    },
+    {
+     "line": 20,
+     "date": "2026-03-08",
+     "amountKopecks": 50359,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "Такси Попутчик"
+    },
+    {
+     "line": 25,
+     "date": "2026-03-11",
+     "amountKopecks": 598831,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Клиника Медлайн"
+    },
+    {
+     "line": 30,
+     "date": "2026-03-12",
+     "amountKopecks": 97684,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "Такси Попутчик"
+    },
+    {
+     "line": 35,
+     "date": "2026-03-14",
+     "amountKopecks": 140269,
+     "direction": "expense",
+     "category": null,
+     "newCategoryHint": "Питомцы",
+     "description": "Ветеринарная клиника Лапка"
+    },
+    {
+     "line": 40,
+     "date": "2026-03-15",
+     "amountKopecks": 13541,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Пекарня Хлебный дом"
+    },
+    {
+     "line": 45,
+     "date": "2026-03-16",
+     "amountKopecks": 43930,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "Метро пополнение карты"
+    },
+    {
+     "line": 50,
+     "date": "2026-03-16",
+     "amountKopecks": 10167400,
+     "direction": "income",
+     "category": null,
+     "newCategoryHint": null,
+     "description": "Зарплата ООО Ромашка"
+    },
+    {
+     "line": 55,
+     "date": "2026-03-17",
+     "amountKopecks": 118590,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Супермаркет Зелёный угол"
+    },
+    {
+     "line": 60,
+     "date": "2026-03-17",
+     "amountKopecks": 129047,
+     "direction": "expense",
+     "category": "Хобби и игры",
+     "newCategoryHint": null,
+     "description": "Книжный Страницы"
+    },
+    {
+     "line": 65,
+     "date": "2026-03-17",
+     "amountKopecks": 310762,
+     "direction": "expense",
+     "category": "Красота",
+     "newCategoryHint": null,
+     "description": "Салон красоты Лилия"
+    },
+    {
+     "line": 70,
+     "date": "2026-03-22",
+     "amountKopecks": 59388,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Пекарня Хлебный дом"
+    },
+    {
+     "line": 75,
+     "date": "2026-03-22",
+     "amountKopecks": 516700,
+     "direction": "income",
+     "category": null,
+     "newCategoryHint": null,
+     "description": "Перевод от Анна К."
+    },
+    {
+     "line": 80,
+     "date": "2026-03-26",
+     "amountKopecks": 299012,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Магазин Корзинка"
+    }
+   ],
+   "skipLines": []
+  },
+  "08-no-header.csv": {
+   "ops": [
+    {
+     "line": 1,
+     "date": "2026-03-04",
+     "amountKopecks": 58907,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Кофейня Бодрое утро"
+    },
+    {
+     "line": 2,
+     "date": "2026-03-05",
+     "amountKopecks": 157123,
+     "direction": "expense",
+     "category": "Одежда",
+     "newCategoryHint": null,
+     "description": "Магазин одежды Стиль"
+    },
+    {
+     "line": 4,
+     "date": "2026-03-07",
+     "amountKopecks": 428801,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Клиника Медлайн"
+    },
+    {
+     "line": 5,
+     "date": "2026-03-07",
+     "amountKopecks": 396228,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Клиника Медлайн"
+    },
+    {
+     "line": 6,
+     "date": "2026-03-08",
+     "amountKopecks": 68809,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Пекарня Хлебный дом"
+    },
+    {
+     "line": 7,
+     "date": "2026-03-09",
+     "amountKopecks": 211208,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Доставка еды Вкусно рядом"
+    },
+    {
+     "line": 8,
+     "date": "2026-03-11",
+     "amountKopecks": 365239,
+     "direction": "expense",
+     "category": null,
+     "newCategoryHint": "Спорт",
+     "description": "Фитнес-клуб Сила"
+    },
+    {
+     "line": 9,
+     "date": "2026-03-11",
+     "amountKopecks": 209151,
+     "direction": "expense",
+     "category": null,
+     "newCategoryHint": "Питомцы",
+     "description": "Ветеринарная клиника Лапка"
+    },
+    {
+     "line": 10,
+     "date": "2026-03-11",
+     "amountKopecks": 628485,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "ЖКХ Управляющая компания Уют"
+    },
+    {
+     "line": 11,
+     "date": "2026-03-12",
+     "amountKopecks": 88972,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "Интернет Связьком"
+    },
+    {
+     "line": 12,
+     "date": "2026-03-12",
+     "amountKopecks": 112996,
+     "direction": "expense",
+     "category": "Хобби и игры",
+     "newCategoryHint": null,
+     "description": "Книжный Страницы"
+    },
+    {
+     "line": 13,
+     "date": "2026-03-14",
+     "amountKopecks": 130260,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Магазин Корзинка"
+    },
+    {
+     "line": 14,
+     "date": "2026-03-15",
+     "amountKopecks": 115479,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "Метро пополнение карты"
+    },
+    {
+     "line": 15,
+     "date": "2026-03-16",
+     "amountKopecks": 1249500,
+     "direction": "income",
+     "category": null,
+     "newCategoryHint": null,
+     "description": "Перевод от Анна К."
+    },
+    {
+     "line": 16,
+     "date": "2026-03-18",
+     "amountKopecks": 82875,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "Метро пополнение карты"
+    },
+    {
+     "line": 17,
+     "date": "2026-03-18",
+     "amountKopecks": 540316,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "ЖКХ Управляющая компания Уют"
+    },
+    {
+     "line": 18,
+     "date": "2026-03-19",
+     "amountKopecks": 29999,
+     "direction": "expense",
+     "category": "Подписки",
+     "newCategoryHint": null,
+     "description": "Онлайн-кинотеатр Экран"
+    },
+    {
+     "line": 19,
+     "date": "2026-03-22",
+     "amountKopecks": 39690,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Пекарня Хлебный дом"
+    },
+    {
+     "line": 20,
+     "date": "2026-03-24",
+     "amountKopecks": 93302,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "Интернет Связьком"
+    },
+    {
+     "line": 21,
+     "date": "2026-03-25",
+     "amountKopecks": 75270,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "Интернет Связьком"
+    },
+    {
+     "line": 22,
+     "date": "2026-03-26",
+     "amountKopecks": 205631,
+     "direction": "expense",
+     "category": "Подарки и праздники",
+     "newCategoryHint": null,
+     "description": "Цветы Ромашка"
+    },
+    {
+     "line": 23,
+     "date": "2026-03-26",
+     "amountKopecks": 11846400,
+     "direction": "income",
+     "category": null,
+     "newCategoryHint": null,
+     "description": "Зарплата ООО Ромашка"
+    },
+    {
+     "line": 24,
+     "date": "2026-03-27",
+     "amountKopecks": 124511,
+     "direction": "expense",
+     "category": null,
+     "newCategoryHint": "Питомцы",
+     "description": "Зоомагазин Хвостик"
+    },
+    {
+     "line": 25,
+     "date": "2026-03-28",
+     "amountKopecks": 105029,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Доставка еды Вкусно рядом"
+    }
+   ],
+   "skipLines": [
+    3
+   ]
+  },
+  "09-mixed-language.txt": {
+   "ops": [
+    {
+     "line": 3,
+     "date": "2026-03-02",
+     "amountKopecks": 110536,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "Метро пополнение карты"
+    },
+    {
+     "line": 4,
+     "date": "2026-03-02",
+     "amountKopecks": 32577,
+     "direction": "expense",
+     "category": "Подписки",
+     "newCategoryHint": null,
+     "description": "Онлайн-кинотеатр Экран"
+    },
+    {
+     "line": 5,
+     "date": "2026-03-03",
+     "amountKopecks": 292501,
+     "direction": "expense",
+     "category": null,
+     "newCategoryHint": "Питомцы",
+     "description": "Зоомагазин Хвостик"
+    },
+    {
+     "line": 6,
+     "date": "2026-03-03",
+     "amountKopecks": 105274,
+     "direction": "expense",
+     "category": "Хобби и игры",
+     "newCategoryHint": null,
+     "description": "Магазин игр Пиксель"
+    },
+    {
+     "line": 7,
+     "date": "2026-03-05",
+     "amountKopecks": 210145,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Доставка еды Вкусно рядом"
+    },
+    {
+     "line": 8,
+     "date": "2026-03-06",
+     "amountKopecks": 286125,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "АЗС Северная"
+    },
+    {
+     "line": 9,
+     "date": "2026-03-08",
+     "amountKopecks": 571249,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Клиника Медлайн"
+    },
+    {
+     "line": 10,
+     "date": "2026-03-08",
+     "amountKopecks": 195875,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Доставка еды Вкусно рядом"
+    },
+    {
+     "line": 11,
+     "date": "2026-03-10",
+     "amountKopecks": 95337,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "Такси Попутчик"
+    },
+    {
+     "line": 12,
+     "date": "2026-03-11",
+     "amountKopecks": 78668,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "Интернет Связьком"
+    },
+    {
+     "line": 13,
+     "date": "2026-03-12",
+     "amountKopecks": 48369,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "Такси Попутчик"
+    },
+    {
+     "line": 14,
+     "date": "2026-03-14",
+     "amountKopecks": 19781,
+     "direction": "expense",
+     "category": "Подписки",
+     "newCategoryHint": null,
+     "description": "Облачное хранилище Облако"
+    },
+    {
+     "line": 15,
+     "date": "2026-03-14",
+     "amountKopecks": 106382,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "Такси Попутчик"
+    },
+    {
+     "line": 16,
+     "date": "2026-03-16",
+     "amountKopecks": 213299,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Магазин Корзинка"
+    },
+    {
+     "line": 17,
+     "date": "2026-03-16",
+     "amountKopecks": 10697300,
+     "direction": "income",
+     "category": null,
+     "newCategoryHint": null,
+     "description": "Зарплата ООО Ромашка"
+    },
+    {
+     "line": 18,
+     "date": "2026-03-18",
+     "amountKopecks": 229474,
+     "direction": "expense",
+     "category": "Красота",
+     "newCategoryHint": null,
+     "description": "Салон красоты Лилия"
+    },
+    {
+     "line": 19,
+     "date": "2026-03-20",
+     "amountKopecks": 506354,
+     "direction": "expense",
+     "category": null,
+     "newCategoryHint": "Питомцы",
+     "description": "Ветеринарная клиника Лапка"
+    },
+    {
+     "line": 20,
+     "date": "2026-03-22",
+     "amountKopecks": 174338,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Пицца Дель Соле"
+    },
+    {
+     "line": 21,
+     "date": "2026-03-27",
+     "amountKopecks": 434226,
+     "direction": "expense",
+     "category": "Дом и техника",
+     "newCategoryHint": null,
+     "description": "Строительный Мастер"
+    }
+   ],
+   "skipLines": [
+    2
+   ]
+  },
+  "10-nbsp-amounts.csv": {
+   "ops": [
+    {
+     "line": 2,
+     "date": "2026-03-01",
+     "amountKopecks": 32580,
+     "direction": "expense",
+     "category": "Подписки",
+     "newCategoryHint": null,
+     "description": "Облачное хранилище Облако"
+    },
+    {
+     "line": 3,
+     "date": "2026-03-01",
+     "amountKopecks": 49671,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Кофейня Бодрое утро"
+    },
+    {
+     "line": 4,
+     "date": "2026-03-02",
+     "amountKopecks": 200859,
+     "direction": "expense",
+     "category": "Одежда",
+     "newCategoryHint": null,
+     "description": "Магазин одежды Стиль"
+    },
+    {
+     "line": 5,
+     "date": "2026-03-03",
+     "amountKopecks": 73883,
+     "direction": "expense",
+     "category": "Хобби и игры",
+     "newCategoryHint": null,
+     "description": "Магазин игр Пиксель"
+    },
+    {
+     "line": 6,
+     "date": "2026-03-03",
+     "amountKopecks": 86268,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "Интернет Связьком"
+    },
+    {
+     "line": 7,
+     "date": "2026-03-03",
+     "amountKopecks": 109275,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Доставка еды Вкусно рядом"
+    },
+    {
+     "line": 8,
+     "date": "2026-03-04",
+     "amountKopecks": 123437,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Аптека Здоровье+"
+    },
+    {
+     "line": 9,
+     "date": "2026-03-08",
+     "amountKopecks": 535771,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "ЖКХ Управляющая компания Уют"
+    },
+    {
+     "line": 10,
+     "date": "2026-03-10",
+     "amountKopecks": 55409,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Кофейня Бодрое утро"
+    },
+    {
+     "line": 11,
+     "date": "2026-03-10",
+     "amountKopecks": 203024,
+     "direction": "expense",
+     "category": "Кафе и доставка",
+     "newCategoryHint": null,
+     "description": "Доставка еды Вкусно рядом"
+    },
+    {
+     "line": 12,
+     "date": "2026-03-13",
+     "amountKopecks": 386341,
+     "direction": "expense",
+     "category": null,
+     "newCategoryHint": "Спорт",
+     "description": "Фитнес-клуб Сила"
+    },
+    {
+     "line": 13,
+     "date": "2026-03-13",
+     "amountKopecks": 96211,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Супермаркет Зелёный угол"
+    },
+    {
+     "line": 14,
+     "date": "2026-03-13",
+     "amountKopecks": 10053900,
+     "direction": "income",
+     "category": null,
+     "newCategoryHint": null,
+     "description": "Зарплата ООО Ромашка"
+    },
+    {
+     "line": 15,
+     "date": "2026-03-14",
+     "amountKopecks": 396910,
+     "direction": "expense",
+     "category": null,
+     "newCategoryHint": "Спорт",
+     "description": "Фитнес-клуб Сила"
+    },
+    {
+     "line": 16,
+     "date": "2026-03-14",
+     "amountKopecks": 573149,
+     "direction": "expense",
+     "category": "Одежда",
+     "newCategoryHint": null,
+     "description": "Магазин одежды Стиль"
+    },
+    {
+     "line": 17,
+     "date": "2026-03-14",
+     "amountKopecks": 54838,
+     "direction": "expense",
+     "category": "Транспорт",
+     "newCategoryHint": null,
+     "description": "Метро пополнение карты"
+    },
+    {
+     "line": 18,
+     "date": "2026-03-14",
+     "amountKopecks": 85708,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Магазин Корзинка"
+    },
+    {
+     "line": 19,
+     "date": "2026-03-15",
+     "amountKopecks": 37074,
+     "direction": "expense",
+     "category": "Здоровье",
+     "newCategoryHint": null,
+     "description": "Аптека Здоровье+"
+    },
+    {
+     "line": 20,
+     "date": "2026-03-16",
+     "amountKopecks": 38948,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "Мобильная связь Телеком+"
+    },
+    {
+     "line": 22,
+     "date": "2026-03-18",
+     "amountKopecks": 48701,
+     "direction": "expense",
+     "category": "Жильё и связь",
+     "newCategoryHint": null,
+     "description": "Мобильная связь Телеком+"
+    },
+    {
+     "line": 23,
+     "date": "2026-03-19",
+     "amountKopecks": 171187,
+     "direction": "expense",
+     "category": "Подарки и праздники",
+     "newCategoryHint": null,
+     "description": "Цветы Ромашка"
+    },
+    {
+     "line": 24,
+     "date": "2026-03-21",
+     "amountKopecks": 271476,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Супермаркет Зелёный угол"
+    },
+    {
+     "line": 25,
+     "date": "2026-03-21",
+     "amountKopecks": 185421,
+     "direction": "expense",
+     "category": "Дом и техника",
+     "newCategoryHint": null,
+     "description": "Строительный Мастер"
+    },
+    {
+     "line": 26,
+     "date": "2026-03-21",
+     "amountKopecks": 764356,
+     "direction": "expense",
+     "category": "Дом и техника",
+     "newCategoryHint": null,
+     "description": "Строительный Мастер"
+    },
+    {
+     "line": 27,
+     "date": "2026-03-21",
+     "amountKopecks": 228255,
+     "direction": "expense",
+     "category": "Красота",
+     "newCategoryHint": null,
+     "description": "Салон красоты Лилия"
+    },
+    {
+     "line": 28,
+     "date": "2026-03-24",
+     "amountKopecks": 123089,
+     "direction": "expense",
+     "category": "Хобби и игры",
+     "newCategoryHint": null,
+     "description": "Магазин игр Пиксель"
+    },
+    {
+     "line": 29,
+     "date": "2026-03-25",
+     "amountKopecks": 29890,
+     "direction": "expense",
+     "category": "Продукты",
+     "newCategoryHint": null,
+     "description": "Пекарня Хлебный дом"
+    }
+   ],
+   "skipLines": [
+    21
+   ]
+  }
+ }
+}

@@ -32,6 +32,7 @@ pub use records::RecordSource;
 pub use saved_filters::{FilterScreen, SavedFilter};
 pub use search::{CategoryHit, Group, IncomeHit, MonthHit, SearchResult, TransactionHit};
 pub use search_list::{IncomeList, LIST_LIMIT, TransactionList};
+pub use seed::{DefaultCategory, default_categories};
 pub use suggest::TitleSuggestion;
 pub use transactions::{NewTransaction, TransactionPatch, TransactionRecord, TransactionUpdate};
 

@@ -21,14 +21,12 @@ afterEach(() => {
   categories.reset();
 });
 
-it('load: строки с лимитом месяца и процентом сбережений', async () => {
+it('load: строки с лимитом месяца, сбережений на экране нет', async () => {
   const vm = new CategoriesVm();
   await vm.load('2026-09');
-  expect(vm.rows).toHaveLength(4);
+  expect(vm.rows).toHaveLength(3);
   expect(vm.rows.find((r) => r.category.name === 'Продукты')?.limit).toBe(3_000_000);
-  expect(vm.rows.find((r) => r.category.kind === 'savings')?.rateBp).toBe(1400);
-  expect(vm.monthPlanBp).toBe(1400);
-  expect(vm.rateMismatch).toBe(false);
+  expect(vm.rows.some((r) => r.category.kind === 'savings')).toBe(false);
 });
 
 it('сохранение нового лимита действует с начала месяца экрана', async () => {
@@ -51,16 +49,6 @@ it('пустое поле лимита убирает его с начала м�
   expect(vm.rows.find((r) => r.category.id === 1)?.limit).toBeNull();
   await vm.load('2026-08');
   expect(vm.rows.find((r) => r.category.id === 1)?.limit).toBe(3_000_000);
-});
-
-it('пустой процент сбережений обнуляет план с начала месяца', async () => {
-  const vm = new CategoriesVm();
-  await vm.load('2026-09');
-  vm.select(4);
-  expect(vm.rows.find((r) => r.category.id === 4)?.rateBp).toBe(1400);
-  vm.draft.rate = '';
-  expect(await vm.save()).toBe(true);
-  expect(vm.rows.find((r) => r.category.id === 4)?.rateBp).toBe(0);
 });
 
 it('пустое название не сохраняется', async () => {
@@ -92,21 +80,43 @@ it('архив скрывает категорию, «показать архи�
   expect(vm.rows.map((r) => r.category.id)).toContain(3);
 });
 
+it('архивация сначала спрашивает: категория остаётся, пока не подтверждено', async () => {
+  const vm = new CategoriesVm();
+  await vm.load('2026-09');
+  vm.askArchive(3);
+  expect(vm.archiveAsk?.id).toBe(3);
+  expect(vm.archiveAsk?.name).toBe('Развлечения');
+  expect(vm.rows.map((r) => r.category.id)).toContain(3);
+  vm.cancelArchive();
+  expect(vm.archiveAsk).toBeNull();
+  expect(vm.rows.map((r) => r.category.id)).toContain(3);
+});
+
+it('подтверждение архивации убирает категорию из списка и закрывает вопрос', async () => {
+  const vm = new CategoriesVm();
+  await vm.load('2026-09');
+  vm.askArchive(3);
+  await vm.confirmArchive();
+  expect(vm.archiveAsk).toBeNull();
+  expect(vm.rows.map((r) => r.category.id)).not.toContain(3);
+});
+
+it('возврат из архива вопроса не задаёт', async () => {
+  const vm = new CategoriesVm();
+  await vm.load('2026-09');
+  await vm.setArchived(3, true);
+  vm.showArchived = true;
+  vm.askArchive(3);
+  expect(vm.archiveAsk).toBeNull();
+  await vm.setArchived(3, false);
+  expect(vm.rows.find((r) => r.category.id === 3)?.category.archived).toBe(false);
+});
+
 it('move переставляет категории', async () => {
   const vm = new CategoriesVm();
   await vm.load('2026-09');
   await vm.move(4, 1);
   expect(vm.items.map((c) => c.id)).toEqual([4, 1, 2, 3]);
-});
-
-it('процент сбережений: расхождение с нормой помечается', async () => {
-  const vm = new CategoriesVm();
-  await vm.load('2026-09');
-  vm.select(4);
-  vm.draft.rate = '18';
-  expect(await vm.save()).toBe(true);
-  expect(vm.monthPlanBp).toBe(1800);
-  expect(vm.rateMismatch).toBe(true);
 });
 
 it('parsePercentBp', () => {
@@ -116,7 +126,7 @@ it('parsePercentBp', () => {
   expect(parsePercentBp('abc')).toBeNull();
 });
 
-it('лимит и процент уходят в Rust датой «ГГГГ-ММ» (YearMonth::parse)', async () => {
+it('лимит уходит в Rust датой «ГГГГ-ММ» (YearMonth::parse)', async () => {
   const vm = new CategoriesVm();
   await vm.load('2026-09');
   vm.select(1);
@@ -124,18 +134,6 @@ it('лимит и процент уходят в Rust датой «ГГГГ-ММ
   await vm.save();
   const history = await categoriesApi.limitHistory(1);
   expect(history.map((e) => e.validFrom)).toContain('2026-09');
-});
-
-it('неверный процент месяца не создаёт категорию', async () => {
-  const vm = new CategoriesVm();
-  await vm.load('2026-09');
-  vm.startCreate();
-  vm.draft.name = 'Копилка';
-  vm.draft.kind = 'savings';
-  vm.draft.monthRate = 'abc';
-  expect(await vm.save()).toBe(false);
-  await vm.load('2026-09');
-  expect(vm.items.map((c) => c.name)).not.toContain('Копилка');
 });
 
 it('сохранение с несколькими командами не вызывает лишних перечитываний по событиям', async () => {

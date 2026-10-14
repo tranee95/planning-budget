@@ -15,6 +15,9 @@ class CategoriesStore {
   /** Порядок `items` задан Rust по `sortOrder`. */
   byId = $derived(new Map(this.items.map((c) => [c.id, c])));
 
+  /** Категории расходов: накопления живут на «Сбережениях» и в списках «Расходов» не показываются. */
+  spending = $derived(this.items.filter((c) => c.kind !== 'savings'));
+
   async load(): Promise<void> {
     this.items = await categoriesApi.list(false);
     this.loaded = true;

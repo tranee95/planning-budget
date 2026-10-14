@@ -1,11 +1,21 @@
 <script lang="ts">
+  import { PLACEHOLDERS } from '$lib/i18n/placeholders';
   import { onMount, untrack } from 'svelte';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { Button, EmptyState, FilterBar, Segmented, Skeleton, StatusDot } from '$lib/components';
+  import {
+    Button,
+    EmptyState,
+    FilterBar,
+    FormulaHint,
+    Segmented,
+    Skeleton,
+    StatusDot
+  } from '$lib/components';
   import { STATUS_LABEL, STATUS_ORDER } from '$lib/components/status';
   import { formatMoney } from '$lib/format';
+  import { FORMULAS } from '$lib/formulas';
   import { month } from '$lib/stores/month.svelte';
   import CategoryCard from './_components/CategoryCard.svelte';
   import QuickAdd from './_components/QuickAdd.svelte';
@@ -20,7 +30,7 @@
     { value: 'table', label: 'Таблица' }
   ] as const;
 
-  // Ссылки палитры: `?q=` открывает таблицу с запросом, `?edit=` — правку траты.
+  // Ссылки палитры: `?q=` открывает таблицу с запросом и `?edit=` — правку траты.
   $effect(() => {
     const params = page.url.searchParams;
     const query = params.get('q');
@@ -70,15 +80,17 @@
       </button>
     {/each}
     <span class="spacer"></span>
-    {#if vm.totals}
+    {#if vm.totals && !vm.showEmpty}
       <span class="num totals">
         Расходы <b>{formatMoney(vm.totals.spent)}</b> · лимиты
         <b>{formatMoney(vm.totals.limits)}</b>
         ·
+        {vm.totals.remaining < 0 ? 'сверх лимитов' : 'остаток лимитов'}
         <b class:over={vm.totals.remaining < 0}>
-          {vm.totals.remaining < 0 ? '−' : ''}{formatMoney(Math.abs(vm.totals.remaining))}
+          {formatMoney(Math.abs(vm.totals.remaining))}
         </b>
       </span>
+      <FormulaHint label={FORMULAS.expensesTotals.label} lines={FORMULAS.expensesTotals.lines} />
     {/if}
     <Segmented
       label="Режим отображения"
@@ -95,7 +107,7 @@
       filter={vm.filter}
       subject="трат"
       screen="expenses"
-      placeholder="Поиск по тратам: лента статус:оплачено сумма>5000 период:июн..сен #тег"
+      placeholder={PLACEHOLDERS.searchExpenses}
     />
   {/if}
 
@@ -114,6 +126,32 @@
     <div class="grid">
       {#each [0, 1, 2, 3] as i (i)}<Skeleton height="220px" />{/each}
     </div>
+  {:else if vm.showEmpty}
+    <EmptyState title="В этом месяце трат нет" hint={vm.emptyHint ?? undefined}>
+      {#snippet actions()}
+        {#if vm.noCategories}
+          <p class="no-categories">
+            Добавьте категории в <a href={resolve('/categories')}>«Категориях»</a>
+          </p>
+        {:else}
+          <Button
+            variant="success"
+            onclick={() => {
+              vm.openEditor();
+            }}><span aria-hidden="true">+</span> Добавить трату</Button
+          >
+          {#if vm.canCopyPlan}
+            <Button
+              variant="secondary"
+              loading={vm.copyBusy}
+              onclick={() => {
+                void vm.copyPlan();
+              }}>Скопировать план</Button
+            >
+          {/if}
+        {/if}
+      {/snippet}
+    </EmptyState>
   {:else if vm.mode === 'blocks'}
     <div class="grid">
       {#each vm.blocks as block, index (block.category.id)}
@@ -130,6 +168,13 @@
 {/if}
 
 <style>
+  /* Ссылка в пустом состоянии: цель нажатия не меньше 24 px по высоте. */
+  .no-categories a {
+    display: inline-block;
+    min-height: 24px;
+    padding-inline: var(--sp-1);
+    line-height: 24px;
+  }
   .screen {
     display: flex;
     flex-direction: column;
@@ -197,6 +242,11 @@
   }
   .totals b.over {
     color: var(--unpl);
+  }
+  .no-categories {
+    margin: 0;
+    color: var(--muted);
+    font-size: var(--fs-13);
   }
   .grid {
     display: grid;

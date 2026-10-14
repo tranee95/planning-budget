@@ -12,7 +12,8 @@ import {
 } from '$lib/api/bindings';
 import { LoadStamp, onDataChanged } from '$lib/api/data-events';
 import { debtsApi, planApi, settingsApi, summaryApi } from '$lib/api/data';
-import { formatMoney, formatMonth, formatPercent, today } from '$lib/format';
+import { cachedCall, dayKey, resultCache } from '$lib/api/result-cache';
+import { formatMoney, formatMonth, formatPercent, formatWeeks, today } from '$lib/format';
 import { errorText } from '$lib/i18n/errors';
 import { categories } from '$lib/stores/categories.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
@@ -95,6 +96,17 @@ export class OverviewVm {
     return `${rate} дохода · ${s.corridor === 'within' ? 'в коридоре' : 'выше коридора'}`;
   });
 
+  /** Подпись «На неделю» в текущем месяце: сколько недель осталось (считает ядро). */
+  weeksHint = $derived.by(() => {
+    const weeksLeft = this.summary?.weeksLeft ?? null;
+    return weeksLeft === null ? null : `до конца месяца осталось ${formatWeeks(weeksLeft)} недели`;
+  });
+
+  /** Вторая строка «Свободного остатка»: без записей со статусом «План». */
+  freeActualHint = $derived.by(() =>
+    this.summary === null ? '' : `по факту: ${formatMoney(this.summary.freeActual)}`
+  );
+
   incomeHint = $derived.by(() => {
     const s = this.summary;
     if (s === null) return '';
@@ -113,14 +125,18 @@ export class OverviewVm {
     this.error = null;
     try {
       const yearNumber = Number(month.slice(0, 4));
-      const [overview, year, settings, plan] = await Promise.all([
-        summaryApi.month(month),
-        summaryApi.year(yearNumber),
+      // Расчёты Rust берутся из кеша, пока данные не менялись; график грузится вместе с остальным.
+      const day = dayKey();
+      const [overview, year, settings, plan, series] = await Promise.all([
+        cachedCall(`overview|${day}|month|${month}`, () => summaryApi.month(month)),
+        cachedCall(`overview|${day}|year|${String(yearNumber)}`, () => summaryApi.year(yearNumber)),
         settingsApi.get(),
-        planApi.month(month),
+        cachedCall(`overview|${day}|plan|${month}`, () => planApi.month(month)),
+        cachedCall(`overview|${day}|series|${month}|${this.range}`, () =>
+          summaryApi.series(month, this.range)
+        ),
         categories.ensure()
       ]);
-      const series = await summaryApi.series(month, this.range);
       if (req !== this.#req) return;
       this.overview = overview;
       this.year = year;
@@ -140,7 +156,10 @@ export class OverviewVm {
     if (this.#month === '') return;
     const req = ++this.#seriesReq;
     try {
-      const series = await summaryApi.series(this.#month, range);
+      const month = this.#month;
+      const series = await cachedCall(`overview|${dayKey()}|series|${month}|${range}`, () =>
+        summaryApi.series(month, range)
+      );
       if (req === this.#seriesReq) this.series = series;
     } catch (e) {
       if (req === this.#seriesReq) this.error = errorText(e);
@@ -148,14 +167,21 @@ export class OverviewVm {
   }
 
   /** «План готов», «Разблокировать», «Скопировать план»: действие, затем перечитать экран. */
-  async #planAction(action: (month: string) => Promise<MonthPlanDto>): Promise<void> {
-    if (this.#month === '' || this.planBusy) return;
+  async #planAction(
+    action: (month: string) => Promise<MonthPlanDto>
+  ): Promise<MonthPlanDto | null> {
+    if (this.#month === '' || this.planBusy) return null;
     this.planBusy = true;
     try {
-      this.plan = await action(this.#month);
+      const plan = await action(this.#month);
+      this.plan = plan;
+      // Событие об изменении может прийти позже ответа: кеш сбрасывается сразу.
+      resultCache.clear();
       await this.load(this.#month);
+      return plan;
     } catch (e) {
       toasts.push({ kind: 'error', message: errorText(e) });
+      return null;
     } finally {
       this.planBusy = false;
     }
@@ -167,6 +193,7 @@ export class OverviewVm {
     this.planBusy = true;
     try {
       await debtsApi.setPaymentStatus(paymentId, paid ? 'paid' : 'planned', paid ? today() : null);
+      resultCache.clear();
       await this.load(this.#month);
     } catch (e) {
       toasts.push({ kind: 'error', message: errorText(e) });
@@ -175,16 +202,28 @@ export class OverviewVm {
     }
   }
 
-  lockPlan(): Promise<void> {
-    return this.#planAction(planApi.lock);
+  /** «План готов»: после фиксации тост с «Разблокировать» и, если есть, строкой о нераспределённом. */
+  async lockPlan(): Promise<void> {
+    const month = this.#month;
+    const plan = await this.#planAction(planApi.lock);
+    if (plan === null) return;
+    toasts.push({
+      message: planLockedText(month, plan.unallocated),
+      action: {
+        label: 'Разблокировать',
+        run: () => {
+          void this.unlockPlan();
+        }
+      }
+    });
   }
 
-  unlockPlan(): Promise<void> {
-    return this.#planAction(planApi.unlock);
+  async unlockPlan(): Promise<void> {
+    await this.#planAction(planApi.unlock);
   }
 
-  copyPlan(): Promise<void> {
-    return this.#planAction(planApi.copyFromPrevious);
+  async copyPlan(): Promise<void> {
+    await this.#planAction(planApi.copyFromPrevious);
   }
 
   /** Подписки экрана; страница вызывает в `onMount`, возвращает cleanup. */
@@ -209,6 +248,17 @@ function plural(n: number, forms: [string, string, string]): string {
         ? forms[1]
         : forms[2];
   return `${String(n)} ${form}`;
+}
+
+/**
+ * Текст тоста после «План готов». «Не распределено» берётся из ответа Rust (`plan.unallocated`):
+ * положительное — доход без назначения, отрицательное — план больше дохода.
+ */
+export function planLockedText(month: string, unallocated: number): string {
+  const head = `План на ${formatMonth(month).toLowerCase()} зафиксирован`;
+  if (unallocated > 0) return `${head}. Не распределено ${formatMoney(unallocated)}`;
+  if (unallocated < 0) return `${head}. План превышает доход на ${formatMoney(-unallocated)}`;
+  return head;
 }
 
 const KEY = Symbol('OverviewVm');

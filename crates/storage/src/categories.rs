@@ -242,9 +242,10 @@ impl Db {
     /// Архивирует категорию: траты остаются, в списках выбора она скрыта. У категории
     /// сбережений с `month` процент плана становится нулевым, чтобы она не входила в план.
     ///
+    /// Закрытие цели: архивировать можно и единственное накопление, его суммы остаются в итогах.
+    ///
     /// # Errors
-    /// `NotFound`; `Conflict`, если это последняя активная категория сбережений, а в году
-    /// `month` есть сбережения.
+    /// `NotFound`.
     pub fn category_archive(
         &mut self,
         id: CategoryId,
@@ -257,25 +258,6 @@ impl Db {
         }
         let tx = self.conn.transaction()?;
         if category.kind == CategoryKind::Savings {
-            let others: i64 = tx.query_row(
-                "SELECT count(*) FROM categories
-                 WHERE kind = 'savings' AND archived_at IS NULL AND id <> ?1",
-                [id.0],
-                |r| r.get(0),
-            )?;
-            if others == 0 {
-                let year_prefix = format!("{:04}-%", month.year());
-                let has_savings: bool = tx.query_row(
-                    "SELECT EXISTS (
-                         SELECT 1 FROM v_transactions t JOIN categories c ON c.id = t.category_id
-                         WHERE c.kind = 'savings' AND t.month LIKE ?1)",
-                    [year_prefix],
-                    |r| r.get(0),
-                )?;
-                if has_savings {
-                    return Err(StorageError::Conflict("category.last_savings"));
-                }
-            }
             // Строки процента и ручные значения «после» месяца архивации вернули бы категорию в план.
             tx.execute(
                 "DELETE FROM savings_category_rates WHERE category_id = ?1 AND valid_from > ?2",

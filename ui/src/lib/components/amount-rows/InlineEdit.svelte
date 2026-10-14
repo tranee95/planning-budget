@@ -1,17 +1,22 @@
 <script lang="ts">
+  import { PLACEHOLDERS } from '$lib/i18n/placeholders';
   import { untrack } from 'svelte';
   import type { TransactionDto } from '$lib/api/bindings';
   import { formatMoneyExact, parseMoney } from '$lib/format';
+  import { leftRow } from './row-focus';
 
   type Props = {
     row: TransactionDto;
+    /** Поле, в котором стоит курсор при открытии. */
+    focus?: 'title' | 'amount';
     onsave: (patch: { title: string; amount: number }) => void;
     oncancel: () => void;
   };
 
-  let { row, onsave, oncancel }: Props = $props();
+  let { row, focus = 'title', onsave, oncancel }: Props = $props();
 
   // Поля заполняются один раз при входе в правку: обновление строки в списке не стирает ввод.
+  let box = $state<HTMLDivElement>();
   let title = $state(untrack(() => row.title));
   let amountText = $state(untrack(() => formatMoneyExact(row.amount).replace(/\s?₽$/, '')));
   const amount = $derived(parseMoney(amountText));
@@ -26,28 +31,39 @@
     }
   }
 
-  function focusOnMount(node: HTMLInputElement): void {
+  /** Клик в другую область: изменённая строка сохраняется, нетронутая просто закрывается. */
+  function onFocusOut(event: FocusEvent): void {
+    if (!leftRow(event, box) || amount === null) return;
+    if (title === row.title && amount === row.amount) oncancel();
+    else onsave({ title, amount });
+  }
+
+  function focusOnMount(node: HTMLInputElement, wanted: boolean): void {
+    if (!wanted) return;
     node.focus();
     node.select();
   }
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="edit" onkeydown={onKeydown}>
+<div class="edit" bind:this={box} onkeydown={onKeydown} onfocusout={onFocusOut}>
   <input
     class="title"
     aria-label="Наименование"
+    placeholder={PLACEHOLDERS.rowTitle}
     autocomplete="off"
     bind:value={title}
-    use:focusOnMount
+    use:focusOnMount={focus === 'title'}
   />
   <input
     class="amount num"
     aria-label="Сумма, ₽"
+    placeholder={PLACEHOLDERS.rowAmount}
     inputmode="decimal"
     autocomplete="off"
     aria-invalid={amount === null ? 'true' : undefined}
     bind:value={amountText}
+    use:focusOnMount={focus === 'amount'}
   />
 </div>
 

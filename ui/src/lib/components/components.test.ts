@@ -3,13 +3,16 @@ import userEvent from '@testing-library/user-event';
 import { createRawSnippet } from 'svelte';
 import { beforeEach, expect, test, vi } from 'vitest';
 import type { PaletteCommand } from '$lib/palette/filter';
+import Button from './Button.svelte';
 import Combobox from './Combobox.svelte';
 import ComboboxInModal from './ComboboxInModal.test-helper.svelte';
 import CommandPalette from './CommandPalette.svelte';
 import DataTable from './DataTable.svelte';
+import FormulaHint from './FormulaHint.svelte';
 import Modal from './Modal.svelte';
 import MoneyInput from './MoneyInput.svelte';
 import Segmented from './Segmented.svelte';
+import Select from './Select.svelte';
 import StatusDot from './StatusDot.svelte';
 import type { Column } from './table';
 
@@ -362,4 +365,65 @@ test('DataTable: активная строка передаётся через a
   const active = grid.getAttribute('aria-activedescendant');
   expect(active).toBeTruthy();
   expect(document.getElementById(active ?? '')).toHaveTextContent('Хлеб');
+});
+
+test('FormulaHint: кнопка «?» называет карточку и связана с текстом формулы', () => {
+  render(FormulaHint, {
+    props: { label: 'Свободный остаток', lines: ['доход − расходы', 'Без долгов.'] }
+  });
+  const button = screen.getByRole('button', { name: 'Как считается: Свободный остаток' });
+  const tip = screen.getByRole('tooltip', { hidden: true });
+  expect(button.getAttribute('aria-describedby')).toBe(tip.id);
+  expect(tip.textContent).toContain('доход − расходы');
+  expect(tip.textContent).toContain('Без долгов.');
+});
+
+test('FormulaHint: подсказка открывается при наведении и закрывается по Escape', async () => {
+  render(FormulaHint, { props: { label: 'Свободный остаток', lines: ['доход − расходы'] } });
+  const tip = screen.getByRole('tooltip', { hidden: true });
+  expect(tip.classList.contains('open')).toBe(false);
+  await user.hover(screen.getByRole('button', { name: 'Как считается: Свободный остаток' }));
+  expect(tip.classList.contains('open')).toBe(true);
+  await user.keyboard('{Escape}');
+  expect(tip.classList.contains('open')).toBe(false);
+});
+
+test('Select: скрытая подпись остаётся доступным именем и не занимает места', async () => {
+  const onchange = vi.fn();
+  const { container } = render(Select, {
+    id: 'sel',
+    label: 'Категория',
+    hideLabel: true,
+    options: [
+      { value: '', label: 'Перенести…' },
+      { value: '1', label: 'Продукты' }
+    ],
+    value: '',
+    onchange
+  });
+  const select = screen.getByRole('combobox', { name: 'Категория' });
+  expect(container.querySelector('label')).toHaveClass('sr-only');
+  await user.selectOptions(select, '1');
+  expect(onchange).toHaveBeenCalledWith('1');
+});
+
+test('Select: по умолчанию подпись видна', () => {
+  const { container } = render(Select, {
+    id: 'sel2',
+    label: 'Тип',
+    options: [{ value: 'a', label: 'А' }],
+    value: 'a',
+    onchange: vi.fn()
+  });
+  expect(container.querySelector('label')).not.toHaveClass('sr-only');
+});
+
+test('Button: вариант success получает свой класс и остаётся кнопкой', () => {
+  const { container } = render(Button, {
+    variant: 'success',
+    children: createRawSnippet(() => ({ render: () => '<span>Добавить</span>' }))
+  });
+  const button = screen.getByRole('button', { name: 'Добавить' });
+  expect(button).toHaveClass('success');
+  expect(container.querySelector('button')).toBe(button);
 });

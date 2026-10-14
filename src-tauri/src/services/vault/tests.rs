@@ -30,6 +30,10 @@ fn fresh() -> (TempDir, AppState) {
 fn created() -> (TempDir, AppState, Zeroizing<String>) {
     let (dir, state) = fresh();
     let code = create(&state, &pw(PASSWORD), t0(), Some(FAST)).unwrap();
+    // Категории при первом запуске выбирает пользователь; тесты берут весь стартовый набор.
+    state
+        .with_session_sync(|db| Ok(db.seed_categories(t0(), None)?))
+        .unwrap();
     (dir, state, code)
 }
 
@@ -57,9 +61,10 @@ fn status_before_and_after_create() {
 }
 
 #[test]
-fn create_opens_a_seeded_session_and_allows_saving_the_code_once() {
-    let (_dir, state, code) = created();
-    assert_eq!(categories(&state), 17);
+fn create_opens_a_session_without_categories_and_allows_saving_the_code_once() {
+    let (_dir, state) = fresh();
+    let code = create(&state, &pw(PASSWORD), t0(), Some(FAST)).unwrap();
+    assert_eq!(categories(&state), 0);
     assert!(state.recovery_save_allowed());
     assert_eq!(code.split('-').count(), 7);
 }
@@ -220,6 +225,16 @@ fn reset_needs_phrase_and_password_then_removes_everything() {
         .collect();
     assert!(left.is_empty(), "{left:?}");
     assert!(!status(&state, t0()).unwrap().exists);
+    // Без категорий нового хранилища знакомство должно показаться снова.
+    let prefs = crate::prefs::update(
+        &dir.path().join("ui-prefs.json"),
+        crate::dto::PrefsPatch {
+            intro_done: Some(true),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert!(prefs.intro_done);
 }
 
 #[test]

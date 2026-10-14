@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { PLACEHOLDERS } from '$lib/i18n/placeholders';
   import { Button, LinkButton, PasswordField, TextField } from '$lib/components';
   import StrengthMeter from '$lib/components/StrengthMeter.svelte';
   import type { LockVm } from '../lock.svelte';
@@ -18,7 +19,7 @@
     label="Ключ восстановления"
     bind:value={vm.code}
     mono
-    placeholder="XXXX-XXXX-XXXX-…"
+    placeholder={PLACEHOLDERS.recoveryCode}
     error={vm.codeError}
   />
   <PasswordField

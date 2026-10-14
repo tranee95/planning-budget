@@ -1,5 +1,6 @@
 import { ApiError, onBackendLocked } from '$lib/api/call';
 import { vaultApi } from '$lib/api/vault';
+import { prefs } from './prefs.svelte';
 
 /** booting — ждём `vault_status`; setup — хранилища нет; locked — есть, закрыто; unlocked — открыто. */
 export type Phase = 'booting' | 'setup' | 'locked' | 'unlocked';
@@ -125,6 +126,8 @@ class SessionStore {
     this.recoveryCode = null;
     this.retryUntil = 0;
     this.phase = 'setup';
+    // Сброс вернул знакомство (`intro_done=false` в файле настроек): в памяти нужно то же значение.
+    void prefs.load();
   }
 
   #setRetry(ms: number): void {

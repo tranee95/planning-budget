@@ -3,7 +3,7 @@
 use super::bonds::forecast;
 use super::{BondRates, BondsFact, BondsForecast, ForecastScenario, Ledger, Scenario};
 use crate::error::CoreError;
-use crate::model::{BasisPoints, CategoryId, CategoryKind, SavingsParams};
+use crate::model::{BasisPoints, CategoryId, CategoryKind, SavingsParams, TxStatus};
 use crate::money::Money;
 use crate::period::YearMonth;
 
@@ -251,6 +251,105 @@ impl Ledger<'_> {
             total_balance,
             month_plan: self.savings_plan(current)?,
             total_forecast: [a?, b?, c?],
+        })
+    }
+}
+
+/// Взносы одного месяца и накопленное к его концу.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct SavingsProgressMonth {
+    pub month: YearMonth,
+    /// Сумма взносов во все накопления за месяц.
+    pub deposited: Money,
+    /// Накоплено с первого взноса по конец месяца.
+    pub cumulative: Money,
+}
+
+/// Суммы одного накопления по месяцам графика (в том же порядке, что `SavingsProgress::months`).
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct SavingsProgressCategory {
+    pub category_id: CategoryId,
+    pub amounts: Vec<Money>,
+    /// Накоплено в этом накоплении по месяц расчёта включительно.
+    pub total: Money,
+}
+
+/// Накопленное за весь период.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct SavingsProgress {
+    /// Месяцы подряд от первого взноса до месяца расчёта включительно; без взносов — пусто.
+    pub months: Vec<SavingsProgressMonth>,
+    /// Накоплено по месяц расчёта включительно.
+    pub total: Money,
+    /// Суммы по каждому накоплению (в том числе закрытым), у которого есть хоть одна сумма.
+    pub categories: Vec<SavingsProgressCategory>,
+}
+
+impl Ledger<'_> {
+    /// Накопленное в категориях-сбережениях: взносы — неплановые траты этих категорий (архивные тоже),
+    /// месяцы после `current` не учитываются.
+    ///
+    /// # Errors
+    /// Переполнение денежных сумм.
+    pub fn savings_progress(&self, current: YearMonth) -> Result<SavingsProgress, CoreError> {
+        let mut by_month: std::collections::BTreeMap<YearMonth, Money> =
+            std::collections::BTreeMap::new();
+        let mut by_category: std::collections::BTreeMap<(CategoryId, YearMonth), Money> =
+            std::collections::BTreeMap::new();
+        for t in &self.data().transactions {
+            if t.month > current
+                || t.status == TxStatus::Planned
+                || self.kind_of(t.category_id) != Some(CategoryKind::Savings)
+            {
+                continue;
+            }
+            let sum = by_month.entry(t.month).or_insert(Money::ZERO);
+            *sum = sum.checked_add(t.amount)?;
+            let own = by_category
+                .entry((t.category_id, t.month))
+                .or_insert(Money::ZERO);
+            *own = own.checked_add(t.amount)?;
+        }
+        let mut months = Vec::new();
+        let mut total = Money::ZERO;
+        if let Some(first) = by_month.keys().next().copied() {
+            for month in
+                std::iter::successors(Some(first), |m| m.succ()).take_while(|m| *m <= current)
+            {
+                let deposited = by_month.get(&month).copied().unwrap_or(Money::ZERO);
+                total = total.checked_add(deposited)?;
+                months.push(SavingsProgressMonth {
+                    month,
+                    deposited,
+                    cumulative: total,
+                });
+            }
+        }
+        let mut categories = Vec::new();
+        for category in &self.data().categories {
+            if !by_category.keys().any(|(id, _)| *id == category.id) {
+                continue;
+            }
+            let mut amounts = Vec::with_capacity(months.len());
+            let mut own_total = Money::ZERO;
+            for m in &months {
+                let amount = by_category
+                    .get(&(category.id, m.month))
+                    .copied()
+                    .unwrap_or(Money::ZERO);
+                own_total = own_total.checked_add(amount)?;
+                amounts.push(amount);
+            }
+            categories.push(SavingsProgressCategory {
+                category_id: category.id,
+                amounts,
+                total: own_total,
+            });
+        }
+        Ok(SavingsProgress {
+            months,
+            total,
+            categories,
         })
     }
 }
