@@ -41,13 +41,14 @@
     return formatMoneyTrim(kopecks).replace(/\s?₽$/, '');
   }
 
-  // Значение изменили снаружи (сброс после добавления, undo): текст следует за ним, пока не печатают.
+  // Значение изменили снаружи (сброс после добавления, undo): текст следует за ним, в том числе
+  // когда в поле стоит курсор. Пока печатают, значение всегда равно разбору текста, и текст не трогается.
   $effect(() => {
-    if (focused) return;
-    const next =
-      kind === 'text' ? String(value ?? '') : typeof value === 'number' ? shown(value) : '';
-    if (kind === 'money' && text.trim() !== '' && parseMoney(text) === value) return;
-    text = next;
+    const typed = kind === 'text' ? text : text.trim() === '' ? null : parseMoney(text);
+    if (typed === value) return;
+    if (kind === 'text') text = String(value ?? '');
+    else if (typeof value !== 'number') text = '';
+    else text = focused ? shown(value).replace(/\s/g, '') : shown(value);
   });
 
   function oninput(event: Event & { currentTarget: HTMLInputElement }): void {
