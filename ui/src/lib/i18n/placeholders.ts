@@ -21,6 +21,7 @@ export const PLACEHOLDERS = {
   categoryNote: 'Необязательно: почему такой лимит',
   savingName: 'Например, отпуск или резерв',
   savingAmount: 'Например, 10 000',
+  savingNote: 'Комментарий, например зарплата',
   tagName: 'Название тега',
   filterName: 'Например, продукты за лето',
   dashboardName: 'Например, Мои графики',

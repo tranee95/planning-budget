@@ -57,6 +57,11 @@ export function formatMoneyExact(kopecks: number): string {
   return `${sign}${normalize(exact.format(abs / 100))}${NBSP}₽`;
 }
 
+/** Рубли; копейки показываются только если они есть: «20 000 ₽», «20 000,50 ₽». */
+export function formatMoneyTrim(kopecks: number): string {
+  return kopecks % 100 === 0 ? formatMoney(kopecks) : formatMoneyExact(kopecks);
+}
+
 /** Базисные пункты → проценты: 1350 → «13,5 %». */
 export function formatPercent(basisPoints: number): string {
   const sign = basisPoints < 0 ? MINUS : '';

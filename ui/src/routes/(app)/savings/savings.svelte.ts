@@ -37,6 +37,8 @@ export class SavingsVm {
   month = $state('');
   /** Сумма плана месяца из `plan_month` (то, что показано как «Откладываю в месяц»). */
   planTotal = $state(0);
+  /** Месяц зафиксирован («План готов»): план накоплений — снимок, менять его здесь нельзя. */
+  locked = $state(false);
   /** Накоплено за весь период и взносы по месяцам (считает Rust). */
   progress = $state.raw<SavingsProgressDto | null>(null);
   cards = $state.raw<SavingCard[]>([]);
@@ -47,8 +49,18 @@ export class SavingsVm {
   closeAsk = $state<{ id: number; name: string } | null>(null);
   loading = $state(true);
   error = $state('');
+  /** Форма «Новая цель» в шапке секции. */
+  newOpen = $state(false);
   newName = $state('');
+  /** План на месяц новой цели, копейки; `null` — не задан. */
+  newPlan = $state<number | null>(null);
   adding = $state(false);
+  /** Цель, у которой правят план в шапке карточки. */
+  planEditingId = $state<number | null>(null);
+  /** Цель, которую собрались удалить: ждёт подтверждения. */
+  deleteAsk = $state<{ id: number; name: string; total: number } | null>(null);
+  /** Развёрнутость карточек, выбранная пользователем; только в памяти (без localStorage). */
+  #open = new SvelteMap<number, boolean>();
 
   /** Карточка, в которую сейчас вводится новая сумма. */
   addingTo = $state<number | null>(null);
@@ -91,6 +103,7 @@ export class SavingsVm {
       if (generation !== this.#generation) return;
       const planByCategory = new SvelteMap(plan.rows.map((r) => [r.categoryId, r.plan]));
       this.planTotal = plan.planSavings;
+      this.locked = plan.locked;
       this.progress = progress;
       this.#usedColors = everyCategory.map((c) => c.color);
       const totals = new SvelteMap(progress.categories.map((c) => [c.categoryId, c.total]));
@@ -102,7 +115,9 @@ export class SavingsVm {
         .reduce((sum, t) => sum + t.amount, 0);
       this.closed = everyCategory
         .filter((c) => c.kind === 'savings' && c.archived)
-        .map((c) => ({ categoryId: c.id, name: c.name, total: totals.get(c.id) ?? 0 }));
+        .map((c) => ({ categoryId: c.id, name: c.name, total: totals.get(c.id) ?? 0 }))
+        // Удалённая цель — в архиве без сумм: в закрытых целях её нет.
+        .filter((goal) => goal.total !== 0);
       this.cards = categories.items
         .filter((c) => c.kind === 'savings' && !c.archived)
         .map((category) => {
@@ -123,6 +138,19 @@ export class SavingsVm {
     } finally {
       if (generation === this.#generation) this.loading = false;
     }
+  }
+
+  // ---- свёрнутость карточек ----
+
+  /** По умолчанию при трёх и более целях раскрыта только первая; выбор пользователя главнее. */
+  isOpen(categoryId: number): boolean {
+    const chosen = this.#open.get(categoryId);
+    if (chosen !== undefined) return chosen;
+    return this.cards.length <= 2 || this.cards[0]?.categoryId === categoryId;
+  }
+
+  toggle(categoryId: number): void {
+    this.#open.set(categoryId, !this.isOpen(categoryId));
   }
 
   // ---- добавление суммы ----
@@ -310,6 +338,93 @@ export class SavingsVm {
     await this.load(this.month);
   }
 
+  // ---- план в шапке карточки ----
+
+  startPlanEdit(categoryId: number): void {
+    if (this.locked) return;
+    this.addingTo = null;
+    this.editingId = null;
+    this.planEditingId = categoryId;
+  }
+
+  cancelPlanEdit(): void {
+    this.planEditingId = null;
+  }
+
+  /** Сохраняет план из шапки; пустое поле — 0 (план убран); без изменений ничего не пишет. */
+  async savePlan(categoryId: number, amount: number | null): Promise<boolean> {
+    this.planEditingId = null;
+    const next = amount ?? 0;
+    const card = this.cards.find((c) => c.categoryId === categoryId);
+    if (card === undefined || next === card.plan) return true;
+    return this.setPlan(categoryId, next);
+  }
+
+  // ---- удаление цели ----
+
+  askDelete(categoryId: number): void {
+    const card = this.cards.find((c) => c.categoryId === categoryId);
+    if (card === undefined) return;
+    const total = this.progress?.categories.find((c) => c.categoryId === categoryId)?.total ?? 0;
+    this.deleteAsk = { id: categoryId, name: card.name, total };
+  }
+
+  cancelDelete(): void {
+    this.deleteAsk = null;
+  }
+
+  /**
+   * Удаляет цель мягко: все её суммы за весь период убираются (как «×» у суммы), категория уходит
+   * в архив. Тост «Вернуть» и ⌘Z возвращают суммы и цель.
+   */
+  async confirmDelete(): Promise<void> {
+    const ask = this.deleteAsk;
+    if (ask === null) return;
+    this.deleteAsk = null;
+    try {
+      const ids: number[] = [];
+      for (const { month } of this.progress?.months ?? []) {
+        const rows = await transactionsApi.list(month);
+        ids.push(...rows.filter((t) => t.categoryId === ask.id).map((t) => t.id));
+      }
+      await Promise.all(ids.map((id) => transactionsApi.remove(id)));
+      await categoriesApi.archive(ask.id);
+      const entry = {
+        label: 'цель удалена',
+        undo: () => this.#restoreGoal(ask.id, ids),
+        redo: () => this.#removeGoal(ask.id, ids)
+      };
+      undoStack.record(entry);
+      toasts.push({
+        message: `Цель «${ask.name}» удалена`,
+        action: {
+          label: 'Вернуть',
+          run: () => {
+            void undoStack.undo(entry);
+          }
+        }
+      });
+      categories.reset();
+      await this.load(this.month);
+    } catch (e) {
+      toasts.push({ kind: 'error', message: errorText(e) });
+    }
+  }
+
+  async #removeGoal(categoryId: number, ids: number[]): Promise<void> {
+    await Promise.all(ids.map((id) => transactionsApi.remove(id)));
+    await categoriesApi.archive(categoryId);
+    categories.reset();
+    await this.load(this.month);
+  }
+
+  async #restoreGoal(categoryId: number, ids: number[]): Promise<void> {
+    await categoriesApi.unarchive(categoryId);
+    await Promise.all(ids.map((id) => transactionsApi.restore(id)));
+    categories.reset();
+    await this.load(this.month);
+  }
+
   // ---- закрытие цели ----
 
   askClose(categoryId: number): void {
@@ -352,6 +467,8 @@ export class SavingsVm {
 
   /** План накопления на выбранный месяц и дальше (пока не изменят); 0 убирает план. */
   async setPlan(categoryId: number, amount: number): Promise<boolean> {
+    // Зафиксированный месяц показывает снимок плана: новая сумма сохранилась бы, но не отобразилась.
+    if (this.locked) return false;
     try {
       await savingsApi.setFixedPlan(categoryId, this.month, amount);
       await this.load(this.month);
@@ -368,13 +485,18 @@ export class SavingsVm {
     if (name === '' || this.adding) return false;
     this.adding = true;
     try {
-      await categoriesApi.create({
+      const created = await categoriesApi.create({
         name,
         kind: 'savings',
         color: this.#nextColor(),
         note: null
       });
+      if (this.newPlan !== null && this.newPlan > 0) {
+        await savingsApi.setFixedPlan(created.id, this.month, this.newPlan);
+      }
       this.newName = '';
+      this.newPlan = null;
+      this.newOpen = false;
       categories.reset();
       await this.load(this.month);
       return true;

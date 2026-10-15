@@ -166,6 +166,7 @@ export const handlers = {
   },
   vault_save_recovery_code: () => ({ saved: true }),
   activity_ping: () => null,
+  client_error_log: () => null,
 
   prefs_get: () => prefs,
   // В браузере тему ОС отдаёт media-запрос (в окне Tauri её сообщает Rust).

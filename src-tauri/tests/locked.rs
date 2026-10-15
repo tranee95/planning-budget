@@ -40,6 +40,8 @@ const WORKS_WITHOUT_SESSION: &[&str] = &[
     // Проверка и установка обновлений: данных бюджета не читают.
     "update_check",
     "update_install",
+    // Пишет очищенное описание ошибки интерфейса в журнал: данных бюджета не касается.
+    "client_error_log",
 ];
 
 const MARKER: &str = "#[tauri::command]";

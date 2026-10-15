@@ -6,6 +6,7 @@
 pub mod analytics;
 pub mod app;
 pub mod categories;
+pub mod client_log;
 pub mod debts;
 pub mod dev;
 pub mod incomes;

@@ -3,6 +3,7 @@
 
 mod analytics;
 mod categories;
+mod client_log;
 mod common;
 mod debts;
 mod legacy;
@@ -18,6 +19,7 @@ mod vault;
 
 pub use analytics::*;
 pub use categories::*;
+pub use client_log::*;
 pub use common::*;
 pub use debts::*;
 pub use legacy::*;

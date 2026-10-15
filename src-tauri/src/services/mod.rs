@@ -4,6 +4,7 @@ pub mod analytics;
 pub mod categories;
 #[cfg(test)]
 mod checklist;
+pub mod client_log;
 #[cfg(test)]
 mod data_tests;
 pub mod debts;

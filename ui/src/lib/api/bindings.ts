@@ -9,6 +9,8 @@ import * as __TAURI_EVENT from "@tauri-apps/api/event";
 export const commands = {
 	/**  Версия приложения. Пока единственная команда: нужна, чтобы `AppError` попал в биндинги. */
 	appVersion: () => typedError<string, AppError>(__TAURI_INVOKE("app_version")),
+	/**  Записывает ошибку интерфейса (страница «500», необработанное исключение) в журнал приложения. */
+	clientErrorLog: (entry: ClientErrorDto) => typedError<null, AppError>(__TAURI_INVOKE("client_error_log", { entry })),
 	vaultStatus: () => typedError<VaultStatusDto, AppError>(__TAURI_INVOKE("vault_status")),
 	vaultRetryMigration: () => typedError<VaultStatusDto, AppError>(__TAURI_INVOKE("vault_retry_migration")),
 	vaultCreate: (password: Secret) => typedError<RecoveryCodeDto, AppError>(__TAURI_INVOKE("vault_create", { password })),
@@ -361,6 +363,31 @@ export type ChartSpecDto = {
 export type ChartTypeDto = "bar" | "stacked_bar" | "hbar" | "line" | "area" | "donut" | "table" | "kpi";
 
 export type ChartUnitDto = "rub" | "percent" | "count";
+
+/**
+ *  Техническое описание ошибки без данных бюджета: фронтенд отправляет сообщение только у
+ *  встроенных типов ошибок, а Rust ещё раз чистит и обрезает все поля (`services::client_log`).
+ */
+export type ClientErrorDto = {
+	kind: ClientErrorKind,
+	/**  Имя типа ошибки: `TypeError`, `Error` и т. п. */
+	name: string,
+	/**  Текст ошибки; пустой, если тип пользовательский и текст мог содержать данные. */
+	message: string,
+	/**  Кадры стека (`at …`), не больше восьми. */
+	stack: string,
+	/**  Путь маршрута без параметров запроса: `/analytics`. */
+	route: string,
+};
+
+/**  Откуда пришла ошибка. */
+export type ClientErrorKind = 
+/**  Не открылся маршрут: SvelteKit показал страницу «500 Internal Error». */
+"route" | 
+/**  Необработанное исключение (`window.onerror`). */
+"uncaught" | 
+/**  Необработанный отказ промиса (`unhandledrejection`). */
+"rejection";
 
 export type CorridorDto = "noIncome" | "below" | "within" | "above";
 

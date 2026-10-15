@@ -6,6 +6,7 @@
 pub(crate) fn all() -> tauri_specta::Commands<tauri::Wry> {
     tauri_specta::collect_commands![
         super::app::app_version,
+        super::client_log::client_error_log,
         super::vault::vault_status,
         super::vault::vault_retry_migration,
         super::vault::vault_create,

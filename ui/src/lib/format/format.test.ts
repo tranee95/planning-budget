@@ -6,6 +6,7 @@ import {
   formatMonthPrepositional,
   formatMoney,
   formatMoneyExact,
+  formatMoneyTrim,
   formatPercent,
   formatWeeks,
   monthRange,
@@ -178,5 +179,13 @@ describe('formatWeeks', () => {
     expect(formatWeeks(1 / 7)).toBe('0,1');
     expect(formatWeeks(30 / 7)).toBe('4,3');
     expect(formatWeeks(2)).toBe('2,0');
+  });
+});
+
+describe('formatMoneyTrim', () => {
+  it('копейки показываются только если они есть', () => {
+    expect(formatMoneyTrim(2_000_000)).toBe('20 000 ₽');
+    expect(formatMoneyTrim(2_000_050)).toBe('20 000,50 ₽');
+    expect(formatMoneyTrim(0)).toBe('0 ₽');
   });
 });

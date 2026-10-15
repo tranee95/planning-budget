@@ -1,32 +1,52 @@
 <script lang="ts">
-  import { Button, Switch, TextField } from '$lib/components';
-  import { formatMoney } from '$lib/format';
-  import { PLACEHOLDERS } from '$lib/i18n/placeholders';
+  import { Button } from '$lib/components';
+  import { formatMoney, formatMonth } from '$lib/format';
   import { getSavingsVm } from '../savings.svelte';
+  import NewGoalForm from './NewGoalForm.svelte';
   import SavingCard from './SavingCard.svelte';
 
   const vm = getSavingsVm();
 </script>
 
 <section class="list" aria-labelledby="savings-title">
-  <h2 id="savings-title">Накопления</h2>
+  <header class="head">
+    <h2 id="savings-title">Накопления</h2>
+    <p class="month">
+      Всего отложено в {formatMonth(vm.month).toLowerCase()}:
+      <b class="num">{formatMoney(vm.monthTotal)}</b>
+    </p>
+    <Button
+      variant="success"
+      aria-expanded={vm.newOpen}
+      onclick={() => {
+        vm.newOpen = !vm.newOpen;
+      }}><span aria-hidden="true">+</span> Новая цель</Button
+    >
+  </header>
+  {#if vm.newOpen}<NewGoalForm />{/if}
   <ul class="cards">
     {#each vm.cards as card (card.categoryId)}
       <li><SavingCard {card} /></li>
     {:else}
-      <li class="empty">Накоплений пока нет. Добавьте первое ниже.</li>
+      <li class="empty">Накоплений пока нет. Создайте первую цель кнопкой «Новая цель».</li>
     {/each}
   </ul>
   {#if vm.closed.length > 0}
     <div class="closed">
-      <Switch
-        checked={vm.showClosed}
-        onchange={(checked: boolean) => {
-          vm.showClosed = checked;
-        }}>Показать закрытые цели ({vm.closed.length})</Switch
+      <button
+        type="button"
+        class="closed-toggle"
+        aria-expanded={vm.showClosed}
+        aria-controls="closed-goals"
+        onclick={() => {
+          vm.showClosed = !vm.showClosed;
+        }}
       >
+        <span class="chev" class:open={vm.showClosed} aria-hidden="true">›</span>
+        Закрытые цели ({vm.closed.length})
+      </button>
       {#if vm.showClosed}
-        <ul class="goals">
+        <ul class="goals" id="closed-goals">
           {#each vm.closed as goal (goal.categoryId)}
             <li class="goal">
               <span class="goal-name">{goal.name}</span>
@@ -45,30 +65,6 @@
       {/if}
     </div>
   {/if}
-  <form
-    class="add"
-    onsubmit={(event) => {
-      event.preventDefault();
-      void vm.add();
-    }}
-  >
-    <TextField
-      id="saving-new"
-      label="Новое накопление"
-      placeholder={PLACEHOLDERS.savingName}
-      bind:value={vm.newName}
-    />
-    <Button
-      type="submit"
-      variant="secondary"
-      loading={vm.adding}
-      disabled={vm.newName.trim() === ''}>Добавить накопление</Button
-    >
-  </form>
-  <p class="hint">
-    Каждая сумма — обычный расход в категории накопления за выбранный месяц. Новый месяц начинается
-    пустым.
-  </p>
 </section>
 
 <style>
@@ -78,37 +74,67 @@
     gap: var(--sp-3);
     min-width: 0;
   }
+  .head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-3);
+  }
   h2 {
     margin: 0;
+    margin-right: auto;
     font-size: var(--fs-15);
     font-weight: var(--fw-semibold);
   }
+  .month {
+    margin: 0;
+    color: var(--muted);
+    font-size: var(--fs-13);
+  }
+  .month b {
+    color: var(--ink);
+  }
   .cards {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr));
+    align-items: start;
     gap: var(--sp-3);
     margin: 0;
     padding: 0;
     list-style: none;
   }
-  /* Поле и обычная кнопка в одну строку: кнопка по высоте как поле, не растягивается. */
-  .add {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: var(--sp-3);
-  }
-  .add :global(.field) {
-    flex: 0 1 360px;
-    width: auto;
-  }
-  .add :global(.btn) {
-    flex: none;
+  .cards > li {
+    min-width: 0;
   }
   .closed {
     display: flex;
     flex-direction: column;
     gap: var(--sp-2);
+  }
+  .closed-toggle {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    gap: var(--sp-2);
+    min-height: var(--h-control-sm);
+    padding: 0 var(--sp-2);
+    border: 0;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--ink-2);
+    font: inherit;
+    font-size: var(--fs-13);
+    cursor: pointer;
+  }
+  .closed-toggle:hover {
+    background: var(--line-2);
+  }
+  .chev {
+    display: inline-block;
+    transition: transform var(--dur-fast) var(--ease-out);
+  }
+  .chev.open {
+    transform: rotate(90deg);
   }
   .goals {
     display: flex;
@@ -138,9 +164,7 @@
   .goal-total {
     color: var(--muted);
   }
-  .empty,
-  .hint {
-    margin: 0;
+  .empty {
     color: var(--muted);
     font-size: var(--fs-13);
   }

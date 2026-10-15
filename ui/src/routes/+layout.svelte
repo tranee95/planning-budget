@@ -11,6 +11,7 @@
   import { startActivityPing } from '$lib/activity';
   import { events } from '$lib/api/bindings';
   import { ApiError } from '$lib/api/call';
+  import { installClientErrorLog } from '$lib/client-log';
   import { errorText } from '$lib/i18n/errors';
   import { prefs } from '$lib/stores/prefs.svelte';
   import { routeFor, session } from '$lib/stores/session.svelte';
@@ -20,6 +21,7 @@
   let bootError = $state<string | null>(null);
 
   onMount(() => {
+    const stopErrorLog = installClientErrorLog();
     let unlisten: (() => void) | undefined;
     let disposed = false;
     // VaultLocked приходит от бэкенда (автоблокировка, ⌘L, сброс): чистим данные и уходим на /lock.
@@ -44,6 +46,7 @@
     })();
     return () => {
       disposed = true;
+      stopErrorLog();
       unlisten?.();
     };
   });

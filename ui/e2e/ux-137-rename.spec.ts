@@ -1,20 +1,17 @@
 import { expect, test, type Page } from '@playwright/test';
+import { addAmount, addGoal, pickMenu } from './savings-helpers';
 
 async function addDeposit(page: Page, name: string): Promise<void> {
   const card = page.getByRole('article', { name });
-  await card.getByRole('button', { name: /Добавить сумму/ }).click();
-  await page.getByLabel('Сумма, ₽').fill('3000');
-  await page.keyboard.press('Enter');
+  await addAmount(card, '3000');
   await expect(card.locator('header')).toContainText(/3\s000/);
-  await page.keyboard.press('Escape');
 }
 
 test('#137: клик по названию, ввод, Enter: имя обновляется в карточке и в легенде графика', async ({
   page
 }) => {
   await page.goto('/savings?vault=open');
-  await page.getByLabel('Новое накопление').fill('Отпуск');
-  await page.getByRole('button', { name: 'Добавить накопление' }).click();
+  await addGoal(page, 'Отпуск');
   await addDeposit(page, 'Накопления');
   await addDeposit(page, 'Отпуск');
   const legend = page.locator('figure .legend');
@@ -67,8 +64,7 @@ test('#137: занятое имя и пустое имя отклоняются 
   page
 }) => {
   await page.goto('/savings?vault=open');
-  await page.getByLabel('Новое накопление').fill('Отпуск');
-  await page.getByRole('button', { name: 'Добавить накопление' }).click();
+  await addGoal(page, 'Отпуск');
   await expect(page.getByRole('article', { name: 'Отпуск' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Переименовать накопление «Накопления»' }).click();
@@ -86,17 +82,13 @@ test('#137: занятое имя и пустое имя отклоняются 
 
 test('#137: у закрытой цели нет кнопки переименования', async ({ page }) => {
   await page.goto('/savings?vault=open');
-  await page.getByLabel('Новое накопление').fill('Отпуск');
-  await page.getByRole('button', { name: 'Добавить накопление' }).click();
-  await page
-    .getByRole('article', { name: 'Отпуск' })
-    .getByRole('button', { name: /Закрыть цель/ })
-    .click();
+  await addGoal(page, 'Отпуск');
+  await pickMenu(page.getByRole('article', { name: 'Отпуск' }), 'Закрыть цель');
   await page
     .getByRole('dialog', { name: 'Закрыть цель?' })
     .getByRole('button', { name: 'Закрыть цель' })
     .click();
-  await page.getByText(/Показать закрытые цели/).click();
+  await page.getByRole('button', { name: /Закрытые цели/ }).click();
   await expect(page.getByText('Отпуск').first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Переименовать накопление «Отпуск»' })).toHaveCount(
     0

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
   import { Button, Chart, EmptyState, Kpi, Modal, Skeleton } from '$lib/components';
-  import { formatMonth } from '$lib/format';
+  import { formatMoney, formatMonth } from '$lib/format';
   import { FORMULAS } from '$lib/formulas';
   import { month } from '$lib/stores/month.svelte';
   import SavingsList from './_components/SavingsList.svelte';
@@ -105,6 +105,35 @@
         onclick={() => {
           void vm.confirmClose();
         }}>Закрыть цель</Button
+      >
+    {/snippet}
+  </Modal>
+{/if}
+
+{#if vm.deleteAsk}
+  <Modal
+    title="Удалить цель?"
+    width={460}
+    onclose={() => {
+      vm.cancelDelete();
+    }}
+  >
+    <p class="ask">
+      Цель «{vm.deleteAsk.name}» и все её суммы ({formatMoney(vm.deleteAsk.total)}) пропадут из
+      списка, итогов и графика. Сразу после удаления можно нажать «Вернуть» или ⌘Z.
+    </p>
+    {#snippet footer()}
+      <Button
+        variant="ghost"
+        onclick={() => {
+          vm.cancelDelete();
+        }}>Отмена</Button
+      >
+      <Button
+        variant="danger"
+        onclick={() => {
+          void vm.confirmDelete();
+        }}>Удалить цель</Button
       >
     {/snippet}
   </Modal>

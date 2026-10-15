@@ -1,6 +1,6 @@
 import { clearMocks } from '@tauri-apps/api/mocks';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { categoriesApi } from '$lib/api/data';
+import { categoriesApi, planApi } from '$lib/api/data';
 import { resetMockBudget } from '$lib/api/mock/budget';
 import { installMocks } from '$lib/api/mock/install';
 import { categories } from '$lib/stores/categories.svelte';
@@ -202,6 +202,22 @@ it('план месяца задаётся по накоплению и отра
   expect(await vm.setPlan(id, 2_000_000)).toBe(true);
   expect(vm.cards[0]?.plan).toBe(2_000_000);
   expect(vm.planTotal).toBe(2_000_000);
+});
+
+it('в зафиксированном месяце план не меняется: показан снимок, сохранение отклоняется', async () => {
+  const vm = await opened();
+  const id = vm.cards[0]?.categoryId ?? 0;
+  await planApi.lock(vm.month);
+  await vm.load(vm.month);
+  expect(vm.locked).toBe(true);
+  const before = vm.cards[0]?.plan;
+  expect(await vm.setPlan(id, 2_000_000)).toBe(false);
+  expect(vm.cards[0]?.plan).toBe(before);
+  await planApi.unlock(vm.month);
+  await vm.load(vm.month);
+  expect(vm.locked).toBe(false);
+  expect(await vm.setPlan(id, 2_000_000)).toBe(true);
+  expect(vm.cards[0]?.plan).toBe(2_000_000);
 });
 
 it('накоплено и помесячные взносы приходят из Rust и меняются вместе с суммами', async () => {
@@ -407,4 +423,64 @@ it('переименование: закрытая цель не переиме�
   expect(vm.renamingId).toBeNull();
   expect(await vm.rename(id, 'Другое')).toBe(false);
   expect(await nameOf(id)).toBe('Накопления');
+});
+
+// ---- редизайн секции: свёрнутость, план в шапке, удаление цели ----
+
+it('при трёх и более целях раскрыта только первая; выбор пользователя главнее', async () => {
+  const vm = await opened();
+  for (const name of ['Отпуск', 'Ремонт']) {
+    vm.newName = name;
+    await vm.add();
+  }
+  const [first, second] = vm.cards;
+  expect(vm.cards.length).toBeGreaterThan(2);
+  expect(vm.isOpen(first?.categoryId ?? 0)).toBe(true);
+  expect(vm.isOpen(second?.categoryId ?? 0)).toBe(false);
+  vm.toggle(second?.categoryId ?? 0);
+  expect(vm.isOpen(second?.categoryId ?? 0)).toBe(true);
+  vm.toggle(first?.categoryId ?? 0);
+  expect(vm.isOpen(first?.categoryId ?? 0)).toBe(false);
+});
+
+it('план из шапки: пустое поле убирает план, прежняя сумма ничего не пишет', async () => {
+  const vm = await opened();
+  const id = vm.cards[0]?.categoryId ?? 0;
+  vm.startPlanEdit(id);
+  expect(vm.planEditingId).toBe(id);
+  expect(await vm.savePlan(id, 2_500_000)).toBe(true);
+  expect(vm.planEditingId).toBeNull();
+  expect(vm.cards[0]?.plan).toBe(2_500_000);
+  expect(await vm.savePlan(id, 2_500_000)).toBe(true);
+  expect(await vm.savePlan(id, null)).toBe(true);
+  expect(vm.cards[0]?.plan).toBe(0);
+});
+
+it('новая цель создаётся сразу с планом на месяц и закрывает форму', async () => {
+  const vm = await opened();
+  vm.newOpen = true;
+  vm.newName = 'Отпуск';
+  vm.newPlan = 1_000_000;
+  expect(await vm.add()).toBe(true);
+  expect(vm.newOpen).toBe(false);
+  expect(vm.newPlan).toBeNull();
+  expect(vm.cards.find((c) => c.name === 'Отпуск')?.plan).toBe(1_000_000);
+});
+
+it('удаление цели убирает её суммы и карточку, «Вернуть» возвращает всё', async () => {
+  const vm = await opened();
+  vm.newName = 'Отпуск';
+  await vm.add();
+  const id = vm.cards.find((c) => c.name === 'Отпуск')?.categoryId ?? 0;
+  await put(vm, id, 700_000);
+  const total = vm.progress?.total ?? 0;
+  vm.askDelete(id);
+  expect(vm.deleteAsk?.total).toBe(700_000);
+  await vm.confirmDelete();
+  expect(vm.cards.some((c) => c.categoryId === id)).toBe(false);
+  expect(vm.closed.some((g) => g.categoryId === id)).toBe(false);
+  expect(vm.progress?.total).toBe(total - 700_000);
+  await undoStack.undo();
+  expect(vm.cards.find((c) => c.categoryId === id)?.total).toBe(700_000);
+  expect(vm.progress?.total).toBe(total);
 });

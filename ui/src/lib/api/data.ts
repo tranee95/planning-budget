@@ -1,6 +1,7 @@
 import { commands } from './bindings';
 import type {
   CategoryInput,
+  ClientErrorDto,
   FilterScreenDto,
   CardPlacementDto,
   CategoryPatchDto_Deserialize,
@@ -164,4 +165,8 @@ export const savingsApi = {
   setFixedPlan: (categoryId: number, validFrom: string, amount: number) =>
     call(commands.savingsFixedSet(categoryId, validFrom, amount)),
   progress: (month: string) => call(commands.savingsProgress(month))
+};
+
+export const clientLogApi = {
+  error: (entry: ClientErrorDto) => call(commands.clientErrorLog(entry))
 };
