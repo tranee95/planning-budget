@@ -58,7 +58,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERBMjIwMjNCQUVFM0IyQzkKUldUSnN1T3VPd0lpMnBqQmoxVVpabVB4YVdJS3JtNDAybW96aDhzRUJBSFh0VkVHTHVhTklJMlQK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEMwNTM5QTdDREQ1QzU1M0IKUldRN1ZWemRmSnBUd0tGWmhwTEJtZnQ4WjFwTjkyWUx2cC95Unc5SVpycW5BRjBtSnpZVHJFRy8K",
       "endpoints": [
         "https://github.com/tranee95/planning-budget/releases/latest/download/latest.json"
       ],
