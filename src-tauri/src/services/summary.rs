@@ -1,7 +1,9 @@
 //! Сводки месяца и года поверх `core::calc`.
 
 use chrono::{Datelike, NaiveDate};
-use planning_budget_core::calc::Ledger;
+use planning_budget_core::calc::{
+    Ledger, SeriesRange, overview_last_month, series_bounds, series_keeps,
+};
 use planning_budget_core::{CalendarDay, YearMonth};
 use planning_budget_storage::Db;
 
@@ -18,13 +20,7 @@ use crate::dto::{
 pub fn month(db: &Db, month: &str, today: NaiveDate) -> Result<MonthOverviewDto, AppError> {
     let month = parse_month(month, "month")?;
     let current = month_of(today)?;
-    let last = if current.year() > month.year() {
-        YearMonth::new(month.year(), 12)?
-    } else if current.year() == month.year() && current > month {
-        current
-    } else {
-        month
-    };
+    let last = overview_last_month(month, current)?;
     let data = db.dataset(YearMonth::first_of_year(month.year())?, last)?;
     let ledger = Ledger::new(&data)?;
     let summary = ledger.month_summary_at(month, calendar_day(today)?)?;
@@ -52,9 +48,6 @@ fn calendar_day(today: NaiveDate) -> Result<CalendarDay, AppError> {
         .map_err(|_| AppError::invalid_field("date_invalid", "date"))
 }
 
-/// Сколько лет назад заглядывает период «Всё»: хватает на любую личную историю.
-const MAX_YEARS_BACK: u16 = 10;
-
 /// Ряд месяцев для графика «Обзора». Накопительные значения каждого
 /// месяца считаются с января его года, поэтому данные читаются с января первого года ряда.
 pub fn series(
@@ -63,24 +56,20 @@ pub fn series(
     range: SeriesRangeDto,
 ) -> Result<Vec<MonthSummaryDto>, AppError> {
     let month = parse_month(month, "month")?;
-    let year = month.year();
-    let (from, to) = match range {
-        SeriesRangeDto::Year => (YearMonth::first_of_year(year)?, YearMonth::new(year, 12)?),
-        SeriesRangeDto::Last12 => ((0..11).fold(month, |m, _| m.pred().unwrap_or(m)), month),
-        SeriesRangeDto::All => (
-            YearMonth::first_of_year(year.saturating_sub(MAX_YEARS_BACK).max(1970))?,
-            YearMonth::new(year, 12)?,
-        ),
+    let range = match range {
+        SeriesRangeDto::Year => SeriesRange::Year,
+        SeriesRangeDto::Last12 => SeriesRange::Last12,
+        SeriesRangeDto::All => SeriesRange::All,
     };
+    let (from, to) = series_bounds(month, range)?;
     let data = db.dataset(YearMonth::first_of_year(from.year())?, to)?;
     let ledger = Ledger::new(&data)?;
     let mut months = Vec::new();
     for m in from.iter_to(to) {
         let summary = ledger.month_summary(m)?;
-        if range == SeriesRangeDto::All && summary.income.is_zero() && summary.expenses.is_zero() {
-            continue;
+        if series_keeps(range, &summary) {
+            months.push(MonthSummaryDto::from(&summary));
         }
-        months.push(MonthSummaryDto::from(&summary));
     }
     Ok(months)
 }

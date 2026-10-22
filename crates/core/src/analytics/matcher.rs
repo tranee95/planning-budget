@@ -5,14 +5,7 @@ use std::collections::BTreeSet;
 use crate::model::{Category, CategoryId, DataSet, Income, Transaction};
 use crate::period::YearMonth;
 use crate::query::{CategoryRef, Filter, RecordKind};
-
-/// Нижний регистр и `ё = е`, как `norm()` в хранилище.
-pub(crate) fn normalize(s: &str) -> String {
-    s.chars()
-        .flat_map(char::to_lowercase)
-        .map(|c| if c == 'ё' { 'е' } else { c })
-        .collect()
-}
+use crate::text::normalize;
 
 /// Фильтр, у которого ссылки на категории уже разрешены в id.
 pub(crate) struct Matcher {
@@ -85,7 +78,7 @@ impl Matcher {
             return true;
         }
         let tags: BTreeSet<String> = tags.iter().map(|t| normalize(t)).collect();
-        (self.tags.is_empty() || self.tags.iter().any(|t| tags.contains(t)))
+        (self.tags.is_empty() || self.tags.iter().all(|t| tags.contains(t)))
             && self.excluded_tags.is_disjoint(&tags)
     }
 

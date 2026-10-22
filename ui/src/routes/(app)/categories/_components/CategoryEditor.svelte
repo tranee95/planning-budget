@@ -1,10 +1,10 @@
 <script lang="ts">
   import { PLACEHOLDERS } from '$lib/i18n/placeholders';
   import type { CategoryKindDto } from '$lib/api/bindings';
-  import { Button, MoneyInput, Segmented, TextField } from '$lib/components';
+  import Check from '@lucide/svelte/icons/check';
+  import { Button, MoneyInput, Segmented, Sheet, TextField } from '$lib/components';
   import { CATEGORY_COLORS } from '$lib/category-colors';
-  import { formatMoney, formatMonth } from '$lib/format';
-  import { pop } from '$lib/motion';
+  import { formatMoney, formatMonthGenitive } from '$lib/format';
   import { getCategoriesVm } from '../categories.svelte';
 
   const vm = getCategoriesVm();
@@ -20,6 +20,12 @@
     savings: 'Сбережения'
   } as Record<CategoryKindDto, string>;
 
+  /** Десять цветов палитры; цвет, выбранный раньше и вышедший из палитры, остаётся в списке и отмечен. */
+  const palette = $derived(
+    CATEGORY_COLORS.some((c) => c.toLowerCase() === vm.draft.color.toLowerCase())
+      ? CATEGORY_COLORS
+      : [...CATEGORY_COLORS, vm.draft.color]
+  );
   const isNew = $derived(vm.selected === 'new');
   const row = $derived(vm.rows.find((r) => r.category.id === vm.selected) ?? null);
   const title = $derived(isNew ? 'Новая категория' : (vm.current?.name ?? ''));
@@ -29,9 +35,15 @@
   );
 </script>
 
-<aside class="editor" aria-label="Редактирование категории" in:pop>
-  <h2>{title}</h2>
+<Sheet
+  {title}
+  width={400}
+  onclose={() => {
+    vm.closeEditor();
+  }}
+>
   <form
+    id="cat-form"
     onsubmit={(e) => {
       e.preventDefault();
       void vm.save();
@@ -47,7 +59,7 @@
     <div class="group">
       <span class="lbl" id="cat-color-label">Цвет</span>
       <div class="colors" role="radiogroup" aria-labelledby="cat-color-label">
-        {#each CATEGORY_COLORS as color (color)}
+        {#each palette as color (color)}
           <button
             type="button"
             role="radio"
@@ -59,7 +71,8 @@
             onclick={() => {
               vm.draft.color = color;
             }}
-          ></button>
+            >{#if vm.draft.color === color}<Check size={16} aria-hidden="true" />{/if}</button
+          >
         {/each}
       </div>
     </div>
@@ -77,6 +90,7 @@
         />
       {:else}
         <span class="kind">{KIND_LABEL[vm.draft.kind]}</span>
+        <span class="hint">Тип задаётся при создании категории и не меняется.</span>
       {/if}
     </div>
 
@@ -88,7 +102,7 @@
         bind:value={vm.draft.limit}
       />
       <span class="hint">
-        Действует с {formatMonth(vm.month)}. Прошлые месяцы сохранят свои лимиты.
+        Действует с {formatMonthGenitive(vm.month)}. Прошлые месяцы сохранят свои лимиты.
       </span>
     </div>
 
@@ -119,48 +133,29 @@
     {#if vm.fieldError}
       <p class="error" role="alert">{vm.fieldError}</p>
     {/if}
-
-    <div class="actions">
-      {#if !isNew && vm.current}
-        {@const archived = vm.current.archived}
-        {@const id = vm.current.id}
-        <Button
-          onclick={() => {
-            if (archived) void vm.setArchived(id, false);
-            else vm.askArchive(id);
-          }}>{archived ? 'Вернуть из архива' : 'В архив'}</Button
-        >
-      {:else}
-        <Button
-          onclick={() => {
-            vm.closeEditor();
-          }}>Отмена</Button
-        >
-      {/if}
-      <Button type="submit" variant="primary" loading={vm.saving}>Сохранить</Button>
-    </div>
   </form>
-</aside>
+  {#snippet footer()}
+    {#if !isNew && vm.current}
+      {@const archived = vm.current.archived}
+      {@const id = vm.current.id}
+      <Button
+        onclick={() => {
+          if (archived) void vm.setArchived(id, false);
+          else vm.askArchive(id);
+        }}>{archived ? 'Вернуть из архива' : 'В архив'}</Button
+      >
+    {:else}
+      <Button
+        onclick={() => {
+          vm.closeEditor();
+        }}>Отмена</Button
+      >
+    {/if}
+    <Button type="submit" form="cat-form" variant="primary" loading={vm.saving}>Сохранить</Button>
+  {/snippet}
+</Sheet>
 
 <style>
-  .editor {
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-4);
-    width: 360px;
-    flex-shrink: 0;
-    padding: var(--sp-6);
-    border: 1px solid var(--line);
-    border-radius: var(--r-xl);
-    background: var(--surface);
-    box-shadow: var(--shadow);
-    overflow-y: auto;
-  }
-  h2 {
-    margin: 0;
-    font-size: var(--fs-15);
-    font-weight: var(--fw-semibold);
-  }
   form {
     display: flex;
     flex-direction: column;
@@ -176,26 +171,33 @@
     font-size: var(--fs-12);
     font-weight: var(--fw-medium);
   }
+  /* 5 × 2: десятый цвет не переносится на третью строку */
   .colors {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--sp-2);
+    display: grid;
+    grid-template-columns: repeat(5, 32px);
+    gap: var(--sp-3);
   }
   .color {
-    width: 26px;
-    height: 26px;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
     padding: 0;
     border: 0;
     border-radius: var(--r-sm);
+    color: var(--accent-ink);
     cursor: pointer;
   }
+  /* выбранный цвет: кольцо и галочка */
   .color.on {
     outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
   .color:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--bg),
+      0 0 0 4px var(--primary);
   }
   .kind {
     font-size: var(--fs-14);
@@ -235,12 +237,5 @@
     margin: 0;
     color: var(--unpl);
     font-size: var(--fs-13);
-  }
-  .actions {
-    display: flex;
-    gap: var(--sp-3);
-  }
-  .actions :global(button) {
-    flex: 1;
   }
 </style>

@@ -102,11 +102,24 @@ export class ExpensesVm {
   /** Карточки категорий: строки уже отфильтрованы, лимиты и факт пришли из Rust. */
   blocks = $derived.by<CategoryBlock[]>(() => {
     const limits = new SvelteMap(this.overview?.limits.map((l) => [l.categoryId, l]));
-    return categories.spending.map((category) => ({
+    const all = categories.spending.map((category) => ({
       category,
       rows: this.visible.filter((t) => t.categoryId === category.id),
       limit: limits.get(category.id) ?? null
     }));
+    // Под фильтром статуса пустые карточки не показываются: иначе экран выглядит сломанным
+    return this.statusFilter.size === 0 ? all : all.filter((b) => b.rows.length > 0);
+  });
+
+  /** Фильтр статусов выбран, но трат с такими статусами в месяце нет. */
+  statusFilterEmpty = $derived(this.statusFilter.size > 0 && this.visible.length === 0);
+
+  /** «Нет трат со статусом «План»» / «…со статусами «План», «Долг»». */
+  statusFilterEmptyText = $derived.by(() => {
+    const names = STATUS_ORDER.filter((st) => this.statusFilter.has(st)).map(
+      (st) => `«${STATUS_LABEL[st]}»`
+    );
+    return `Нет трат со ${names.length > 1 ? 'статусами' : 'статусом'} ${names.join(', ')}`;
   });
 
   /** Итог над сеткой: все три числа считает Rust. */
@@ -212,7 +225,9 @@ export class ExpensesVm {
     try {
       await planApi.copyFromPrevious(this.#month);
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e, () => {
+        void this.copyPlan();
+      });
       return;
     } finally {
       this.copyBusy = false;
@@ -247,7 +262,9 @@ export class ExpensesVm {
     try {
       await transactionsApi.setTags(id, tagIds);
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e, () => {
+        void this.setTags(id, tagIds);
+      });
       return;
     }
     this.tagEditId = null;
@@ -264,6 +281,11 @@ export class ExpensesVm {
   async #applyTags(id: number, tagIds: number[]): Promise<void> {
     await transactionsApi.setTags(id, tagIds);
     await this.load(this.#month);
+  }
+
+  /** «Все»: фильтр по статусам снят. */
+  clearStatus(): void {
+    this.statusFilter.clear();
   }
 
   toggleStatus(status: TxStatusDto): void {
@@ -292,7 +314,9 @@ export class ExpensesVm {
       await transactionsApi.setStatus(id, status);
     } catch (e) {
       this.transactions = prev;
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e, () => {
+        void this.setStatus(id, status);
+      });
       return;
     }
     if (status === 'debt' && before !== undefined && before !== 'debt') {
@@ -403,7 +427,7 @@ export class ExpensesVm {
     const results = await Promise.allSettled(ids.map((id) => transactionsApi.remove(id)));
     const removed = ids.filter((_, i) => results[i]?.status === 'fulfilled');
     const failed = results.find((r) => r.status === 'rejected');
-    if (failed) toasts.push({ kind: 'error', message: errorText(failed.reason) });
+    if (failed) toasts.fail(failed.reason);
     await this.load(this.#month);
     if (removed.length === 0) return;
     const entry = {
@@ -448,7 +472,7 @@ export class ExpensesVm {
     if (ids.length === 0) return;
     const results = await Promise.allSettled(ids.map(action));
     const failed = results.find((r) => r.status === 'rejected');
-    if (failed) toasts.push({ kind: 'error', message: errorText(failed.reason) });
+    if (failed) toasts.fail(failed.reason);
     this.checked.clear();
     await this.load(this.#month);
   }
@@ -514,7 +538,7 @@ export class ExpensesVm {
       this.editingId = null;
       this.#recordEdit(previous, current);
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e);
       return;
     } finally {
       this.#saving = false;
@@ -568,7 +592,7 @@ export class ExpensesVm {
       this.addingTo = null;
       this.trackCreated(created);
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e);
       return;
     } finally {
       this.#committing = false;

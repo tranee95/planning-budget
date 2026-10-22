@@ -1,5 +1,6 @@
 //! Миграции (`user_version`) и SQL-функция `norm()` для FTS.
 
+use planning_budget_core::text::normalize;
 use rusqlite::Connection;
 use rusqlite::functions::FunctionFlags;
 use rusqlite_migration::{M, Migrations};
@@ -24,15 +25,6 @@ const SCRIPTS: &[&str] = &[
 /// Только вперёд: старые файлы не редактируются, схема меняется новой миграцией.
 pub(crate) fn migrations() -> Migrations<'static> {
     Migrations::new(SCRIPTS.iter().map(|sql| M::up(sql)).collect())
-}
-
-/// Нормализация для поиска: lower, ё→е, пробелы схлопнуты.
-pub(crate) fn normalize(text: &str) -> String {
-    text.to_lowercase()
-        .replace('ё', "е")
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
 }
 
 /// `norm(text)` используется во view и триггерах FTS, поэтому должна быть
@@ -444,10 +436,5 @@ mod tests {
             .query_row("SELECT count(*) FROM debt_payments", [], |r| r.get(0))
             .unwrap();
         assert_eq!(left, 0);
-    }
-
-    #[test]
-    fn normalize_lowercases_folds_yo_and_collapses_spaces() {
-        assert_eq!(normalize("  Лёд   ЛЕНТА\t248 "), "лед лента 248");
     }
 }

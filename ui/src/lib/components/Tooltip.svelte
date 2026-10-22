@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import { clampShift } from './popover';
+  import { clampShift, contentLeft, tipFlipsUp } from './popover';
 
   type Props = { text: string; shortcut?: string; children: Snippet };
 
@@ -10,6 +10,7 @@
   let wrap = $state<HTMLSpanElement>();
   let tip = $state<HTMLSpanElement>();
   let shift = $state(0);
+  let up = $state(false);
 
   // У края окна подсказка сдвигается внутрь, а не обрезается.
   function fit(): void {
@@ -20,15 +21,23 @@
       clampShift({
         center: w.left + w.width / 2,
         width: tip.getBoundingClientRect().width,
-        viewport: document.documentElement.clientWidth
+        viewport: document.documentElement.clientWidth,
+        from: contentLeft(wrap)
       }) / zoom;
+    const box = tip.getBoundingClientRect();
+    up = tipFlipsUp({
+      triggerTop: w.top,
+      triggerBottom: w.bottom,
+      height: box.height,
+      viewport: document.documentElement.clientHeight
+    });
   }
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <span class="wrap" aria-describedby={id} bind:this={wrap} onpointerenter={fit} onfocusin={fit}>
   {@render children()}
-  <span class="tip" role="tooltip" {id} bind:this={tip} style:--shift="{shift}px">
+  <span class="tip" class:up role="tooltip" {id} bind:this={tip} style:--shift="{shift}px">
     {text}{#if shortcut}<kbd>{shortcut}</kbd>{/if}
   </span>
 </span>
@@ -64,5 +73,8 @@
   kbd {
     font: var(--fw-medium) var(--fs-11) var(--font-sans);
     opacity: 0.7;
+  }
+  .tip.up {
+    inset-block: auto calc(100% + var(--sp-1));
   }
 </style>

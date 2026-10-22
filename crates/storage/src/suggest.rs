@@ -4,9 +4,9 @@ use planning_budget_core::query::Term;
 use planning_budget_core::{CategoryId, YearMonth};
 use rusqlite::params;
 
-use crate::migrations::normalize;
 use crate::search::{fts_match, to_u64};
 use crate::{Db, StorageError};
+use planning_budget_core::text::normalize;
 
 /// Наименование из истории: категория, в которой его чаще всего вводили, и число таких трат.
 #[derive(Clone, PartialEq, Eq, Debug)]

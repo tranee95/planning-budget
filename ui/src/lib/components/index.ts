@@ -26,6 +26,7 @@ export { default as ToastHost } from './ToastHost.svelte';
 export { default as MonthSwitcher } from './MonthSwitcher.svelte';
 export { default as CommandPalette } from './CommandPalette.svelte';
 export { default as Select } from './Select.svelte';
+export { default as DateField } from './DateField.svelte';
 export { default as Combobox } from './Combobox.svelte';
 export { default as DataTable } from './DataTable.svelte';
 export type { Column } from './table';

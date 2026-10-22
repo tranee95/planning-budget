@@ -63,7 +63,8 @@
     font-weight: var(--fw-semibold);
     letter-spacing: var(--tracking-tight);
     line-height: var(--lh-tight);
-    font-variant-numeric: tabular-nums;
+    /* крупные суммы — пропорциональные цифры: у «1» нет дыры («105 000», а не «1 05 000»); табличные — только в таблицах */
+    font-variant-numeric: proportional-nums;
   }
   .hint {
     color: var(--muted);

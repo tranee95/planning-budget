@@ -5,11 +5,15 @@
     /** Запланировано сверх оплаченного, та же шкала. */
     planned?: number;
     label: string;
+    /** `limit` — расход против лимита (жёлтый с 90 %, красный от 100 %); `goal` — движение к цели (долг, накопление): 100 % — хорошо. */
+    kind?: 'limit' | 'goal';
   };
 
-  let { value, planned = 0, label }: Props = $props();
+  let { value, planned = 0, label, kind = 'limit' }: Props = $props();
 
-  const level = $derived(value + planned > 1 ? 'over' : value + planned >= 0.85 ? 'warn' : 'ok');
+  const level = $derived(
+    kind === 'goal' ? 'ok' : value + planned >= 1 ? 'over' : value + planned >= 0.9 ? 'warn' : 'ok'
+  );
   const paidScale = $derived(Math.min(Math.max(value, 0), 1));
   const plannedScale = $derived(Math.min(Math.max(value + planned, 0), 1));
 </script>
@@ -38,7 +42,10 @@
     position: absolute;
     inset: 0;
     transform-origin: left;
-    transition: transform var(--dur-base) var(--ease-out);
+    /* ширина — scaleX за 320 мс, смена цвета на 90 % и 100 % плавная */
+    transition:
+      transform var(--dur-slow) var(--ease-out),
+      background-color var(--dur-slow) var(--ease-out);
     animation: grow var(--dur-progress) var(--ease-out);
   }
   .paid {
@@ -49,6 +56,15 @@
   }
   .over .paid {
     background: var(--unpl-bar);
+  }
+  /* лимит исчерпан: один короткий пульс полосы */
+  .over {
+    animation: limit-pulse var(--dur-slow) var(--ease-out);
+  }
+  @keyframes limit-pulse {
+    40% {
+      transform: scaleY(1.9);
+    }
   }
   .plan {
     background: repeating-linear-gradient(135deg, var(--plan-bar) 0 4px, transparent 4px 8px);

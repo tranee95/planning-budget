@@ -4,7 +4,7 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { Button, EmptyState, Kpi, Skeleton, Switch } from '$lib/components';
-  import { formatMoney, formatMonth } from '$lib/format';
+  import { formatMoney, formatMonthPrepositional } from '$lib/format';
   import { FORMULAS } from '$lib/formulas';
   import { month } from '$lib/stores/month.svelte';
   import DebtList from './_components/DebtList.svelte';
@@ -94,7 +94,7 @@
       </div>
       <div class="card">
         <Kpi
-          label={`К оплате: ${formatMonth(month.current)}`}
+          label={`К оплате в ${formatMonthPrepositional(month.current)}`}
           amount={overview.paymentsPlanned}
           hint={`оплачено ${formatMoney(overview.paymentsPaid)}`}
           formula={FORMULAS.debtsMonth}
@@ -109,6 +109,10 @@
         />
       </div>
     </div>
+
+    {#if vm.includeClosed && overview.closedCount === 0}
+      <p class="note">Закрытых долгов нет.</p>
+    {/if}
 
     {#if overview.debts.length === 0}
       <EmptyState
@@ -172,5 +176,10 @@
     .kpis {
       grid-template-columns: minmax(0, 1fr);
     }
+  }
+  .note {
+    margin: 0;
+    color: var(--muted);
+    font-size: var(--fs-13);
   }
 </style>

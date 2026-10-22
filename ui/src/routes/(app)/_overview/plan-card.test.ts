@@ -35,13 +35,15 @@ const props = {
   onlock: () => undefined,
   onunlock: () => undefined,
   oncopy: () => undefined,
+  onstart: () => undefined,
+  month: '2026-09',
   onrepay: () => undefined
 };
 
-test('таблица плана: «Фактически» без плановых строк рядом с «Расход с планом»', () => {
+test('таблица плана: «Фактически» без плановых строк рядом с «Факт + план»', () => {
   render(PlanCard, { props: { ...props, lines: [{ category: food, row }] } });
   const headers = screen.getAllByRole('columnheader').map((h) => h.textContent.trim());
-  expect(headers.slice(0, 4)).toEqual(['Статья', 'План', 'Фактически', 'Расход с планом']);
+  expect(headers.slice(0, 4)).toEqual(['Статья', 'План', 'Фактически', 'Факт + план']);
   const line = within(screen.getByRole('row', { name: /Продукты/ }));
   const cells = line.getAllByRole('cell').map((c) => c.textContent.replace(/\s/g, ' ').trim());
   expect(cells[0]).toMatch(/^30 000/);

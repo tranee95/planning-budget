@@ -27,7 +27,11 @@
   ];
 
   // Месяц нужен, когда строки приходят из нескольких месяцев сразу.
-  const columns = $derived(vm.filtered ? COLUMNS : COLUMNS.filter((c) => c.id !== 'month'));
+  // Пустую колонку «Дата» не показываем: в ней только прочерки.
+  const hasDates = $derived(vm.visible.some((t) => t.date !== null));
+  const columns = $derived(
+    COLUMNS.filter((c) => (c.id !== 'month' || vm.filtered) && (c.id !== 'date' || hasDates))
+  );
   const tagNames = (ids: readonly number[]): string =>
     ids
       .map((id) => tags.byId.get(id)?.name ?? '')
@@ -58,6 +62,20 @@
       />
       Выбрать все ({vm.visible.length})
     </label>
+    {#if vm.filtered}
+      <!-- Поиск идёт по всем месяцам, а не только по выбранному в шапке -->
+      <span class="scope" title="Поиск идёт по всем месяцам, а не по выбранному в шапке">
+        Весь период
+        <button
+          type="button"
+          class="scope-reset"
+          aria-label="Сбросить поиск и вернуться к {formatMonth(vm.month)}"
+          onclick={() => {
+            vm.filter.clear();
+          }}>×</button
+        >
+      </span>
+    {/if}
     {#if vm.checkedVisible.length > 0}
       <div class="actions" role="toolbar" aria-label="Действия с выбранными">
         <span class="count">Выбрано {vm.checkedVisible.length}</span>
@@ -279,6 +297,35 @@
     width: 24px;
     height: 24px;
     cursor: pointer;
+  }
+  .scope {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    height: 28px;
+    padding-inline: var(--sp-3) var(--sp-1);
+    border-radius: var(--r-full);
+    background: var(--accent-soft);
+    color: var(--ink-2);
+    font-size: var(--fs-12);
+    font-weight: var(--fw-medium);
+  }
+  .scope-reset {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-full);
+    background: transparent;
+    color: inherit;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .scope-reset:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--bg),
+      0 0 0 4px var(--primary);
   }
   .all {
     display: flex;

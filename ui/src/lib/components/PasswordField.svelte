@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { shake as shakeNode } from '$lib/motion/shake';
   import Eye from '@lucide/svelte/icons/eye';
   import EyeOff from '@lucide/svelte/icons/eye-off';
 
@@ -43,25 +44,9 @@
 
   $effect(() => {
     if (shake === 0 || !box) return;
-    const ms = parseFloat(
-      getComputedStyle(document.documentElement).getPropertyValue('--dur-shake')
-    );
-    if (!ms) return;
-    const anim = box.animate(
-      [
-        { transform: 'translateX(0)' },
-        { transform: 'translateX(-6px)' },
-        { transform: 'translateX(6px)' },
-        { transform: 'translateX(-6px)' },
-        { transform: 'translateX(6px)' },
-        { transform: 'translateX(-6px)' },
-        { transform: 'translateX(6px)' },
-        { transform: 'translateX(0)' }
-      ],
-      { duration: ms, easing: 'ease-in-out' }
-    );
+    const anim = shakeNode(box);
     return () => {
-      anim.cancel();
+      anim?.cancel();
     };
   });
 
@@ -146,11 +131,15 @@
       box-shadow var(--dur-fast) var(--ease-out);
   }
   .box:focus-within {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--focus-ring);
   }
   .box.invalid {
     border-color: var(--unpl-bar);
+  }
+  .box.invalid:focus-within {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px var(--danger-ring);
   }
   input {
     flex: 1;
@@ -190,9 +179,13 @@
   }
   .toggle:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    box-shadow:
+      0 0 0 2px var(--bg),
+      0 0 0 4px var(--primary);
   }
+  /* сообщение об ошибке появляется с лёгким сдвигом, а не рывком */
   .error {
+    animation: error-in var(--dur-base) var(--ease-out);
     margin: var(--sp-2) 0 0;
     color: var(--unpl);
     font-size: var(--fs-13);
@@ -201,5 +194,11 @@
     margin: var(--sp-2) 0 0;
     color: var(--muted);
     font-size: var(--fs-12);
+  }
+  @keyframes error-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
   }
 </style>

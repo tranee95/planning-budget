@@ -375,3 +375,58 @@ fn income_date_can_be_set_and_cleared_by_a_patch() {
     assert_eq!(cleared.current.date, None);
     assert_eq!(cleared.current.month, income.month);
 }
+
+#[test]
+fn returned_records_equal_a_fresh_read_and_a_rejected_write_leaves_no_open_transaction() {
+    let (_dir, mut db) = seeded();
+    let food = food(&db);
+    let created = db
+        .transaction_create(&new_tx(food, "2026-10", "  Хлеб  "), now())
+        .unwrap();
+    assert_eq!(created, db.transaction(created.id).unwrap());
+
+    let updated = db
+        .transaction_update(
+            created.id,
+            &TransactionPatch {
+                month: Some(ym("2026-11")),
+                comment: Some(Some("к чаю".to_owned())),
+                ..TransactionPatch::default()
+            },
+            now(),
+        )
+        .unwrap();
+    assert_eq!(updated.previous, created);
+    assert_eq!(updated.current, db.transaction(created.id).unwrap());
+
+    let income = db
+        .income_create(&new_income("2026-10", "Зарплата"), now())
+        .unwrap();
+    assert_eq!(income, db.income(income.id).unwrap());
+    let changed = db
+        .income_update(
+            income.id,
+            &IncomePatch {
+                comment: Some(Some("аванс".to_owned())),
+                ..IncomePatch::default()
+            },
+            now(),
+        )
+        .unwrap();
+    assert_eq!(changed.current, db.income(income.id).unwrap());
+
+    // Отклонённая правка откатывается целиком, и следующая запись проходит без ошибки.
+    assert!(matches!(
+        db.transaction_update(
+            created.id,
+            &TransactionPatch {
+                amount: Some(Money::ZERO),
+                ..TransactionPatch::default()
+            },
+            now()
+        ),
+        Err(StorageError::Invalid(_))
+    ));
+    db.transaction_create(&new_tx(food, "2026-10", "Молоко"), now())
+        .unwrap();
+}

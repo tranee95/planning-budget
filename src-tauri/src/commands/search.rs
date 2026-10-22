@@ -1,6 +1,6 @@
 //! Глобальный поиск палитры ⌘K.
 
-use chrono::{Datelike as _, Local, Utc};
+use crate::clock::Now;
 use tauri::State;
 
 use crate::AppError;
@@ -12,7 +12,7 @@ use crate::services::search as service;
 use crate::state::AppState;
 
 fn current_year() -> u16 {
-    u16::try_from(Local::now().year()).unwrap_or(2026)
+    Now::capture().year()
 }
 
 #[tauri::command]
@@ -76,7 +76,7 @@ pub async fn filters_save(
     screen: FilterScreenDto,
 ) -> Result<SavedFilterDto, AppError> {
     state
-        .with_session(move |db| service::filter_save(db, &name, &query, screen, Utc::now()))
+        .with_session(move |db| service::filter_save(db, &name, &query, screen, Now::capture().utc))
         .await
 }
 
@@ -104,7 +104,7 @@ pub async fn tx_suggest(
 pub async fn tx_category_usage(
     state: State<'_, AppState>,
 ) -> Result<Vec<CategoryUsageDto>, AppError> {
-    let today = Local::now().date_naive();
+    let today = Now::capture().today;
     state
         .with_session(move |db| service::category_usage(db, today))
         .await

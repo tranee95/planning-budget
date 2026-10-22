@@ -10,7 +10,7 @@ import type {
 
 export const TYPES: readonly { value: ChartTypeDto; label: string }[] = [
   { value: 'bar', label: 'Столбцы' },
-  { value: 'stacked_bar', label: 'С накоплением' },
+  { value: 'stacked_bar', label: 'Стек' },
   { value: 'hbar', label: 'Полосы' },
   { value: 'line', label: 'Линия' },
   { value: 'area', label: 'Область' },

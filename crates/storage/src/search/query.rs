@@ -6,9 +6,9 @@ use rusqlite::params_from_iter;
 use rusqlite::types::Value;
 
 use crate::categories::kind_str;
-use crate::migrations::normalize;
 use crate::records::RecordSource;
 use crate::{Db, StorageError};
+use planning_budget_core::text::normalize;
 
 use super::to_u64;
 

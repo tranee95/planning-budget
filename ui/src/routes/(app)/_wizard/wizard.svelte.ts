@@ -4,8 +4,8 @@ import type {
   PlanWizardInputDto,
   WizardSavingsDto
 } from '$lib/api/bindings';
-import { planApi, savingsApi } from '$lib/api/data';
-import { currentMonth, formatMonth } from '$lib/format';
+import { planApi } from '$lib/api/data';
+import { currentMonth, formatMonth, formatMonthLower } from '$lib/format';
 import { errorText } from '$lib/i18n/errors';
 import { categories } from '$lib/stores/categories.svelte';
 import { onboarding } from '$lib/stores/onboarding.svelte';
@@ -25,6 +25,8 @@ export type SavingsRow = {
 export class WizardVm {
   readonly month: string;
   readonly monthName: string;
+  /** Для фраз «План на март 2027»: с маленькой буквы. */
+  readonly monthPhrase: string;
   step = $state(0);
   incomes = $state<IncomeRow[]>([{ name: 'Зарплата', amount: null }]);
   lines = $state<LineRow[]>([]);
@@ -44,6 +46,7 @@ export class WizardVm {
   constructor(month: string = currentMonth()) {
     this.month = month;
     this.monthName = formatMonth(month);
+    this.monthPhrase = formatMonthLower(month);
   }
 
   /** Ввод в виде, который понимает бэкенд: пустые и нулевые строки отбрасываются. */
@@ -78,15 +81,14 @@ export class WizardVm {
   async init(): Promise<void> {
     this.loading = true;
     try {
-      const [overview, current] = await Promise.all([
-        savingsApi.overview(Number(this.month.slice(0, 4))),
+      const [current] = await Promise.all([
         planApi.month(this.month),
         // Не ensure(): после знакомства стор мог загрузиться до засева и остаться пустым.
         categories.load()
       ]);
       this.blockedReason =
         current.locked || current.hasPlannedLines
-          ? `На ${this.monthName} уже есть план. Мастер заполняет только пустой месяц: суммы меняются на «Расходах», зафиксированный план — на «Обзоре» кнопкой «Разблокировать».`
+          ? `На ${this.monthPhrase} уже есть план. Мастер заполняет только пустой месяц: суммы меняются на «Расходах», зафиксированный план — на «Обзоре» кнопкой «Разблокировать».`
           : null;
       const active = categories.items.filter((c) => !c.archived);
       this.lines = active
@@ -95,9 +97,9 @@ export class WizardVm {
       this.savings = active
         .filter((c) => c.kind === 'savings')
         .map((category) => {
-          const item = overview.items.find((i) => i.categoryId === category.id);
+          const item = current.savingsFixed.find((s) => s.categoryId === category.id);
           // Процент плана (старый сейф) не переносится: до ввода дохода он даёт 0.
-          return { category, fixed: item?.planFixed ?? null };
+          return { category, fixed: item?.fixed ?? null };
         });
       await this.refreshPreview();
     } catch (e) {
@@ -166,7 +168,7 @@ export class WizardVm {
     this.error = '';
     try {
       await planApi.wizardApply(this.month, this.input);
-      toasts.push({ message: `План на ${this.monthName} готов` });
+      toasts.push({ message: `План на ${this.monthPhrase} готов` });
       onboarding.planApplied();
     } catch (e) {
       this.error = errorText(e);

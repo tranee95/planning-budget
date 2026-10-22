@@ -23,7 +23,7 @@ test('категории: новая категория с лимитом с о�
     await page.getByLabel('Лимит в месяц').fill('10000');
     await page.getByRole('button', { name: 'Сохранить' }).click();
     await expect(page.getByRole('button', { name: /Путешествия/ })).toBeVisible();
-    await expect(page.getByText('Действует с Октябрь 2026')).toBeVisible();
+    await expect(page.getByText('Сохранено: Путешествия')).toBeVisible();
   });
 
   await test.step('в сентябре у категории нет лимита', async () => {
@@ -44,8 +44,7 @@ test('категории: архив из редактора', async ({ page }) 
   await openSeptember(page, '/categories');
   await page.getByRole('button', { name: /Развлечения/ }).click();
   await page
-    .getByRole('complementary')
-    .or(page.locator('form'))
+    .getByRole('dialog', { name: 'Развлечения' })
     .getByRole('button', { name: 'В архив', exact: true })
     .click();
   // Архивация требует подтверждения: до него категория остаётся в списке.

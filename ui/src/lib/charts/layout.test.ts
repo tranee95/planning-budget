@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { COLUMNS, bottom, compact, place, sameLayout, settle, sizeOf, type Box } from './layout';
+import {
+  COLUMNS,
+  bottom,
+  compact,
+  place,
+  reflow,
+  sameLayout,
+  settle,
+  sizeOf,
+  type Box
+} from './layout';
 
 const box = (id: number, x: number, y: number, w = 6, h = 4): Box => ({ id, x, y, w, h });
 const at = (boxes: Box[], id: number): Box | undefined => boxes.find((b) => b.id === id);
@@ -72,5 +82,38 @@ describe('helpers', () => {
     expect(sizeOf(box(1, 0, 0, 6))).toBe('M');
     expect(sizeOf(box(1, 0, 0, 12))).toBe('L');
     expect(sizeOf(box(1, 0, 0, 5))).toBeNull();
+  });
+});
+
+describe('reflow', () => {
+  it('fills holes to the left: M + S + S after resize leaves no gap in the row', () => {
+    const boxes = [
+      { id: 1, x: 0, y: 0, w: 6, h: 2 },
+      { id: 2, x: 6, y: 0, w: 4, h: 2 },
+      { id: 3, x: 6, y: 2, w: 4, h: 2 }
+    ];
+    expect(reflow(boxes).map((b) => [b.id, b.x, b.y])).toEqual([
+      [1, 0, 0],
+      [2, 6, 0],
+      [3, 0, 2]
+    ]);
+  });
+  it('never overlaps and keeps every card inside 12 columns', () => {
+    const boxes = Array.from({ length: 9 }, (_, i) => ({
+      id: i,
+      x: (i * 5) % 9,
+      y: i,
+      w: [4, 6, 12][i % 3] ?? 4,
+      h: 3
+    }));
+    const out = reflow(boxes);
+    for (const a of out) {
+      expect(a.x + a.w).toBeLessThanOrEqual(12);
+      for (const b of out)
+        if (a.id < b.id)
+          expect(a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h).toBe(
+            false
+          );
+    }
   });
 });

@@ -172,7 +172,7 @@ export class DebtsVm {
         lender: ''
       };
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e);
     }
   }
 
@@ -296,7 +296,7 @@ export class DebtsVm {
             .remove(debt.id)
             .then(() => this.load(this.#month))
             .catch((e: unknown) => {
-              toasts.push({ kind: 'error', message: errorText(e) });
+              toasts.fail(e);
             });
         }
       }
@@ -308,7 +308,9 @@ export class DebtsVm {
     try {
       await debtsApi.remove(debt.id);
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e, () => {
+        void this.remove(debt);
+      });
       return;
     }
     this.close();
@@ -321,7 +323,7 @@ export class DebtsVm {
             .restore(debt.id)
             .then(() => this.load(this.#month))
             .catch((e: unknown) => {
-              toasts.push({ kind: 'error', message: errorText(e) });
+              toasts.fail(e);
             });
         }
       }
@@ -335,7 +337,9 @@ export class DebtsVm {
       await debtsApi.setPaymentStatus(paymentId, paid ? 'paid' : 'planned', paid ? today : null);
       await this.load(this.#month);
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e, () => {
+        void this.setPayment(paymentId, paid, today);
+      });
     }
   }
 

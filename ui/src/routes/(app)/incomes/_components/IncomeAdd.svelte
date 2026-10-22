@@ -1,13 +1,11 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { PLACEHOLDERS } from '$lib/i18n/placeholders';
-  import { Button, Kbd, Modal, MoneyInput, Segmented } from '$lib/components';
+  import { Button, DateField, Kbd, Modal, MoneyInput, Segmented } from '$lib/components';
   import type { IncomeStatusDto } from '$lib/api/bindings';
-  import { monthRange } from '$lib/format';
   import { getIncomesVm } from '../incomes.svelte';
 
   const vm = getIncomesVm();
-  const range = $derived(monthRange(vm.month));
 
   const STATUSES = [
     { value: 'received', label: 'Получено' },
@@ -19,10 +17,11 @@
   let amount = $state<number | null>(editing?.amount ?? null);
   let sourceName = $state(editing?.sourceName ?? '');
   let date = $state(editing?.date ?? '');
+  let dateValid = $state(true);
   let status = $state<IncomeStatusDto>(editing?.status ?? 'received');
   let saving = $state(false);
 
-  const canSave = $derived(amount !== null && amount > 0 && sourceName.trim() !== '');
+  const canSave = $derived(amount !== null && amount > 0 && sourceName.trim() !== '' && dateValid);
 
   async function save(): Promise<void> {
     if (!canSave || saving || amount === null) return;
@@ -43,7 +42,8 @@
 </script>
 
 <Modal
-  title={editing === null ? 'Новый доход' : 'Доход'}
+  title={editing === null ? 'Новый доход' : 'Изменить доход'}
+  closable
   onclose={() => {
     vm.closeEditor();
   }}
@@ -71,14 +71,15 @@
       </div>
       <div class="group">
         <label class="lbl" for="income-date">Дата</label>
-        <input
+        <DateField
           id="income-date"
-          class="field"
-          type="date"
-          min={range.first}
-          max={range.last}
           bind:value={date}
+          bind:valid={dateValid}
+          describedby={dateValid ? undefined : 'income-date-error'}
         />
+        {#if !dateValid}<span class="err" id="income-date-error" role="alert"
+            >Укажите дату полностью: дд.мм.гггг</span
+          >{/if}
       </div>
     </div>
     <div class="group">
@@ -95,8 +96,25 @@
   </div>
 
   {#snippet footer()}
+    {#if editing !== null}
+      <span class="delete-slot">
+        <Button
+          variant="danger-ghost"
+          onclick={() => {
+            void vm.remove(editing.id);
+            vm.closeEditor();
+          }}>Удалить</Button
+        >
+      </span>
+    {/if}
     <Button
-      size="lg"
+      variant="ghost"
+      onclick={() => {
+        vm.closeEditor();
+      }}>Отмена</Button
+    >
+    <Button
+      variant="primary"
       loading={saving}
       disabled={!canSave}
       onclick={() => {
@@ -107,6 +125,9 @@
 </Modal>
 
 <style>
+  .delete-slot {
+    margin-inline-end: auto;
+  }
   .form {
     display: flex;
     flex-direction: column;
@@ -140,7 +161,11 @@
   }
   .field:focus-visible {
     outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+  }
+  .err {
+    color: var(--unpl);
+    font-size: var(--fs-12);
   }
 </style>

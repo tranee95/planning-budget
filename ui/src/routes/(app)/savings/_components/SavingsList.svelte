@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Button } from '$lib/components';
-  import { formatMoney, formatMonth } from '$lib/format';
+  import { formatMoney, formatMonthPrepositional } from '$lib/format';
   import { getSavingsVm } from '../savings.svelte';
   import NewGoalForm from './NewGoalForm.svelte';
   import SavingCard from './SavingCard.svelte';
@@ -12,11 +12,11 @@
   <header class="head">
     <h2 id="savings-title">Накопления</h2>
     <p class="month">
-      Всего отложено в {formatMonth(vm.month).toLowerCase()}:
+      Всего отложено в {formatMonthPrepositional(vm.month)}:
       <b class="num">{formatMoney(vm.monthTotal)}</b>
     </p>
     <Button
-      variant="success"
+      variant="primary"
       aria-expanded={vm.newOpen}
       onclick={() => {
         vm.newOpen = !vm.newOpen;
@@ -94,17 +94,18 @@
   .month b {
     color: var(--ink);
   }
+  /* независимые колонки: свёрнутая карточка не оставляет дыру в соседней, как строки сетки */
   .cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr));
-    align-items: start;
-    gap: var(--sp-3);
+    column-width: 480px;
+    column-gap: var(--sp-3);
     margin: 0;
     padding: 0;
     list-style: none;
   }
   .cards > li {
     min-width: 0;
+    margin-bottom: var(--sp-3);
+    break-inside: avoid;
   }
   .closed {
     display: flex;

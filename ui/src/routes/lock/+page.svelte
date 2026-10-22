@@ -71,7 +71,7 @@
 <style>
   .autolock {
     margin: var(--sp-3) 0 0;
-    color: var(--faint);
+    color: var(--muted);
     font-size: var(--fs-12);
     text-align: center;
   }

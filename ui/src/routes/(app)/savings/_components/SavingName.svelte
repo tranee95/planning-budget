@@ -46,7 +46,7 @@
 <h3>
   {#if renaming}
     <input
-      class="field"
+      class="field ring-field"
       aria-label="Название накопления"
       autocomplete="off"
       bind:value={draft}

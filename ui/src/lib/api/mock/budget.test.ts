@@ -18,12 +18,18 @@ test('сводка месяца: «в неделю» делится свобод
   expect(empty.topUpToNorm).toBe(0);
 });
 
-test('уровень лимита: меньше 85 % — ok, от 85 % — warn, выше 100 % — over, нулевой факт — ok', () => {
+test('уровень лимита: меньше 90 % — ok, от 90 % — warn, от 100 % — over, нулевой факт — ok', () => {
   const { limits } = budgetHandlers.summary_month({ month: '2026-09' });
   for (const r of limits) {
     if (r.limit === null || r.level === null) continue;
     const expected =
-      r.fact === 0 ? 'ok' : r.fact > r.limit ? 'over' : r.fact * 100 < r.limit * 85 ? 'ok' : 'warn';
+      r.fact === 0
+        ? 'ok'
+        : r.fact >= r.limit
+          ? 'over'
+          : r.fact * 100 < r.limit * 90
+            ? 'ok'
+            : 'warn';
     expect(r.level).toBe(expected);
   }
 });

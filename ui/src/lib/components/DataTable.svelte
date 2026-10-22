@@ -218,16 +218,19 @@
   }
   .th button:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    box-shadow:
+      0 0 0 2px var(--bg),
+      0 0 0 4px var(--primary);
   }
   .body {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
   }
+  /* таблица целиком: кольцо внутри границы, снаружи его обрезала бы прокручиваемая область */
   .table:focus-visible {
     outline: none;
-    box-shadow: inset 0 0 0 3px var(--accent-soft);
+    box-shadow: inset 0 0 0 2px var(--primary);
   }
   .spacer {
     position: relative;

@@ -36,16 +36,21 @@
     width: var(--h-control-sm);
     height: var(--h-control-sm);
   }
-  .icon:hover:not(:disabled) {
-    background: var(--line-2);
-    color: var(--ink);
+  /* только там, где есть наведение: после касания на сенсорном экране серая подложка не залипает */
+  @media (hover: hover) {
+    .icon:hover:not(:disabled) {
+      background: var(--line-2);
+      color: var(--ink);
+    }
   }
   .icon:active:not(:disabled) {
     transform: scale(0.97);
   }
   .icon:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    box-shadow:
+      0 0 0 2px var(--bg),
+      0 0 0 4px var(--primary);
   }
   .icon:disabled {
     opacity: 0.45;

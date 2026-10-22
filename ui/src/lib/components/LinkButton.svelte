@@ -24,6 +24,8 @@
   }
   .link:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    box-shadow:
+      0 0 0 2px var(--bg),
+      0 0 0 4px var(--primary);
   }
 </style>

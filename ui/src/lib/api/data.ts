@@ -10,7 +10,6 @@ import type {
   DebtPaymentStatusDto,
   DebtScheduleKindDto,
   PlanWizardInputDto,
-  SavingsParamsDto,
   SchedulePaymentDto,
   ChartSpecDto,
   IncomeInput,
@@ -159,9 +158,6 @@ export const dashboardsApi = {
 };
 
 export const savingsApi = {
-  overview: (year: number) => call(commands.savingsOverview(year)),
-  setParams: (categoryId: number, params: SavingsParamsDto) =>
-    call(commands.savingsParamsSet(categoryId, params)),
   setFixedPlan: (categoryId: number, validFrom: string, amount: number) =>
     call(commands.savingsFixedSet(categoryId, validFrom, amount)),
   progress: (month: string) => call(commands.savingsProgress(month))

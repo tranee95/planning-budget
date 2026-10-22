@@ -267,11 +267,12 @@ fn limit_follows_history_and_is_absent_before_first_entry() {
 }
 
 #[test]
-fn limit_levels_switch_at_85_and_100_percent() {
+fn limit_levels_switch_at_90_and_100_percent() {
     let cases = [
-        (849, LimitLevel::Ok),
-        (850, LimitLevel::Warn),
-        (1000, LimitLevel::Warn),
+        (899, LimitLevel::Ok),
+        (900, LimitLevel::Warn),
+        (999, LimitLevel::Warn),
+        (1000, LimitLevel::Over),
         (1001, LimitLevel::Over),
     ];
     for (fact_rub, expected) in cases {

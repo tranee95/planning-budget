@@ -134,7 +134,7 @@ it('save: создаёт трату в месяце экрана, закрыва
     date: '2026-09-30'
   });
   expect(expenses.editorOpen).toBe(false);
-  expect(toasts.items.at(-1)?.kind).toBe('info');
+  expect(toasts.items.at(-1)?.kind).toBe('success');
 });
 
 it('save(true): «ещё одну» оставляет форму открытой, очищает сумму и наименование', async () => {

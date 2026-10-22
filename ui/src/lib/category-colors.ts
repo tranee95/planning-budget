@@ -6,7 +6,7 @@ export const CATEGORY_COLORS: readonly string[] = [
   '#D9893A',
   '#DD5249',
   '#C552A0',
-  '#4E8F6E',
+  '#2A9BA8',
   '#E0A73A',
   '#6C7480',
   '#3445D0'

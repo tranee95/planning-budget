@@ -113,9 +113,10 @@
   .card::before {
     content: '';
     position: absolute;
-    inset: 0 var(--r-lg) auto;
-    height: 3px;
-    border-radius: 0 0 var(--r-xs) var(--r-xs);
+    /* на всю ширину и со скруглением карточки: полоса — часть её верхнего края, а не «висит» над ней */
+    inset: -1px -1px auto;
+    height: 4px;
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
     background: var(--category-color);
   }
   header {

@@ -1,5 +1,6 @@
 //! Оболочка Tauri: состояние сессии, команды, события.
 
+mod clock;
 pub mod commands;
 mod data_migration;
 mod dto;
@@ -12,6 +13,7 @@ mod recent;
 pub mod self_test;
 mod services;
 mod state;
+mod sync;
 mod window;
 
 use tauri::Manager as _;

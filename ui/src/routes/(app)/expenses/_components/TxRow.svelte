@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { deleteOnKey } from '$lib/components/row-delete';
+  import { rowIn, rowOut } from '$lib/motion';
   import type { TransactionDto } from '$lib/api/bindings';
   import { StatusDot } from '$lib/components';
   import { STATUS_LABEL } from '$lib/components/status';
@@ -27,7 +29,17 @@
   }
 </script>
 
-<li class="row {row.status}">
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<li
+  class="row {row.status}"
+  in:rowIn
+  out:rowOut
+  onkeydown={(event) => {
+    deleteOnKey(event, () => {
+      ondelete(row.id);
+    });
+  }}
+>
   <button
     type="button"
     class="status"
@@ -37,7 +49,8 @@
       oncycle(row.id);
     }}
   >
-    <StatusDot status={row.status} />
+    <!-- смена статуса: значок «щёлкает» (scale 0,6 → 1 со spring), фон строки перетекает -->
+    {#key row.status}<span class="status-icon"><StatusDot status={row.status} /></span>{/key}
   </button>
   {#if editing}
     <InlineEdit {row} {focus} {onsave} {oncancel} />
@@ -48,7 +61,7 @@
     </button>
     <button
       type="button"
-      class="remove"
+      class="remove reveal-action"
       aria-label="Удалить"
       aria-describedby="tx-name-{uid}"
       title="Удалить"
@@ -60,7 +73,17 @@
 </li>
 
 <style>
+  .status-icon {
+    display: inline-flex;
+    animation: status-pop var(--dur-base) var(--ease-spring);
+  }
+  @keyframes status-pop {
+    from {
+      transform: scale(0.6);
+    }
+  }
   .row {
+    transition: background-color var(--dur-base) var(--ease-out);
     display: flex;
     align-items: center;
     gap: var(--sp-2);

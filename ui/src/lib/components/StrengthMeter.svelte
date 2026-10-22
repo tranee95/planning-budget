@@ -7,6 +7,14 @@
 
   const strength = $derived(passwordStrength(password));
   const filled = $derived(password === '' ? 0 : strength.score + 1);
+
+  /** «Надёжность» — женского рода: «хорошая», а не «хороший». */
+  const RATING = {
+    Слабый: 'слабая',
+    Средний: 'средняя',
+    Хороший: 'хорошая',
+    Надёжный: 'высокая'
+  } as const;
 </script>
 
 {#if password !== ''}
@@ -16,7 +24,7 @@
         <span class:on={n <= filled} class="bar s{strength.score}"></span>
       {/each}
     </div>
-    <span class="label">Надёжность: {strength.label.toLowerCase()}</span>
+    <span class="label">Надёжность: {RATING[strength.label]}</span>
   </div>
   {#if strength.popular}
     <p class="warn">Этот пароль есть в списке самых распространённых. Лучше выбрать другой.</p>

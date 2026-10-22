@@ -1,4 +1,4 @@
-//! Облигации: факт за год и прогноз на 60 месяцев.
+//! Накопления: факт за год и прогноз на 60 месяцев.
 //!
 //! Баланс и купоны считаются в `f64` без промежуточного округления (как в таблице);
 //! в `Money` значения округляются один раз при выводе.
@@ -13,14 +13,14 @@ const FORECAST_MONTHS: u32 = 60;
 
 /// Эффективная и месячная ставки после налога на купон.
 #[derive(Clone, Copy, PartialEq, Debug)]
-pub struct BondRates {
+pub struct DepositRates {
     /// `rate × (1 − tax)`.
     pub effective: f64,
     /// `(1 + effective)^(1/12) − 1`.
     pub monthly: f64,
 }
 
-impl BondRates {
+impl DepositRates {
     /// Ставки накопления: годовая ставка и налог на купон.
     pub fn new(annual_rate: BasisPoints, tax: BasisPoints) -> Self {
         let effective = annual_rate.as_ratio() * (1.0 - tax.as_ratio());
@@ -40,7 +40,7 @@ impl BondRates {
 
 /// Месяц фактического накопления.
 #[derive(Clone, Copy, PartialEq, Debug)]
-pub struct BondsMonth {
+pub struct AccumulationMonth {
     pub month: YearMonth,
     pub savings: Money,
     /// Купон месяца: `баланс прошлого месяца × monthly`.
@@ -54,8 +54,8 @@ pub struct BondsMonth {
 
 /// Факт за год: месяцы от `initial_month` (или января) по декабрь.
 #[derive(Clone, PartialEq, Debug)]
-pub struct BondsFact {
-    pub months: Vec<BondsMonth>,
+pub struct AccumulationFact {
+    pub months: Vec<AccumulationMonth>,
     /// Баланс на конец декабря (при пустом списке месяцев — начальный).
     pub dec_balance: Money,
 }
@@ -85,7 +85,7 @@ pub struct ForecastScenario {
 }
 
 #[derive(Clone, PartialEq, Debug)]
-pub struct BondsForecast {
+pub struct AccumulationForecast {
     pub start_balance: Money,
     pub scenarios: [ForecastScenario; 3],
 }
@@ -94,16 +94,16 @@ impl Ledger<'_> {
     /// Баланс по взносам `contribution(m)` с `initial_month` по декабрь `year`.
     pub(crate) fn accumulate(
         &self,
-        rates: BondRates,
+        rates: DepositRates,
         initial_balance: Money,
         initial_month: YearMonth,
         year: u16,
         contribution: impl Fn(YearMonth) -> Result<Money, CoreError>,
-    ) -> Result<BondsFact, CoreError> {
+    ) -> Result<AccumulationFact, CoreError> {
         let end = YearMonth::new(year, 12)?;
         if initial_month > end {
             // До `initial_month` накопления нет: стартовый баланс ещё не внесён.
-            return Ok(BondsFact {
+            return Ok(AccumulationFact {
                 months: Vec::new(),
                 dec_balance: Money::ZERO,
             });
@@ -121,7 +121,7 @@ impl Ledger<'_> {
                 continue;
             }
             let balance_money = Money::from_kopecks_f64(balance)?;
-            months.push(BondsMonth {
+            months.push(AccumulationMonth {
                 month,
                 savings,
                 coupon: Money::from_kopecks_f64(coupon)?,
@@ -130,7 +130,7 @@ impl Ledger<'_> {
                 coupon_income: balance_money.checked_sub(deposited)?,
             });
         }
-        Ok(BondsFact {
+        Ok(AccumulationFact {
             months,
             dec_balance: Money::from_kopecks_f64(balance)?,
         })
@@ -141,7 +141,7 @@ pub(crate) fn forecast(
     scenario: Scenario,
     contribution: Money,
     start_balance: Money,
-    rates: BondRates,
+    rates: DepositRates,
 ) -> Result<ForecastScenario, CoreError> {
     let mut balance = start_balance.as_f64();
     let (mut y1, mut y3) = (Money::ZERO, Money::ZERO);

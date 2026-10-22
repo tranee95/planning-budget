@@ -2,6 +2,7 @@
   import type { Snippet } from 'svelte';
   import ShieldCheck from '@lucide/svelte/icons/shield-check';
   import Logo from '$lib/components/Logo.svelte';
+  import { session } from '$lib/stores/session.svelte';
 
   type Props = {
     title: string;
@@ -17,7 +18,7 @@
 
 <main class="screen">
   <div class="glow" aria-hidden="true"></div>
-  <div class="panel">
+  <div class="panel" class:leaving={session.leaving}>
     <Logo />
     <h1>{title}</h1>
     <p class="subtitle">{subtitle}</p>
@@ -55,6 +56,15 @@
     width: 380px;
     max-width: 100%;
     animation: pop var(--dur-pop) var(--ease-spring) both;
+    transition:
+      transform var(--dur-pop) var(--ease-in-out),
+      opacity var(--dur-pop) var(--ease-in-out);
+  }
+  /* вход принят: логотип и карточка уходят вверх и гаснут */
+  .panel.leaving {
+    animation: none;
+    transform: translateY(-28px);
+    opacity: 0;
   }
   h1 {
     margin: var(--sp-6) 0 var(--sp-2);

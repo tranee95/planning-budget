@@ -21,7 +21,7 @@ const KINDS: [string, string][] = [
 const STATUSES: [string, string][] = [
   ['Оплачено', 'status.paid'],
   ['Долг', 'status.debt'],
-  ['Внеплановые', 'status.unplanned'],
+  ['Незапланировано', 'status.unplanned'],
   ['План', 'status.planned']
 ];
 const METRIC_LABELS: Record<string, string> = {
@@ -64,8 +64,15 @@ export function mockAnalyticsRun(spec: ChartSpecDto): ChartDataDto {
           : spec.seriesBy === 'category'
             ? CATEGORIES
             : [[METRIC_LABELS[spec.metric] ?? spec.metric, `metric.${spec.metric}`]];
-  const base = percentMetric ? 14 : spec.metric === 'count' ? 40 : 60_000;
-  const values = series.map((_, s) => axis.map((_, i) => wave(s, i, base)));
+  const limitUsage = spec.metric === 'limit_usage';
+  const base = limitUsage ? 100 : percentMetric ? 14 : spec.metric === 'count' ? 40 : 60_000;
+  const values = series.map((m, s) => {
+    const row = axis.map((_, i) => wave(s, i, base));
+    // как в ядре: «накопительно» — нарастающий итог по месяцам, он не убывает без отрицательных месяцев
+    const cumulative = m[1].endsWith('_cum');
+    let sum = 0;
+    return cumulative ? row.map((v) => (sum = Math.round((sum + v) * 100) / 100)) : row;
+  });
   const totals = values[0]?.map((_, i) => values.reduce((sum, row) => sum + (row[i] ?? 0), 0));
   return {
     categories: axis.map(([name]) => name),
@@ -75,7 +82,7 @@ export function mockAnalyticsRun(spec: ChartSpecDto): ChartDataDto {
       ? [
           {
             name: spec.options.showLimit ? 'Лимит' : 'Коридор сбережений',
-            from: 13,
+            from: spec.options.showLimit ? 100 : 13,
             to: spec.options.showLimit ? null : 15
           }
         ]

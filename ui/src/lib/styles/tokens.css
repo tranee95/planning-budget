@@ -27,10 +27,22 @@
   --plan-bar: #c9cbcf;
   --shadow: 0 1px 2px rgba(20, 20, 25, 0.04), 0 8px 24px rgba(20, 20, 25, 0.05);
   --scrim: rgba(23, 24, 27, 0.28);
+  /* кольцо фокуса полей: основной цвет и цвет ошибки с прозрачностью (в тёмной теме плотнее) */
+  --focus-ring: rgba(52, 69, 208, 0.25);
+  --danger-ring: rgba(184, 49, 42, 0.25);
   --kind-mandatory: #5b7fd6;
   --kind-wants: #d9893a;
   --kind-savings: #3aa567;
   --kind-loans: #8c6bd1;
+  /* категориальная палитра графиков: 8 цветов, различимы в своей теме */
+  --chart-1: #3445D0;
+  --chart-2: #2A9BA8;
+  --chart-3: #D9893A;
+  --chart-4: #8C6BD1;
+  --chart-5: #C552A0;
+  --chart-6: #3AA567;
+  --chart-7: #E0A73A;
+  --chart-8: #6C7480;
 
   /* типографика */
   --font-sans: 'Onest Variable', 'Onest', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -80,10 +92,11 @@
 
   /* движение */
   --dur-instant: 80ms;
-  --dur-fast: 140ms;
-  --dur-base: 240ms;
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
   --dur-pop: 340ms;
-  --dur-slow: 380ms;
+  --dur-drawer: 280ms;
+  --dur-slow: 320ms;
   --dur-rise: 460ms;
   --dur-chart: 800ms;
   --dur-progress: 800ms;
@@ -99,6 +112,25 @@
   --z-palette: 60;
   --z-toast: 70;
   --z-tooltip: 80;
+  /* Смысловые имена поверх основных токенов: основной цвет один, остальные — только по смыслу */
+  --primary: var(--accent);
+  --primary-fg: var(--accent-ink);
+  --primary-subtle: var(--accent-soft);
+  --text: var(--ink);
+  --text-muted: var(--muted);
+  --border: var(--line);
+  --success: var(--paid);
+  --success-subtle: var(--paid-bg);
+  --warning: var(--debt);
+  --warning-subtle: var(--debt-bg);
+  --danger: var(--unpl);
+  --danger-subtle: var(--unpl-bg);
+  --neutral: var(--plan);
+  --neutral-subtle: var(--plan-bg);
+  /* доход, расход, сбережения на графиках: одни и те же на Обзоре и в Аналитике */
+  --chart-income: var(--chart-2);
+  --chart-expenses: var(--primary);
+  --chart-savings: var(--paid-bar);
 }
 :root[data-theme='dark'] {
   color-scheme: dark;
@@ -127,11 +159,22 @@
   --plan-bg: #24252a;
   --plan-bar: #4a4c53;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
-  --scrim: rgba(0, 0, 0, 0.55);
+  --scrim: rgba(0, 0, 0, 0.6);
+  --focus-ring: rgba(132, 145, 255, 0.35);
+  --danger-ring: rgba(255, 138, 128, 0.35);
   --kind-mandatory: #7c9ae8;
   --kind-wants: #e8a25c;
   --kind-savings: #4fc080;
   --kind-loans: #a58be0;
+  /* категориальная палитра графиков: 8 цветов, различимы в своей теме */
+  --chart-1: #8491FF;
+  --chart-2: #4FBBC7;
+  --chart-3: #E8A25C;
+  --chart-4: #A58BE0;
+  --chart-5: #E07CC0;
+  --chart-6: #4FC080;
+  --chart-7: #EDC46A;
+  --chart-8: #9EA3AD;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
@@ -160,11 +203,22 @@
     --plan-bg: #24252a;
     --plan-bar: #4a4c53;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
-    --scrim: rgba(0, 0, 0, 0.55);
+    --scrim: rgba(0, 0, 0, 0.6);
+    --focus-ring: rgba(132, 145, 255, 0.35);
+    --danger-ring: rgba(255, 138, 128, 0.35);
     --kind-mandatory: #7c9ae8;
     --kind-wants: #e8a25c;
     --kind-savings: #4fc080;
     --kind-loans: #a58be0;
+    /* категориальная палитра графиков: 8 цветов, различимы в своей теме */
+    --chart-1: #8491FF;
+    --chart-2: #4FBBC7;
+    --chart-3: #E8A25C;
+    --chart-4: #A58BE0;
+    --chart-5: #E07CC0;
+    --chart-6: #4FC080;
+    --chart-7: #EDC46A;
+    --chart-8: #9EA3AD;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -172,6 +226,7 @@
     --dur-fast: 0ms;
     --dur-base: 0ms;
     --dur-pop: 0ms;
+    --dur-drawer: 0ms;
     --dur-rise: 0ms;
     --dur-slow: 0ms;
     --dur-chart: 0ms;
@@ -185,6 +240,7 @@
   --dur-fast: 0ms;
   --dur-base: 0ms;
   --dur-pop: 0ms;
+  --dur-drawer: 0ms;
   --dur-rise: 0ms;
   --dur-slow: 0ms;
   --dur-chart: 0ms;

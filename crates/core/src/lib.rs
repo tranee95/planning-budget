@@ -8,7 +8,9 @@ mod model;
 mod money;
 mod period;
 pub mod query;
+pub mod records;
 mod seed;
+pub mod text;
 
 pub use error::{CoreError, MoneyError};
 pub use legacy::{

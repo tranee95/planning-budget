@@ -1,6 +1,6 @@
 //! Расчёты. Один проход по `DataSet` строит `Ledger`; все сводки читают из него.
 
-mod bonds;
+mod accumulation;
 mod debts;
 mod limits;
 mod plan;
@@ -9,18 +9,27 @@ mod summary;
 
 use std::collections::BTreeMap;
 
-pub use bonds::{BondRates, BondsFact, BondsForecast, BondsMonth, ForecastScenario, Scenario};
+pub use accumulation::{
+    AccumulationFact, AccumulationForecast, AccumulationMonth, DepositRates, ForecastScenario,
+    Scenario,
+};
 pub use debts::{
-    DebtState, DebtsSummary, debt_progress, equal_parts_schedule, single_payment_schedule,
-    validate_schedule,
+    DebtState, DebtsSummary, debt_is_closed, debt_progress, equal_parts_schedule,
+    single_payment_schedule, validate_schedule,
 };
 pub(crate) use limits::usage;
 pub use limits::{BudgetBalance, CategoryYearRow, LimitLevel, LimitRow, MonthLimits};
-pub use plan::{LockSnapshot, MonthPlan, PlanBalance, PlanCopyRow, PlanRow};
+pub use plan::{
+    CarryDecision, CarryFacts, LockSnapshot, MonthPlan, PlanBalance, PlanCopyRow, PlanRow,
+    SavingsFixed, carry_decision,
+};
 pub use savings::{
     Accumulation, SavingsOverview, SavingsProgress, SavingsProgressCategory, SavingsProgressMonth,
 };
-pub use summary::{Corridor, MonthSummary, YearSummary};
+pub use summary::{
+    Corridor, MAX_YEARS_BACK, MonthSummary, SeriesRange, YearSummary, overview_last_month,
+    series_bounds, series_keeps,
+};
 
 use crate::error::{CoreError, MoneyError};
 use crate::model::{

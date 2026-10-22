@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use chrono::{DateTime, NaiveDate, Utc};
 use planning_budget_core::{CategoryId, Money, TagId, TxId, TxStatus, YearMonth};
-use rusqlite::{Row, params};
+use rusqlite::{Row, Transaction, TransactionBehavior, params};
 
 use crate::records::{
     RecordSource, parse_date, parse_month, patched_period, period, validate_amount, validate_title,
@@ -178,9 +178,10 @@ impl Db {
         validate_amount(input.amount)?;
         let title = validate_title(&input.title)?;
         let (month, date) = period(input.month, input.date)?;
-        self.require_active_category(input.category_id)?;
         let stamp = stamp(now);
-        let tx = self.conn.transaction()?;
+        // Проверка категории и запись — в одной транзакции (BEGIN IMMEDIATE).
+        let tx = Transaction::new_unchecked(&self.conn, TransactionBehavior::Immediate)?;
+        self.require_active_category(input.category_id)?;
         let sort_key: i64 = tx.query_row(
             "SELECT COALESCE(max(sort_key) + 1, 0) FROM transactions
              WHERE month = ?1 AND category_id = ?2 AND deleted_at IS NULL",
@@ -207,7 +208,20 @@ impl Db {
         )?;
         let id = TxId(tx.last_insert_rowid());
         tx.commit()?;
-        self.transaction(id)
+        // Новая трата без тегов: собираем запись из записанных значений, без повторного чтения.
+        Ok(TransactionRecord {
+            id,
+            month,
+            date,
+            category_id: input.category_id,
+            title: title.to_owned(),
+            amount: input.amount,
+            status: input.status,
+            comment: input.comment.clone(),
+            source: input.source,
+            sort_key,
+            tags: Vec::new(),
+        })
     }
 
     /// Правит трату и возвращает состояние до и после.
@@ -220,6 +234,8 @@ impl Db {
         patch: &TransactionPatch,
         now: DateTime<Utc>,
     ) -> Result<TransactionUpdate, StorageError> {
+        // Чтение прежнего состояния, проверки и запись — в одной транзакции (BEGIN IMMEDIATE).
+        let tx = Transaction::new_unchecked(&self.conn, TransactionBehavior::Immediate)?;
         let previous = self.transaction(id)?;
         self.ensure_live("transactions", id.0)?;
         let amount = patch.amount.unwrap_or(previous.amount);
@@ -241,7 +257,6 @@ impl Db {
         let status = patch.status.unwrap_or(previous.status);
         // Перенос в другой блок ставит запись в его конец.
         let moved = month != previous.month || category_id != previous.category_id;
-        let tx = self.conn.transaction()?;
         let sort_key: i64 = if moved {
             tx.query_row(
                 "SELECT COALESCE(max(sort_key) + 1, 0) FROM transactions
@@ -272,10 +287,21 @@ impl Db {
             ],
         )?;
         tx.commit()?;
-        Ok(TransactionUpdate {
-            previous,
-            current: self.transaction(id)?,
-        })
+        // Теги правка не трогает; `planned_amount` в запись не входит.
+        let current = TransactionRecord {
+            id,
+            month,
+            date,
+            category_id,
+            title,
+            amount,
+            status,
+            comment,
+            source: previous.source,
+            sort_key,
+            tags: previous.tags.clone(),
+        };
+        Ok(TransactionUpdate { previous, current })
     }
 
     /// Мягко удаляет трату: она пропадает из списков, сводок и поиска, но восстановима.

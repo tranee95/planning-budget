@@ -21,7 +21,7 @@
     autocomplete="current-password"
     error={vm.error}
     shake={vm.shake}
-    reserveLines={2}
+    reserveLines={1}
     autofocus
     hint={vm.waiting ? `Следующая попытка через ${String(vm.waitSeconds)} с` : null}
   />

@@ -66,6 +66,26 @@ export function settle(boxes: readonly Box[], id: number, to: Partial<Box>): Box
   return compact(place(boxes, id, to));
 }
 
+/**
+ * Плотная упаковка (как `grid-auto-flow: row dense`): карточки в порядке чтения занимают первое свободное
+ * место слева направо и сверху вниз, поэтому после смены размера в ряду не остаётся дыр.
+ */
+export function reflow(boxes: readonly Box[]): Box[] {
+  const placed: Box[] = [];
+  for (const box of [...boxes].sort(reading)) {
+    const w = Math.min(Math.max(box.w, 1), COLUMNS);
+    let spot: Box | undefined;
+    for (let y = 0; spot === undefined; y++) {
+      for (let x = 0; x + w <= COLUMNS && spot === undefined; x++) {
+        const candidate = { ...box, w, x, y };
+        if (!placed.some((p) => overlaps(candidate, p))) spot = candidate;
+      }
+    }
+    placed.push(spot);
+  }
+  return placed;
+}
+
 /** Свободная позиция под всеми карточками для новой. */
 export function bottom(boxes: readonly Box[]): number {
   return boxes.reduce((max, b) => Math.max(max, b.y + b.h), 0);

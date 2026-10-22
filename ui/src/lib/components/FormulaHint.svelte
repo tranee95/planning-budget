@@ -1,6 +1,6 @@
 <script lang="ts">
   import CircleHelp from '@lucide/svelte/icons/circle-help';
-  import { clampShift } from './popover';
+  import { clampShift, contentLeft, tipFlipsUp } from './popover';
 
   type Props = {
     /** Что объясняется: «Свободный остаток». Попадает в имя кнопки для скринридера. */
@@ -15,6 +15,7 @@
   let wrap = $state<HTMLSpanElement>();
   let tip = $state<HTMLSpanElement>();
   let shift = $state(0);
+  let up = $state(false);
   let open = $state(false);
   let placed = $state(false);
 
@@ -32,8 +33,16 @@
         clampShift({
           center: w.left + w.width / 2,
           width: tip.getBoundingClientRect().width,
-          viewport: document.documentElement.clientWidth
+          viewport: document.documentElement.clientWidth,
+          from: contentLeft(wrap)
         }) / zoom;
+      const box = tip.getBoundingClientRect();
+      up = tipFlipsUp({
+        triggerTop: w.top,
+        triggerBottom: w.bottom,
+        height: box.height,
+        viewport: document.documentElement.clientHeight
+      });
     }
     placed = true;
     // Escape закрывает подсказку, не сдвигая фокус (WCAG 1.4.13).
@@ -66,6 +75,7 @@
   </button>
   <span
     class="tip"
+    class:up
     class:open
     class:placed
     role="tooltip"
@@ -110,7 +120,9 @@
   }
   .btn:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    box-shadow:
+      0 0 0 2px var(--bg),
+      0 0 0 4px var(--primary);
   }
   .tip {
     position: absolute;
@@ -154,5 +166,8 @@
     inset-block-start: calc(-1 * var(--sp-1));
     inset-inline: 0;
     height: var(--sp-1);
+  }
+  .tip.up {
+    inset-block: auto calc(100% + var(--sp-1));
   }
 </style>

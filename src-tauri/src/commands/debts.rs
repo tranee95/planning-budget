@@ -1,6 +1,6 @@
 //! Долги.
 
-use chrono::Utc;
+use crate::clock::Now;
 use planning_budget_core::{DebtId, TxId};
 use tauri::{AppHandle, State};
 
@@ -40,7 +40,7 @@ pub async fn debts_create(
     input: DebtInput,
 ) -> Result<DebtDto, AppError> {
     let dto = state
-        .with_session(move |db| service::create(db, input, Utc::now()))
+        .with_session(move |db| service::create(db, input, Now::capture().utc))
         .await?;
     changed(&app, &dto);
     Ok(dto)
@@ -58,7 +58,13 @@ pub async fn debt_from_tx(
 ) -> Result<DebtDto, AppError> {
     let dto = state
         .with_session(move |db| {
-            service::create_from_transaction(db, TxId(tx_id.0), &lender, &schedule, Utc::now())
+            service::create_from_transaction(
+                db,
+                TxId(tx_id.0),
+                &lender,
+                &schedule,
+                Now::capture().utc,
+            )
         })
         .await?;
     changed(&app, &dto);
@@ -74,7 +80,7 @@ pub async fn debts_update(
     patch: DebtPatchDto,
 ) -> Result<DebtDto, AppError> {
     let dto = state
-        .with_session(move |db| service::update(db, DebtId(id.0), patch, Utc::now()))
+        .with_session(move |db| service::update(db, DebtId(id.0), patch, Now::capture().utc))
         .await?;
     changed(&app, &dto);
     Ok(dto)
@@ -88,7 +94,7 @@ pub async fn debts_delete(
     id: Int53,
 ) -> Result<DebtDto, AppError> {
     let dto = state
-        .with_session(move |db| service::delete(db, DebtId(id.0), Utc::now()))
+        .with_session(move |db| service::delete(db, DebtId(id.0), Now::capture().utc))
         .await?;
     changed(&app, &dto);
     Ok(dto)
@@ -102,7 +108,7 @@ pub async fn debts_restore(
     id: Int53,
 ) -> Result<DebtDto, AppError> {
     let dto = state
-        .with_session(move |db| service::restore(db, DebtId(id.0), Utc::now()))
+        .with_session(move |db| service::restore(db, DebtId(id.0), Now::capture().utc))
         .await?;
     changed(&app, &dto);
     Ok(dto)
@@ -120,7 +126,13 @@ pub async fn debt_payment_set_status(
 ) -> Result<DebtDto, AppError> {
     let dto = state
         .with_session(move |db| {
-            service::set_payment_status(db, payment_id.0, status, paid_date.as_deref(), Utc::now())
+            service::set_payment_status(
+                db,
+                payment_id.0,
+                status,
+                paid_date.as_deref(),
+                Now::capture().utc,
+            )
         })
         .await?;
     changed(&app, &dto);

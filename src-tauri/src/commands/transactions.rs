@@ -1,6 +1,6 @@
 //! Траты и теги.
 
-use chrono::Utc;
+use crate::clock::Now;
 use planning_budget_core::TxId;
 use tauri::{AppHandle, State};
 
@@ -34,7 +34,7 @@ pub async fn tx_create(
 ) -> Result<TransactionDto, AppError> {
     let dto = state
         .with_session_once(request_id, move |db| {
-            service::tx_create(db, input, Utc::now())
+            service::tx_create(db, input, Now::capture().utc)
         })
         .await?;
     data_changed(&app, ChangeScope::Transactions, vec![dto.month.clone()]);
@@ -50,7 +50,7 @@ pub async fn tx_update(
     patch: TransactionPatchDto,
 ) -> Result<TxUpdateResultDto, AppError> {
     let dto = state
-        .with_session(move |db| service::tx_update(db, TxId(id.0), patch, Utc::now()))
+        .with_session(move |db| service::tx_update(db, TxId(id.0), patch, Now::capture().utc))
         .await?;
     let months = service::touched_months(&dto.previous.month, &dto.current.month);
     data_changed(&app, ChangeScope::Transactions, months);
@@ -66,7 +66,7 @@ pub async fn tx_set_status(
     status: TxStatusDto,
 ) -> Result<TxUpdateResultDto, AppError> {
     let dto = state
-        .with_session(move |db| service::tx_set_status(db, TxId(id.0), status, Utc::now()))
+        .with_session(move |db| service::tx_set_status(db, TxId(id.0), status, Now::capture().utc))
         .await?;
     data_changed(
         &app,
@@ -84,7 +84,7 @@ pub async fn tx_delete(
     id: Int53,
 ) -> Result<TransactionDto, AppError> {
     let dto = state
-        .with_session(move |db| service::tx_delete(db, TxId(id.0), Utc::now()))
+        .with_session(move |db| service::tx_delete(db, TxId(id.0), Now::capture().utc))
         .await?;
     data_changed(&app, ChangeScope::Transactions, vec![dto.month.clone()]);
     Ok(dto)
@@ -98,7 +98,7 @@ pub async fn tx_restore(
     id: Int53,
 ) -> Result<TransactionDto, AppError> {
     let dto = state
-        .with_session(move |db| service::tx_restore(db, TxId(id.0), Utc::now()))
+        .with_session(move |db| service::tx_restore(db, TxId(id.0), Now::capture().utc))
         .await?;
     data_changed(&app, ChangeScope::Transactions, vec![dto.month.clone()]);
     Ok(dto)

@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event';
 import { createRawSnippet } from 'svelte';
 import { beforeEach, expect, test, vi } from 'vitest';
 import type { PaletteCommand } from '$lib/palette/filter';
-import Button from './Button.svelte';
 import Combobox from './Combobox.svelte';
 import ComboboxInModal from './ComboboxInModal.test-helper.svelte';
 import CommandPalette from './CommandPalette.svelte';
@@ -402,8 +401,9 @@ test('Select: скрытая подпись остаётся доступным 
     onchange
   });
   const select = screen.getByRole('combobox', { name: 'Категория' });
-  expect(container.querySelector('label')).toHaveClass('sr-only');
-  await user.selectOptions(select, '1');
+  expect(container.querySelector('.lbl')).toHaveClass('sr-only');
+  await user.click(select);
+  await user.click(screen.getByRole('option', { name: 'Продукты' }));
   expect(onchange).toHaveBeenCalledWith('1');
 });
 
@@ -415,15 +415,75 @@ test('Select: по умолчанию подпись видна', () => {
     value: 'a',
     onchange: vi.fn()
   });
-  expect(container.querySelector('label')).not.toHaveClass('sr-only');
+  expect(container.querySelector('.lbl')).not.toHaveClass('sr-only');
 });
 
-test('Button: вариант success получает свой класс и остаётся кнопкой', () => {
-  const { container } = render(Button, {
-    variant: 'success',
-    children: createRawSnippet(() => ({ render: () => '<span>Добавить</span>' }))
+test('Select: клавиатура — стрелки, Enter, Esc, поиск набором; заблокированный пункт пропускается', async () => {
+  const onchange = vi.fn();
+  render(Select, {
+    id: 'kb',
+    label: 'Период',
+    options: [
+      { value: 'a', label: 'Алфавит' },
+      { value: 'b', label: 'Барабан' },
+      { value: 'c', label: 'Вода' }
+    ],
+    value: 'a',
+    onchange,
+    blocked: (v: string) => (v === 'b' ? 'нельзя' : null)
   });
-  const button = screen.getByRole('button', { name: 'Добавить' });
-  expect(button).toHaveClass('success');
-  expect(container.querySelector('button')).toBe(button);
+  const trigger = screen.getByRole('combobox', { name: 'Период' });
+  trigger.focus();
+  await user.keyboard('{ArrowDown}');
+  expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  await user.keyboard('{ArrowDown}{Enter}');
+  expect(onchange).toHaveBeenLastCalledWith('c');
+  expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+  await user.keyboard('{ArrowDown}{Escape}');
+  expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+  await user.keyboard('в');
+  await user.keyboard('{Enter}');
+  expect(onchange).toHaveBeenLastCalledWith('c');
+  expect(screen.queryByRole('listbox')).toBeNull();
+});
+
+test('DateField: Backspace стирает и точку маски, неполная дата не пропадает при уходе из поля', async () => {
+  let value = '';
+  let valid = true;
+  const { default: DateField } = await import('./DateField.svelte');
+  render(DateField, {
+    props: {
+      id: 'df',
+      get value() {
+        return value;
+      },
+      set value(v: string) {
+        value = v;
+      },
+      get valid() {
+        return valid;
+      },
+      set valid(v: boolean) {
+        valid = v;
+      }
+    }
+  });
+  const input = screen.getByRole('textbox');
+  await user.type(input, '1509');
+  expect(input).toHaveValue('15.09.');
+  await user.keyboard('{Backspace}');
+  expect(input).toHaveValue('15.09');
+  await user.keyboard('{Backspace}{Backspace}');
+  expect(input).toHaveValue('15');
+  await user.keyboard('{Backspace}{Backspace}');
+  expect(input).toHaveValue('');
+
+  await user.type(input, '0509');
+  await user.tab();
+  // неполная дата остаётся на экране, сохранить её нельзя
+  expect(input).toHaveValue('05.09.');
+  expect(valid).toBe(false);
+  expect(value).toBe('');
 });

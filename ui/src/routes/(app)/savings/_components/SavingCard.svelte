@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { quartOut } from 'svelte/easing';
+  import { slide } from 'svelte/transition';
+  import { dur, rowIn, rowOut } from '$lib/motion';
+  import Pencil from '@lucide/svelte/icons/pencil';
   import { leftRow } from '$lib/components/amount-rows/row-focus';
   import { formatMoneyTrim, formatMonthPrepositional } from '$lib/format';
   import { PLACEHOLDERS } from '$lib/i18n/placeholders';
@@ -46,7 +50,7 @@
   });
 </script>
 
-<article class="card" aria-label={card.name}>
+<article class="card" aria-label={card.name} class:collapsed={!open}>
   <header>
     <button
       type="button"
@@ -93,7 +97,13 @@
           aria-label="Изменить план на месяц «{card.name}»: {card.plan > 0
             ? formatMoneyTrim(card.plan)
             : 'не задан'}"
-          onclick={beginPlan}>{card.plan > 0 ? formatMoneyTrim(card.plan) : 'задать план'}</button
+          title="Изменить план"
+          onclick={beginPlan}
+          >{card.plan > 0 ? formatMoneyTrim(card.plan) : 'задать план'}<Pencil
+            class="pencil"
+            size={12}
+            aria-hidden="true"
+          /></button
         >
       {/if}
       {#if percent !== null}<span class="pct num">· {percent}%</span>{/if}
@@ -135,14 +145,17 @@
   {/if}
 
   {#if open}
-    <div class="body" id={bodyId}>
+    <div class="body" id={bodyId} transition:slide={{ duration: dur.base(), easing: quartOut }}>
       {#if vm.locked}
         <p class="locked">
           План зафиксирован, изменить его можно после «Разблокировать» на Обзоре.
         </p>
       {/if}
       {#each card.amounts as row (row.id)}
-        <SavingRecord {row} />
+        <!-- обёртка в самом each: добавление и удаление суммы раскрывает и схлопывает строку, правка — нет -->
+        <div class="record" in:rowIn out:rowOut>
+          <SavingRecord {row} />
+        </div>
       {:else}
         <p class="empty">Пока ничего не отложено в {formatMonthPrepositional(vm.month)}</p>
       {/each}
@@ -162,6 +175,10 @@
     border-radius: var(--r-lg);
     background: var(--surface);
     box-shadow: var(--shadow);
+  }
+  /* свёрнутая карточка: у полосы прогресса и подписи есть нижний отступ (тело, которое его давало, скрыто) */
+  .card.collapsed {
+    padding-bottom: var(--sp-4);
   }
   header {
     display: flex;
@@ -185,9 +202,11 @@
   .chevron.open {
     transform: rotate(90deg);
   }
-  .chevron:hover {
-    background: var(--line-2);
-    color: var(--ink);
+  @media (hover: hover) {
+    .chevron:hover {
+      background: var(--line-2);
+      color: var(--ink);
+    }
   }
   .summary {
     display: flex;
@@ -212,6 +231,20 @@
     cursor: text;
     text-decoration: underline dotted var(--muted);
     text-underline-offset: 4px;
+  }
+  .plan :global(.pencil) {
+    margin-inline-start: var(--sp-1);
+    opacity: 0;
+    transition: opacity var(--dur-fast) var(--ease-out);
+  }
+  .plan:hover :global(.pencil),
+  .plan:focus-visible :global(.pencil) {
+    opacity: 0.8;
+  }
+  @media (hover: none) {
+    .plan :global(.pencil) {
+      opacity: 0.8;
+    }
   }
   .plan:hover {
     background: var(--line-2);

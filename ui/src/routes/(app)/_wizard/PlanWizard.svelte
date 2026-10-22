@@ -31,7 +31,7 @@
   });
 
   const preview = $derived(vm.preview);
-  const title = $derived(`План на ${vm.monthName}: ${WIZARD_STEPS[vm.step] ?? ''}`);
+  const title = $derived(`План на ${vm.monthPhrase}: ${WIZARD_STEPS[vm.step] ?? ''}`);
 </script>
 
 <Modal

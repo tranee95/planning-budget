@@ -4,7 +4,6 @@
   import { SvelteSet } from 'svelte/reactivity';
   import type { TransactionDto } from '$lib/api/bindings';
   import { Button, Modal } from '$lib/components';
-  import { errorText } from '$lib/i18n/errors';
   import { tags } from '$lib/stores/tags.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
 
@@ -32,7 +31,7 @@
       chosen.add(tag.id);
       draft = '';
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e);
     }
   }
 </script>

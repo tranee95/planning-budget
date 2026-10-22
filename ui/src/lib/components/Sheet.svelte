@@ -18,6 +18,27 @@
   let { title, onclose, children, width = 420, footer }: Props = $props();
 
   const titleId = $props.id();
+
+  /** Под футером есть непрокрученное содержимое: над ним показывается затухание. */
+  let moreBelow = $state(false);
+
+  function measure(node: HTMLElement): void {
+    moreBelow = node.scrollHeight - node.scrollTop - node.clientHeight > 1;
+  }
+
+  function watch(node: HTMLElement) {
+    measure(node);
+    const observer = new ResizeObserver(() => {
+      measure(node);
+    });
+    observer.observe(node);
+    for (const child of node.children) observer.observe(child);
+    return {
+      destroy: () => {
+        observer.disconnect();
+      }
+    };
+  }
 </script>
 
 <div class="layer">
@@ -44,8 +65,16 @@
         <X size={18} aria-hidden="true" />
       </IconButton>
     </header>
-    <div class="body">{@render children()}</div>
-    {#if footer}<div class="footer">{@render footer()}</div>{/if}
+    <div
+      class="body"
+      use:watch
+      onscroll={(event) => {
+        measure(event.currentTarget);
+      }}
+    >
+      {@render children()}
+    </div>
+    {#if footer}<div class="footer" class:fade={moreBelow}>{@render footer()}</div>{/if}
   </div>
 </div>
 
@@ -60,6 +89,8 @@
     inset: 0;
     border: 0;
     background: var(--scrim);
+    /* размытие фона: затемнение в тёмной теме и так почти не видно */
+    backdrop-filter: blur(4px);
     cursor: default;
   }
   .panel {
@@ -87,13 +118,30 @@
   .body {
     flex: 1;
     padding: var(--sp-5);
+    /* запас под футер: последняя строка не прижата к его границе */
+    padding-block-end: var(--sp-6);
     overflow-y: auto;
   }
   .footer {
+    position: relative;
     display: flex;
     justify-content: flex-end;
     gap: var(--sp-2);
     padding: var(--sp-4) var(--sp-5);
     border-top: 1px solid var(--line);
+  }
+  .footer::before {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    bottom: 100%;
+    height: 24px;
+    background: linear-gradient(to bottom, transparent, var(--surface));
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dur-fast) var(--ease-out);
+  }
+  .footer.fade::before {
+    opacity: 1;
   }
 </style>

@@ -59,7 +59,7 @@ export class SavingsVm {
   planEditingId = $state<number | null>(null);
   /** Цель, которую собрались удалить: ждёт подтверждения. */
   deleteAsk = $state<{ id: number; name: string; total: number } | null>(null);
-  /** Развёрнутость карточек, выбранная пользователем; только в памяти (без localStorage). */
+  /** Развёрнутость карточек, выбранная пользователем; только в памяти, не в браузерном хранилище. */
   #open = new SvelteMap<number, boolean>();
 
   /** Карточка, в которую сейчас вводится новая сумма. */
@@ -207,7 +207,7 @@ export class SavingsVm {
       await this.load(this.month);
       return true;
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e);
       return false;
     } finally {
       this.saving = false;
@@ -248,7 +248,7 @@ export class SavingsVm {
       await this.load(this.month);
       return true;
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e);
       return false;
     } finally {
       this.saving = false;
@@ -260,7 +260,9 @@ export class SavingsVm {
     try {
       await transactionsApi.remove(id);
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e, () => {
+        void this.remove(id);
+      });
       return;
     }
     if (this.editingId === id) this.editingId = null;
@@ -309,7 +311,9 @@ export class SavingsVm {
     try {
       await categoriesApi.update(categoryId, { name });
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e, () => {
+        void this.rename(categoryId, raw);
+      });
       return false;
     }
     const entry = {
@@ -407,7 +411,7 @@ export class SavingsVm {
       categories.reset();
       await this.load(this.month);
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e);
     }
   }
 
@@ -448,7 +452,7 @@ export class SavingsVm {
       toasts.push({ message: 'Цель закрыта' });
       await this.load(this.month);
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e);
     }
   }
 
@@ -459,7 +463,9 @@ export class SavingsVm {
       categories.reset();
       await this.load(this.month);
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e, () => {
+        void this.reopen(categoryId);
+      });
     }
   }
 
@@ -474,7 +480,9 @@ export class SavingsVm {
       await this.load(this.month);
       return true;
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e, () => {
+        void this.setPlan(categoryId, amount);
+      });
       return false;
     }
   }
@@ -501,7 +509,7 @@ export class SavingsVm {
       await this.load(this.month);
       return true;
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e);
       return false;
     } finally {
       this.adding = false;

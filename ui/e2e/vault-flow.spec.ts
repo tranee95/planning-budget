@@ -104,6 +104,11 @@ test('перевыпуск ключа показывает новый ключ �
 
   await page.getByLabel('Пароль для перевыпуска ключа').fill(PASSWORD);
   await page.getByRole('button', { name: 'Перевыпустить ключ' }).click();
+  // Перевыпуск требует подтверждения: старый ключ восстановления перестаёт работать
+  await page
+    .getByRole('dialog', { name: 'Перевыпустить ключ?' })
+    .getByRole('button', { name: 'Перевыпустить', exact: true })
+    .click();
 
   await expect(page.getByRole('heading', { name: 'Сохраните ключ восстановления' })).toBeVisible();
   await page.getByLabel('Я сохранил код в надёжном месте').check();

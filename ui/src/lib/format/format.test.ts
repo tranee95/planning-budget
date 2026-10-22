@@ -2,8 +2,17 @@ import { describe, expect, it } from 'vitest';
 import {
   checkMoney,
   formatDay,
-  formatMonth,
+  dateFieldToIso,
+  formatMoneyField,
+  formatMonthGenitive,
+  formatMonthLower,
   formatMonthPrepositional,
+  formatPercentShort,
+  formatPercentWhole,
+  isoToDateField,
+  maskDateInput,
+  groupMoneyInput,
+  formatMonth,
   formatMoney,
   formatMoneyExact,
   formatMoneyTrim,
@@ -187,5 +196,76 @@ describe('formatMoneyTrim', () => {
     expect(formatMoneyTrim(2_000_000)).toBe('20 000 ₽');
     expect(formatMoneyTrim(2_000_050)).toBe('20 000,50 ₽');
     expect(formatMoneyTrim(0)).toBe('0 ₽');
+  });
+});
+
+describe('поле суммы', () => {
+  it('разряды на лету неразрывным пробелом', () => {
+    expect(groupMoneyInput('15000')).toBe('15 000');
+    expect(groupMoneyInput('1234567')).toBe('1 234 567');
+    expect(groupMoneyInput('15 000')).toBe('15 000');
+  });
+  it('копейки: любой разделитель, пустая дробь сохраняется во время набора', () => {
+    expect(groupMoneyInput('1234.5')).toBe('1 234,5');
+    expect(groupMoneyInput('10,')).toBe('10,');
+    expect(groupMoneyInput('10,999')).toBe('10,999');
+  });
+  it('буквы не трогает', () => {
+    expect(groupMoneyInput('12a')).toBe('12a');
+  });
+  it('после сохранения копейки видны только если они не нулевые', () => {
+    expect(formatMoneyField(3_000_000)).toBe('30 000');
+    expect(formatMoneyField(3_000_050)).toBe('30 000,50');
+  });
+});
+
+describe('поле даты', () => {
+  it('маска ставит точки сама и не принимает лишнего', () => {
+    expect(maskDateInput('1')).toBe('1');
+    expect(maskDateInput('15')).toBe('15.');
+    expect(maskDateInput('1509')).toBe('15.09.');
+    expect(maskDateInput('15092026')).toBe('15.09.2026');
+    expect(maskDateInput('15.09.2026999')).toBe('15.09.2026');
+    expect(maskDateInput('ab1')).toBe('1');
+  });
+  it('дата в поле и в ISO туда и обратно, несуществующие даты отклоняются', () => {
+    expect(isoToDateField('2026-09-05')).toBe('05.09.2026');
+    expect(isoToDateField('')).toBe('');
+    expect(dateFieldToIso('05.09.2026')).toBe('2026-09-05');
+    expect(dateFieldToIso('31.02.2026')).toBeNull();
+    expect(dateFieldToIso('05.09.')).toBeNull();
+  });
+});
+
+describe('проценты', () => {
+  it('в KPI и сводках целые: 19,05 % → 19 %', () => {
+    expect(formatPercentWhole(1905)).toBe('19 %');
+    expect(formatPercentWhole(1350)).toBe('14 %');
+  });
+  it('на графиках не больше одного знака', () => {
+    expect(formatPercentShort(1399)).toBe('14 %');
+    expect(formatPercentShort(1232)).toBe('12,3 %');
+  });
+});
+
+describe('месяцы в падежах', () => {
+  it('родительный: «действует с октября 2026»', () => {
+    expect(formatMonthGenitive('2026-10')).toBe('октября 2026');
+    expect(formatMonthGenitive('2026-03')).toBe('марта 2026');
+  });
+  it('предложный: «отложено в октябре 2026»', () => {
+    expect(formatMonthPrepositional('2026-10')).toBe('октябре 2026');
+  });
+  it('именительный с маленькой буквы: «план на октябрь 2026»', () => {
+    expect(formatMonthLower('2026-10')).toBe('октябрь 2026');
+  });
+});
+
+describe('отрицательный ноль', () => {
+  it('«−0 %» не бывает: знак только у ненулевого результата', () => {
+    expect(formatPercentWhole(-30)).toBe('0 %');
+    expect(formatPercentShort(-4)).toBe('0 %');
+    expect(formatPercentWhole(-150)).toBe('−2 %');
+    expect(formatPercentShort(-250)).toBe('−2,5 %');
   });
 });

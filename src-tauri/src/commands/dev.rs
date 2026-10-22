@@ -1,7 +1,7 @@
 //! Команды разработчика. Компилируются только в debug-сборке: в релиз не попадают ни сами
 //! команды, ни данные фикстуры.
 
-use chrono::Utc;
+use crate::clock::Now;
 use tauri::{AppHandle, State};
 
 use crate::AppError;
@@ -14,7 +14,7 @@ use crate::state::AppState;
 #[specta::specta]
 pub async fn dev_seed(app: AppHandle, state: State<'_, AppState>) -> Result<(), AppError> {
     state
-        .with_session(move |db| service::load(db, Utc::now()))
+        .with_session(move |db| service::load(db, Now::capture().utc))
         .await?;
     data_changed(&app, ChangeScope::All, Vec::new());
     Ok(())

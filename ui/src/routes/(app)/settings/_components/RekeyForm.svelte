@@ -1,12 +1,19 @@
 <script lang="ts">
-  import { Button, PasswordField } from '$lib/components';
+  import { Button, Modal, PasswordField } from '$lib/components';
   import type { SettingsVm } from '../settings.svelte';
 
   let { vm }: { vm: SettingsVm } = $props();
 
+  let confirming = $state(false);
+
   function submit(event: SubmitEvent): void {
     event.preventDefault();
-    void vm.rekey();
+    if (vm.canRekey) confirming = true;
+  }
+
+  async function confirm(): Promise<void> {
+    confirming = false;
+    await vm.rekey();
   }
 </script>
 
@@ -24,10 +31,41 @@
     error={vm.rekeyError}
     shake={vm.rekeyShake}
   />
-  <Button type="submit" loading={vm.rekeying} disabled={!vm.canRekey}>Перевыпустить ключ</Button>
+  <Button type="submit" variant="danger" loading={vm.rekeying} disabled={!vm.canRekey}
+    >Перевыпустить ключ</Button
+  >
 </form>
 
+{#if confirming}
+  <Modal
+    title="Перевыпустить ключ?"
+    width={460}
+    onclose={() => {
+      confirming = false;
+    }}
+  >
+    <p class="ask">
+      Прежний ключ восстановления перестанет работать. Новый покажется один раз сразу после
+      перевыпуска: сохраните его, иначе при забытом пароле данные будет не открыть.
+    </p>
+    {#snippet footer()}
+      <Button
+        variant="ghost"
+        onclick={() => {
+          confirming = false;
+        }}>Отмена</Button
+      >
+      <Button variant="danger" onclick={confirm}>Перевыпустить</Button>
+    {/snippet}
+  </Modal>
+{/if}
+
 <style>
+  .ask {
+    margin: 0;
+    font-size: var(--fs-13);
+    line-height: var(--lh-body);
+  }
   .form {
     display: flex;
     flex-direction: column;

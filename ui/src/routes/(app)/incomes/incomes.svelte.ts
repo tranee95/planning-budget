@@ -132,7 +132,7 @@ export class IncomesVm {
     try {
       await incomesApi.update(before.id, patch);
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e);
       return false;
     }
     this.closeEditor();
@@ -147,7 +147,7 @@ export class IncomesVm {
       undo: () => this.#applyPatch(before.id, previous),
       redo: () => this.#applyPatch(before.id, patch)
     });
-    toasts.push({ message: `Сохранено: ${sourceName}` });
+    toasts.push({ message: `Сохранено: ${sourceName}`, kind: 'success' });
     await this.load(this.#month);
     return true;
   }
@@ -166,7 +166,9 @@ export class IncomesVm {
     try {
       await incomesApi.remove(id);
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e, () => {
+        void this.remove(id);
+      });
       return;
     }
     const entry = {
@@ -219,9 +221,9 @@ export class IncomesVm {
         undo: () => this.#toggleDeleted(created.id, true),
         redo: () => this.#toggleDeleted(created.id, false)
       });
-      toasts.push({ message: `Добавлено: ${sourceName}` });
+      toasts.push({ message: `Добавлено: ${sourceName}`, kind: 'success' });
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e);
       return false;
     }
     await this.#refreshSummary();
@@ -242,7 +244,9 @@ export class IncomesVm {
       await incomesApi.update(id, { status });
     } catch (e) {
       this.incomes = prev;
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e, () => {
+        void this.setStatus(id, status);
+      });
       return;
     }
     if (before !== undefined && before !== status) {

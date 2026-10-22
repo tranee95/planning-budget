@@ -1,8 +1,8 @@
 <script lang="ts">
   import { PLACEHOLDERS } from '$lib/i18n/placeholders';
-  import { Button, Kbd, Modal, MoneyInput, StatusSegmented } from '$lib/components';
+  import { Button, DateField, Kbd, Modal, MoneyInput, StatusSegmented } from '$lib/components';
   import type { TxStatusDto } from '$lib/api/bindings';
-  import { formatMoney, monthRange } from '$lib/format';
+  import { formatMoney } from '$lib/format';
   import { getExpensesVm } from '../expenses.svelte';
   import { QuickAddVm } from '../quick-add.svelte';
 
@@ -12,7 +12,6 @@
   $effect(() => () => {
     vm.dispose();
   });
-  const range = $derived(monthRange(expenses.month));
 
   function onKeydown(event: KeyboardEvent): void {
     if (event.key !== 'Enter' || event.isComposing) return;
@@ -136,14 +135,11 @@
       </div>
       <div class="group">
         <label class="lbl" for="qa-date">Дата</label>
-        <input
+        <DateField
           id="qa-date"
-          class="field"
-          type="date"
-          min={range.first}
-          max={range.last}
-          aria-invalid={vm.dateError !== null}
+          invalid={vm.dateError !== null}
           bind:value={vm.date}
+          bind:valid={vm.dateValid}
         />
         {#if vm.dateError}<span class="err" role="alert">{vm.dateError}</span>{/if}
       </div>
@@ -224,7 +220,9 @@
   .chip:focus-visible,
   .suggest button:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    box-shadow:
+      0 0 0 2px var(--bg),
+      0 0 0 4px var(--primary);
   }
   .hint {
     margin: 0;
@@ -256,13 +254,10 @@
     color: var(--unpl);
     font-size: var(--fs-12);
   }
-  .field[aria-invalid='true'] {
-    border-color: var(--unpl);
-  }
   .field:focus-visible {
     outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--focus-ring);
   }
   .suggest {
     display: flex;

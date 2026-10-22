@@ -37,11 +37,31 @@ export function clampShift(o: {
   width: number;
   viewport: number;
   margin?: number;
+  /** Левая граница области, в которой можно стоять (по умолчанию край окна): например, правее бокового меню. */
+  from?: number;
 }): number {
   const margin = o.margin ?? 8;
+  const from = o.from ?? 0;
   const left = o.center - o.width / 2;
   const right = o.center + o.width / 2;
-  if (left < margin) return margin - left;
+  if (left < from + margin) return from + margin - left;
   if (right > o.viewport - margin) return o.viewport - margin - right;
   return 0;
+}
+
+/** Левый край области контента: подсказки не заходят на боковое меню. 0 вне оболочки приложения. */
+export function contentLeft(anchor: Element): number {
+  const main = anchor.closest('#main');
+  return main === null ? 0 : main.getBoundingClientRect().left;
+}
+
+/** Подсказка открывается вверх, если снизу она не помещается, а сверху места больше. */
+export function tipFlipsUp(o: {
+  triggerTop: number;
+  triggerBottom: number;
+  height: number;
+  viewport: number;
+}): boolean {
+  const below = o.viewport - o.triggerBottom;
+  return below < o.height + 8 && o.triggerTop > below;
 }

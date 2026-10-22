@@ -31,7 +31,7 @@ test('«Фактически» на обзоре: 0 ₽ после мастер�
   await planWithFood(page);
 
   await expect(page.getByRole('columnheader', { name: 'Фактически' })).toBeVisible();
-  await expect(page.getByRole('columnheader', { name: /Расход с планом/ })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Факт + план' })).toBeVisible();
   await expect(foodCells(page).nth(0)).toHaveText(/^30\s000\s₽/);
   await expect(foodCells(page).nth(1)).toHaveText(/^0\s₽/);
   await expect(foodCells(page).nth(2)).toHaveText(/^30\s000\s₽/);

@@ -27,7 +27,7 @@ import type {
   TransactionPatchDto_Deserialize,
   TxStatusDto
 } from '../bindings';
-import { currentMonth, shiftMonth } from '$lib/format';
+import { shiftMonth } from '$lib/format';
 import { repaymentsOfMonth, resetMockDebts } from './debts';
 import { clearMockFixedPlan, mockFixedPlan, resetMockSavings, setMockFixedPlan } from './savings';
 import { mockIncomeList, mockQueryParse, mockSearch, mockTransactionList } from './search';
@@ -233,10 +233,6 @@ export const mockSavingsFacts = (): { categoryId: number; month: string; amount:
 export const mockSavingsCategories = (): CategoryDto[] =>
   categories.filter((c) => c.kind === 'savings' && !c.archived);
 
-/** Действующий процент плана накопления (до сегодняшнего дня), б. п. */
-export const mockPlanRateBp = (categoryId: number): number =>
-  rateFromHistory(categoryId, currentMonth()) ?? 0;
-
 /** Трата мока по идентификатору (для мока «Долг из траты»). */
 export const mockTransactionById = (id: number): TransactionDto | undefined =>
   transactions.find((t) => t.id === id);
@@ -385,7 +381,13 @@ function planDto(month: string): MonthPlanDto {
     saved: planRows
       .filter((r) => categories.find((c) => c.id === r.categoryId)?.kind === 'savings')
       .reduce((sum, r) => sum + r.actual, 0),
-    hasPlannedLines: rows.some((t) => t.status === 'planned')
+    hasPlannedLines: rows.some((t) => t.status === 'planned'),
+    savingsFixed: categories
+      .filter((c) => c.kind === 'savings')
+      .flatMap((c) => {
+        const fixed = mockFixedPlan(c.id);
+        return fixed === null ? [] : [{ categoryId: c.id, fixed }];
+      })
   };
 }
 
@@ -413,11 +415,11 @@ function roundAway(x: number): number {
   return x < 0 ? -Math.round(-x) : Math.round(x);
 }
 
-/** `core::calc::limits::level`: ровно 85 % и ровно 100 % считаются в целых числах. */
+/** `core::calc::limits::level`: ровно 90 % и ровно 100 % считаются в целых числах. */
 function limitLevel(fact: number, limit: number): LimitRowDto['level'] {
   if (fact === 0) return 'ok';
-  if (fact > limit) return 'over';
-  return fact * 100 < limit * 85 ? 'ok' : 'warn';
+  if (fact >= limit) return 'over';
+  return fact * 100 < limit * 90 ? 'ok' : 'warn';
 }
 
 /** `core::calc::limits::usage`: при нулевом лимите 1 при факте > 0, иначе 0. */

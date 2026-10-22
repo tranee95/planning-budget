@@ -254,7 +254,12 @@
       >
       <Button
         onclick={() => {
-          toasts.push({ message: 'Не удалось сохранить', kind: 'error', code: 'DB_BUSY' });
+          toasts.push({
+            message: 'Не удалось сохранить: база занята. Повторите через пару секунд.',
+            kind: 'error',
+            code: 'DB_BUSY',
+            action: { label: 'Повторить', run: () => {} }
+          });
         }}>Ошибка</Button
       >
     </div>
@@ -263,7 +268,7 @@
   <Card title="Состояния">
     <Skeleton height="20px" />
     <Skeleton width="60%" />
-    <EmptyState title="В сентябре пока нет трат" hint="Добавьте первую или импортируйте выписку" />
+    <EmptyState title="В сентябре пока нет трат" hint="Добавьте первую трату" />
   </Card>
 </div>
 

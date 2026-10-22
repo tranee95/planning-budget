@@ -3,7 +3,7 @@
   import type { HTMLButtonAttributes } from 'svelte/elements';
 
   type Props = {
-    variant?: 'primary' | 'success' | 'secondary' | 'ghost' | 'danger';
+    variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-ghost';
     size?: 'sm' | 'md' | 'lg';
     loading?: boolean;
     children: Snippet;
@@ -57,8 +57,10 @@
   }
   .btn:focus-visible {
     outline: none;
+    box-shadow:
+      0 0 0 2px var(--bg),
+      0 0 0 4px var(--primary);
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
   }
   .btn:disabled {
     cursor: not-allowed;
@@ -82,16 +84,6 @@
     background: var(--accent);
     filter: brightness(1.06);
   }
-  /* Действие «добавить»: зелёная кнопка (токены статуса «оплачено»), белый текст с контрастом выше AA. */
-  .success {
-    background: var(--paid);
-    border-color: var(--paid);
-    color: var(--accent-ink);
-  }
-  .success:hover:not(:disabled) {
-    background: var(--paid);
-    filter: brightness(1.12);
-  }
   .ghost {
     background: transparent;
     border-color: transparent;
@@ -99,6 +91,15 @@
   }
   .ghost:hover:not(:disabled) {
     background: var(--line-2);
+  }
+  /* удаление рядом с обычными действиями: без заливки, красный только текст */
+  .danger-ghost {
+    background: transparent;
+    border-color: transparent;
+    color: var(--danger);
+  }
+  .danger-ghost:hover:not(:disabled) {
+    background: var(--danger-subtle);
   }
   .danger {
     background: var(--unpl-bg);

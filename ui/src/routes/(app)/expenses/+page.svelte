@@ -13,6 +13,7 @@
     Skeleton,
     StatusDot
   } from '$lib/components';
+  import Check from '@lucide/svelte/icons/check';
   import { STATUS_LABEL, STATUS_ORDER } from '$lib/components/status';
   import { formatMoney } from '$lib/format';
   import { FORMULAS } from '$lib/formulas';
@@ -65,6 +66,16 @@
 <div class="screen">
   <div class="bar">
     <span class="lbl">Показать</span>
+    <button
+      type="button"
+      class="chip all"
+      aria-pressed={vm.statusFilter.size === 0}
+      onclick={() => {
+        vm.clearStatus();
+      }}
+    >
+      {#if vm.statusFilter.size === 0}<Check size={12} aria-hidden="true" />{/if}Все
+    </button>
     {#each STATUS_ORDER as status (status)}
       <button
         type="button"
@@ -74,6 +85,7 @@
           vm.toggleStatus(status);
         }}
       >
+        {#if vm.statusFilter.has(status)}<Check size={12} aria-hidden="true" />{/if}
         <span aria-hidden="true" class="dot"><StatusDot {status} size={12} /></span>{STATUS_LABEL[
           status
         ]}
@@ -135,11 +147,14 @@
           </p>
         {:else}
           <Button
-            variant="success"
+            variant="primary"
             onclick={() => {
               vm.openEditor();
             }}><span aria-hidden="true">+</span> Добавить трату</Button
           >
+          {#if vm.planItems > 0}
+            <a class="plan-link" href={resolve('/')}>Открыть план месяца</a>
+          {/if}
           {#if vm.canCopyPlan}
             <Button
               variant="secondary"
@@ -152,6 +167,11 @@
         {/if}
       {/snippet}
     </EmptyState>
+  {:else if vm.mode === 'blocks' && vm.statusFilterEmpty}
+    <EmptyState
+      title={vm.statusFilterEmptyText}
+      hint="Снимите фильтр «Показать», чтобы увидеть остальные траты."
+    />
   {:else if vm.mode === 'blocks'}
     <div class="grid">
       {#each vm.blocks as block, index (block.category.id)}
@@ -209,12 +229,17 @@
     font-size: var(--fs-12);
     font-weight: var(--fw-medium);
     cursor: pointer;
+    /* неактивный: обводка и приглушённый текст; активный: заливка своего статуса и галочка */
     border-color: var(--line);
     background: var(--surface);
-    color: var(--ink);
+    color: var(--muted);
   }
   .chip[aria-pressed='true'] {
     border-color: currentColor;
+  }
+  .chip.all[aria-pressed='true'] {
+    background: var(--primary-subtle);
+    color: var(--primary);
   }
   .chip[aria-pressed='true'].paid {
     background: var(--paid-bg);
@@ -231,6 +256,14 @@
   .chip[aria-pressed='true'].planned {
     background: var(--plan-bg);
     color: var(--plan);
+  }
+  .plan-link {
+    display: inline-flex;
+    align-items: center;
+    align-self: center;
+    min-height: 24px;
+    color: var(--primary);
+    font-size: var(--fs-13);
   }
   .totals {
     color: var(--muted);
@@ -250,18 +283,8 @@
   }
   .grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: var(--sp-4);
     align-content: start;
-  }
-  @media (max-width: 1280px) {
-    .grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-  }
-  @media (max-width: 960px) {
-    .grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
   }
 </style>

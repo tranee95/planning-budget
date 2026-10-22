@@ -14,6 +14,15 @@ export class SavingsVm {
   saving = $state(false);
   loaded = $state(false);
 
+  /** «13–15 %, норма 14 %» для текущих полей; пусто, пока значения не разобраны. */
+  preview = $derived.by(() => {
+    const min = parsePercentBp(this.min);
+    const norm = parsePercentBp(this.norm);
+    const max = parsePercentBp(this.max);
+    if (min === null || norm === null || max === null || !(min <= norm && norm <= max)) return '';
+    return `${toText(min)}–${toText(max)} %, норма ${toText(norm)} %`;
+  });
+
   async load(): Promise<void> {
     try {
       const s = await settingsApi.get();
@@ -27,6 +36,7 @@ export class SavingsVm {
   }
 
   async save(): Promise<void> {
+    if (this.saving) return;
     const min = parsePercentBp(this.min);
     const norm = parsePercentBp(this.norm);
     const max = parsePercentBp(this.max);

@@ -307,6 +307,7 @@ fn plan_with(income: i64, expenses: i64, savings: i64, repayments: i64) -> Month
         borrowed: Money::ZERO,
         saved: Money::ZERO,
         has_planned_lines: false,
+        savings_fixed: Vec::new(),
     }
 }
 
@@ -400,4 +401,34 @@ fn actual_of_savings_counts_only_non_planned_records() {
     spend(&mut data, "2026-10", SAVE, 6_000, TxStatus::Planned, None);
     let save = row(&plan(&data, "2026-10"), SAVE);
     assert_eq!((save.fact, save.actual), (rub(14_000), rub(8_000)));
+}
+
+#[test]
+fn month_plan_reports_the_fixed_savings_plan_effective_in_the_month() {
+    use planning_budget_core::calc::SavingsFixed;
+
+    let mut data = base();
+    data.savings_rates = vec![
+        SavingsRateEntry {
+            category_id: SAVE,
+            valid_from: ym("2026-01"),
+            rate: BasisPoints(1400),
+            fixed_amount: None,
+        },
+        SavingsRateEntry {
+            category_id: SAVE,
+            valid_from: ym("2026-03"),
+            rate: BasisPoints(0),
+            fixed_amount: Some(rub(7_000)),
+        },
+    ];
+    // Процентный план месяца не попадает в список, а с марта действует фиксированная сумма.
+    assert!(plan(&data, "2026-02").savings_fixed.is_empty());
+    assert_eq!(
+        plan(&data, "2026-04").savings_fixed,
+        vec![SavingsFixed {
+            category_id: SAVE,
+            fixed: rub(7_000)
+        }]
+    );
 }

@@ -1,7 +1,7 @@
 //! Команды сейфа. Работают до разблокировки, поэтому ходят не через `with_session`,
 //! а через `state::blocking` (Argon2id и файлы не должны занимать async-рантайм).
 
-use chrono::Utc;
+use crate::clock::Now;
 use tauri::{AppHandle, Manager as _, State};
 use tauri_plugin_dialog::DialogExt as _;
 
@@ -14,20 +14,23 @@ use crate::state::{AppState, blocking};
 #[tauri::command]
 #[specta::specta]
 pub async fn vault_status(app: AppHandle) -> Result<VaultStatusDto, AppError> {
-    blocking(&app, |state| service::status(state, Utc::now())).await
+    blocking(&app, |state| service::status(state, Now::capture().utc)).await
 }
 
 #[tauri::command]
 #[specta::specta]
 pub async fn vault_retry_migration(app: AppHandle) -> Result<VaultStatusDto, AppError> {
-    blocking(&app, |state| service::retry_migration(state, Utc::now())).await
+    blocking(&app, |state| {
+        service::retry_migration(state, Now::capture().utc)
+    })
+    .await
 }
 
 #[tauri::command]
 #[specta::specta]
 pub async fn vault_create(app: AppHandle, password: Secret) -> Result<RecoveryCodeDto, AppError> {
     blocking(&app, move |state| {
-        let code = service::create(state, password.secret(), Utc::now(), None)?;
+        let code = service::create(state, password.secret(), Now::capture().utc, None)?;
         Ok(RecoveryCodeDto {
             recovery_code: code.to_string(),
         })
@@ -42,7 +45,7 @@ pub async fn vault_unlock(
     password: Secret,
 ) -> Result<Option<RecoveryCodeDto>, AppError> {
     blocking(&app, move |state| {
-        service::unlock(state, password.secret(), Utc::now()).map(issued_code)
+        service::unlock(state, password.secret(), Now::capture().utc).map(issued_code)
     })
     .await
 }
@@ -55,8 +58,13 @@ pub async fn vault_unlock_recovery(
     new_password: Secret,
 ) -> Result<Option<RecoveryCodeDto>, AppError> {
     blocking(&app, move |state| {
-        service::unlock_recovery(state, code.secret(), new_password.secret(), Utc::now())
-            .map(issued_code)
+        service::unlock_recovery(
+            state,
+            code.secret(),
+            new_password.secret(),
+            Now::capture().utc,
+        )
+        .map(issued_code)
     })
     .await
 }
@@ -80,7 +88,7 @@ pub async fn vault_change_password(
             state,
             old_password.secret(),
             new_password.secret(),
-            Utc::now(),
+            Now::capture().utc,
         )
     })
     .await
@@ -91,7 +99,7 @@ pub async fn vault_change_password(
 #[specta::specta]
 pub async fn vault_rekey(app: AppHandle, password: Secret) -> Result<RecoveryCodeDto, AppError> {
     let result = blocking(&app, move |state| {
-        let code = service::rekey(state, password.secret(), Utc::now())?;
+        let code = service::rekey(state, password.secret(), Now::capture().utc)?;
         Ok(RecoveryCodeDto {
             recovery_code: code.to_string(),
         })
@@ -119,7 +127,12 @@ pub async fn vault_reset(
     confirm_phrase: String,
 ) -> Result<(), AppError> {
     blocking(&app, move |state| {
-        service::reset(state, password.secret(), &confirm_phrase, Utc::now())
+        service::reset(
+            state,
+            password.secret(),
+            &confirm_phrase,
+            Now::capture().utc,
+        )
     })
     .await?;
     // Сессию закрыл `reset`; окно узнаёт об этом тем же событием.

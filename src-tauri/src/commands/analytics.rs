@@ -1,6 +1,6 @@
 //! Графики и дашборды.
 
-use chrono::{Local, Utc};
+use crate::clock::Now;
 use tauri::State;
 
 use crate::AppError;
@@ -17,7 +17,7 @@ pub async fn analytics_run(
     spec: ChartSpecDto,
 ) -> Result<ChartDataDto, AppError> {
     state
-        .with_session(move |db| service::run(db, &spec, Local::now().date_naive()))
+        .with_session(move |db| service::run(db, &spec, Now::capture().today))
         .await
 }
 
@@ -28,7 +28,7 @@ pub async fn analytics_run_many(
     specs: Vec<ChartSpecDto>,
 ) -> Result<Vec<ChartRunDto>, AppError> {
     state
-        .with_session(move |db| service::run_many(db, &specs, Local::now().date_naive()))
+        .with_session(move |db| service::run_many(db, &specs, Now::capture().today))
         .await
 }
 
@@ -55,7 +55,7 @@ pub async fn dashboards_create_default(
     state: State<'_, AppState>,
 ) -> Result<DashboardDto, AppError> {
     state
-        .with_session(|db| service::dashboard_create_default(db, Utc::now()))
+        .with_session(|db| service::dashboard_create_default(db, Now::capture().utc))
         .await
 }
 
@@ -100,7 +100,9 @@ pub async fn charts_create(
     h: u8,
 ) -> Result<ChartCardDto, AppError> {
     state
-        .with_session(move |db| service::chart_create(db, dashboard_id.0, &spec, w, h, Utc::now()))
+        .with_session(move |db| {
+            service::chart_create(db, dashboard_id.0, &spec, w, h, Now::capture().utc)
+        })
         .await
 }
 
@@ -112,7 +114,7 @@ pub async fn charts_update(
     spec: ChartSpecDto,
 ) -> Result<ChartCardDto, AppError> {
     state
-        .with_session(move |db| service::chart_update(db, id.0, &spec, Utc::now()))
+        .with_session(move |db| service::chart_update(db, id.0, &spec, Now::capture().utc))
         .await
 }
 
@@ -133,7 +135,7 @@ pub async fn charts_layout_set(
 ) -> Result<(), AppError> {
     state
         .with_session(move |db| {
-            service::charts_layout_set(db, dashboard_id.0, &placements, Utc::now())
+            service::charts_layout_set(db, dashboard_id.0, &placements, Now::capture().utc)
         })
         .await
 }

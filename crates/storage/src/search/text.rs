@@ -3,7 +3,7 @@
 use planning_budget_core::YearMonth;
 use planning_budget_core::query::Term;
 
-use crate::migrations::normalize;
+use planning_budget_core::text::normalize;
 
 /// Запрос FTS5: слово → `"слово"*`, фраза → `"a b"`; слова через пробел (AND).
 /// Текст есть, но в нём нет ни букв, ни цифр (`???`, `-`): искать нечего, результат пуст,

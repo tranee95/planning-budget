@@ -128,7 +128,7 @@
           {/if}
         </span>
       </div>
-      <span class="actions">
+      <span class="actions reveal-action">
         {#if category.archived}
           <IconButton
             size="sm"
@@ -193,9 +193,17 @@
   .item.archived .row {
     opacity: 0.6;
   }
+  .item {
+    transition:
+      transform var(--dur-fast) var(--ease-out),
+      box-shadow var(--dur-fast) var(--ease-out);
+  }
   .item.lifted {
-    background: var(--surface-2);
-    opacity: 0.7;
+    position: relative;
+    z-index: 1;
+    background: var(--surface);
+    transform: scale(1.02);
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--ink) 18%, transparent);
   }
   .item.target {
     box-shadow: inset 0 2px 0 var(--accent);
@@ -250,8 +258,10 @@
     cursor: pointer;
   }
   .row:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: -2px;
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--bg),
+      0 0 0 4px var(--primary);
   }
   .grip {
     display: inline-flex;
@@ -271,7 +281,10 @@
     color: var(--ink-2);
   }
   .grip:focus-visible {
-    outline: 2px solid var(--accent);
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--bg),
+      0 0 0 4px var(--primary);
   }
   .swatch {
     width: 12px;

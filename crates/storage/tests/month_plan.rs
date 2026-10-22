@@ -424,7 +424,9 @@ fn carry_forward_copies_from_the_latest_month_with_data_even_across_a_gap() {
     let (_dir, mut db) = seeded();
     october(&mut db);
     // Ноябрь пропущен: декабрь берёт план из октября.
-    let created = db.plan_carry_forward(ym("2026-12"), december()).unwrap();
+    let created = db
+        .plan_carry_forward(ym("2026-12"), ym("2026-12"), december())
+        .unwrap();
     assert_eq!(created, 2);
     let rows = db.transactions_of_month(ym("2026-12")).unwrap();
     assert!(rows.iter().all(|t| t.status == TxStatus::Planned));
@@ -436,11 +438,19 @@ fn carry_forward_copies_from_the_latest_month_with_data_even_across_a_gap() {
 fn carry_forward_happens_once_per_month_even_if_the_user_clears_it() {
     let (_dir, mut db) = seeded();
     october(&mut db);
-    assert_eq!(db.plan_carry_forward(ym("2026-11"), december()).unwrap(), 2);
+    assert_eq!(
+        db.plan_carry_forward(ym("2026-11"), ym("2026-12"), december())
+            .unwrap(),
+        2
+    );
     for row in db.transactions_of_month(ym("2026-11")).unwrap() {
         db.transaction_delete(row.id, now()).unwrap();
     }
-    assert_eq!(db.plan_carry_forward(ym("2026-11"), december()).unwrap(), 0);
+    assert_eq!(
+        db.plan_carry_forward(ym("2026-11"), ym("2026-12"), december())
+            .unwrap(),
+        0
+    );
     assert!(db.transactions_of_month(ym("2026-11")).unwrap().is_empty());
 }
 
@@ -450,7 +460,11 @@ fn carry_forward_leaves_a_month_that_already_has_records() {
     october(&mut db);
     let food = cat(&db, "Продукты");
     spend(&mut db, "2026-11", food, 1_000, TxStatus::Paid);
-    assert_eq!(db.plan_carry_forward(ym("2026-11"), december()).unwrap(), 0);
+    assert_eq!(
+        db.plan_carry_forward(ym("2026-11"), ym("2026-12"), december())
+            .unwrap(),
+        0
+    );
     assert_eq!(db.transactions_of_month(ym("2026-11")).unwrap().len(), 1);
 }
 
@@ -458,13 +472,25 @@ fn carry_forward_leaves_a_month_that_already_has_records() {
 fn carry_forward_leaves_a_locked_month_and_the_first_month_alone() {
     let (_dir, mut db) = seeded();
     // Данных ещё нет: переносить нечего, и отметки «перенесено» не остаётся.
-    assert_eq!(db.plan_carry_forward(ym("2026-10"), december()).unwrap(), 0);
+    assert_eq!(
+        db.plan_carry_forward(ym("2026-10"), ym("2026-12"), december())
+            .unwrap(),
+        0
+    );
     october(&mut db);
     db.plan_lock(ym("2026-11"), now()).unwrap();
-    assert_eq!(db.plan_carry_forward(ym("2026-11"), december()).unwrap(), 0);
+    assert_eq!(
+        db.plan_carry_forward(ym("2026-11"), ym("2026-12"), december())
+            .unwrap(),
+        0
+    );
     assert!(db.transactions_of_month(ym("2026-11")).unwrap().is_empty());
     // Прошлое не заполняется из будущего.
-    assert_eq!(db.plan_carry_forward(ym("2026-09"), december()).unwrap(), 0);
+    assert_eq!(
+        db.plan_carry_forward(ym("2026-09"), ym("2026-12"), december())
+            .unwrap(),
+        0
+    );
 }
 
 #[test]
@@ -476,7 +502,8 @@ fn carry_forward_does_not_copy_savings_and_skips_archived_categories() {
     let fun = cat(&db, "Хобби и игры");
     spend(&mut db, "2026-10", fun, 2_000, TxStatus::Planned);
     db.category_archive(fun, ym("2026-10"), now()).unwrap();
-    db.plan_carry_forward(ym("2026-11"), december()).unwrap();
+    db.plan_carry_forward(ym("2026-11"), ym("2026-12"), december())
+        .unwrap();
     let rows = db.transactions_of_month(ym("2026-11")).unwrap();
     assert!(!rows.is_empty());
     assert!(
@@ -490,11 +517,19 @@ fn carry_forward_ignores_future_months_and_keeps_them_for_later() {
     let (_dir, mut db) = seeded();
     october(&mut db);
     // «Сегодня» — декабрь 2026: январь 2030 ещё не наступил, отметка не ставится.
-    assert_eq!(db.plan_carry_forward(ym("2030-01"), december()).unwrap(), 0);
+    assert_eq!(
+        db.plan_carry_forward(ym("2030-01"), ym("2026-12"), december())
+            .unwrap(),
+        0
+    );
     assert!(db.transactions_of_month(ym("2030-01")).unwrap().is_empty());
     // Когда месяц наступил, план переносится как обычно.
     let later = Utc.with_ymd_and_hms(2030, 1, 5, 9, 0, 0).unwrap();
-    assert_eq!(db.plan_carry_forward(ym("2030-01"), later).unwrap(), 2);
+    assert_eq!(
+        db.plan_carry_forward(ym("2030-01"), ym("2030-01"), later)
+            .unwrap(),
+        2
+    );
 }
 
 #[test]
@@ -504,7 +539,11 @@ fn carry_forward_does_not_fill_a_month_older_than_existing_data() {
     let food = cat(&db, "Продукты");
     spend(&mut db, "2026-08", food, 9_000, TxStatus::Paid);
     // Сентябрь лежит между августом и октябрём: «последнего» месяца для него нет.
-    assert_eq!(db.plan_carry_forward(ym("2026-09"), december()).unwrap(), 0);
+    assert_eq!(
+        db.plan_carry_forward(ym("2026-09"), ym("2026-12"), december())
+            .unwrap(),
+        0
+    );
     assert!(db.transactions_of_month(ym("2026-09")).unwrap().is_empty());
 }
 
@@ -533,7 +572,11 @@ fn wizard_refuses_a_month_filled_by_the_automatic_carry_forward() {
     let (_dir, mut db) = seeded();
     let food = cat(&db, "Продукты");
     spend(&mut db, "2026-09", food, 30_000, TxStatus::Planned);
-    assert!(db.plan_carry_forward(ym("2026-10"), december()).unwrap() > 0);
+    assert!(
+        db.plan_carry_forward(ym("2026-10"), ym("2026-12"), december())
+            .unwrap()
+            > 0
+    );
     let input = wizard_input(&db);
     assert!(matches!(
         db.plan_wizard_apply(ym("2026-10"), &input, now()),
@@ -582,5 +625,18 @@ fn several_amounts_of_one_savings_category_add_up_in_the_month() {
             .category_total(ym("2026-11"), savings)
             .unwrap(),
         Money::ZERO
+    );
+}
+
+#[test]
+fn carry_forward_uses_the_local_month_not_the_utc_one() {
+    let (_dir, mut db) = seeded();
+    october(&mut db);
+    // 31 октября 17:00 UTC: в UTC+7 уже 1 ноября, поэтому ноябрь наступил и план переносится.
+    let utc = Utc.with_ymd_and_hms(2026, 10, 31, 17, 0, 0).unwrap();
+    assert_eq!(
+        db.plan_carry_forward(ym("2026-11"), ym("2026-11"), utc)
+            .unwrap(),
+        2
     );
 }

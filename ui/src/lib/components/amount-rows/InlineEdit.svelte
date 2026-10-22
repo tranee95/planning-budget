@@ -48,7 +48,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="edit" bind:this={box} onkeydown={onKeydown} onfocusout={onFocusOut}>
   <input
-    class="title"
+    class="title ring-field"
     aria-label="Наименование"
     placeholder={PLACEHOLDERS.rowTitle}
     autocomplete="off"
@@ -56,7 +56,7 @@
     use:focusOnMount={focus === 'title'}
   />
   <input
-    class="amount num"
+    class="amount num ring-field"
     aria-label="Сумма, ₽"
     placeholder={PLACEHOLDERS.rowAmount}
     inputmode="decimal"
@@ -68,9 +68,10 @@
 </div>
 
 <style>
+  /* строка раскрывается на всю ширину карточки: название берёт всё свободное место, сумма не обрезается */
   .edit {
     display: flex;
-    flex-grow: 1;
+    flex: 1 1 100%;
     gap: var(--sp-2);
     min-width: 0;
   }
@@ -85,10 +86,12 @@
     font: inherit;
   }
   .title {
-    flex-grow: 1;
+    flex: 1 1 0;
+    min-width: 96px;
   }
   .amount {
-    width: 110px;
+    flex: none;
+    width: 124px;
     text-align: right;
   }
   input[aria-invalid='true'] {

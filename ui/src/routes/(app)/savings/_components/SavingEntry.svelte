@@ -59,9 +59,10 @@
       void submit();
     }}><span aria-hidden="true">+</span></button
   >
-  {#if failed && (amount === null || amount <= 0)}
-    <p class="error" id={errorId} role="alert">Введите сумму больше нуля</p>
-  {/if}
+  <!-- место под сообщение занято всегда: карточка не прыгает по высоте, текст в одну строку -->
+  <p class="error" id={errorId} role="alert">
+    {#if failed && (amount === null || amount <= 0)}Введите сумму больше нуля{/if}
+  </p>
 </div>
 
 <style>
@@ -90,12 +91,16 @@
     background: var(--line-2);
   }
   .add:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--bg),
+      0 0 0 4px var(--primary);
   }
   .error {
-    grid-column: 2;
+    grid-column: 1 / 3;
+    min-height: 1.4em;
     margin: 0;
+    white-space: nowrap;
     color: var(--unpl);
     font-size: var(--fs-12);
     text-align: right;

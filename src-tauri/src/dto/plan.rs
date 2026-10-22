@@ -104,6 +104,18 @@ pub struct MonthPlanDto {
     pub saved: i64,
     /// В месяце есть записи со статусом «План»: мастер плана его не заполнит.
     pub has_planned_lines: bool,
+    /// Фиксированные суммы накоплений, действующие в месяце (подставляются в мастер плана).
+    pub savings_fixed: Vec<SavingsFixedDto>,
+}
+
+/// Фиксированная ежемесячная сумма накопления.
+#[derive(Debug, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SavingsFixedDto {
+    #[specta(type = specta_typescript::Number)]
+    pub category_id: i64,
+    #[specta(type = specta_typescript::Number)]
+    pub fixed: i64,
 }
 
 impl From<&MonthPlan> for MonthPlanDto {
@@ -123,6 +135,14 @@ impl From<&MonthPlan> for MonthPlanDto {
             borrowed: p.borrowed.kopecks(),
             saved: p.saved.kopecks(),
             has_planned_lines: p.has_planned_lines,
+            savings_fixed: p
+                .savings_fixed
+                .iter()
+                .map(|s| SavingsFixedDto {
+                    category_id: s.category_id.0,
+                    fixed: s.fixed.kopecks(),
+                })
+                .collect(),
         }
     }
 }

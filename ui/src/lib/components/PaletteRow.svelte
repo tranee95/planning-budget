@@ -46,7 +46,7 @@
   {#if entry.meta}<span class="meta">{entry.meta}</span>{/if}
   <span class="spacer"></span>
   {#if entry.status}
-    <StatusChip status={entry.status} />
+    <span class="chip"><StatusChip status={entry.status} /></span>
   {:else if entry.note}
     <span class="income">{entry.note}</span>
   {/if}
@@ -99,8 +99,17 @@
     color: var(--muted);
     font-size: var(--fs-12);
   }
+  /* колонки справа фиксированной ширины: чипы статуса не пляшут от длины суммы */
+  .chip {
+    display: flex;
+    flex: none;
+    justify-content: flex-end;
+    width: 128px;
+  }
   .amount {
     flex: none;
+    width: 104px;
+    text-align: end;
     font-weight: var(--fw-medium);
     font-variant-numeric: tabular-nums;
   }

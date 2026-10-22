@@ -110,18 +110,17 @@
   .statuses span {
     color: var(--muted);
   }
+  /* две колонки на всю группу: колонка клавиш по ширине самой длинной комбинации, описание рядом, а не за 200 px */
   .keys {
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-2);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: var(--sp-2) var(--sp-6);
     margin: 0;
+    font-size: var(--fs-13);
   }
   .keys div {
-    display: grid;
-    grid-template-columns: 200px 1fr;
-    align-items: center;
-    gap: var(--sp-3);
-    font-size: var(--fs-13);
+    display: contents;
   }
   dt {
     display: flex;

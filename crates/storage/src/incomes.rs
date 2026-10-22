@@ -2,7 +2,7 @@
 
 use chrono::{DateTime, NaiveDate, Utc};
 use planning_budget_core::{IncomeId, IncomeStatus, Money, YearMonth};
-use rusqlite::{Row, params};
+use rusqlite::{Row, Transaction, TransactionBehavior, params};
 
 use crate::records::{
     RecordSource, parse_date, parse_month, patched_period, period, validate_amount, validate_title,
@@ -132,7 +132,8 @@ impl Db {
         let source_name = validate_title(&input.source_name)?;
         let (month, date) = period(input.month, input.date)?;
         let stamp = stamp(now);
-        self.conn.execute(
+        let tx = Transaction::new_unchecked(&self.conn, TransactionBehavior::Immediate)?;
+        tx.execute(
             "INSERT INTO incomes
                  (month, date, source_name, amount, status, comment, source, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)",
@@ -147,7 +148,18 @@ impl Db {
                 stamp
             ],
         )?;
-        self.income(IncomeId(self.conn.last_insert_rowid()))
+        let id = IncomeId(tx.last_insert_rowid());
+        tx.commit()?;
+        Ok(IncomeRecord {
+            id,
+            month,
+            date,
+            source_name: source_name.to_owned(),
+            amount: input.amount,
+            status: input.status,
+            comment: input.comment.clone(),
+            source: input.source,
+        })
     }
 
     /// Правит доход и возвращает состояние до и после.
@@ -160,6 +172,7 @@ impl Db {
         patch: &IncomePatch,
         now: DateTime<Utc>,
     ) -> Result<IncomeUpdate, StorageError> {
+        let tx = Transaction::new_unchecked(&self.conn, TransactionBehavior::Immediate)?;
         let previous = self.income(id)?;
         self.ensure_live("incomes", id.0)?;
         let amount = patch.amount.unwrap_or(previous.amount);
@@ -175,7 +188,7 @@ impl Db {
             .clone()
             .unwrap_or_else(|| previous.comment.clone());
         let status = patch.status.unwrap_or(previous.status);
-        self.conn.execute(
+        tx.execute(
             "UPDATE incomes SET month = ?2, date = ?3, source_name = ?4, amount = ?5,
                  status = ?6, comment = ?7, updated_at = ?8
              WHERE id = ?1",
@@ -190,10 +203,18 @@ impl Db {
                 stamp(now)
             ],
         )?;
-        Ok(IncomeUpdate {
-            previous,
-            current: self.income(id)?,
-        })
+        tx.commit()?;
+        let current = IncomeRecord {
+            id,
+            month,
+            date,
+            source_name,
+            amount,
+            status,
+            comment,
+            source: previous.source,
+        };
+        Ok(IncomeUpdate { previous, current })
     }
 
     /// Мягко удаляет доход.

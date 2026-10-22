@@ -1,4 +1,5 @@
 import { ApiError, onBackendLocked } from '$lib/api/call';
+import { token } from '$lib/motion';
 import { vaultApi } from '$lib/api/vault';
 import { prefs } from './prefs.svelte';
 
@@ -35,6 +36,10 @@ export function routeFor(
 
 class SessionStore {
   phase = $state<Phase>('booting');
+  /** Вход принят, экран входа уходит: идёт короткая анимация перед сменой экрана. */
+  leaving = $state(false);
+  /** Сколько длится уход экрана входа, мс; 0 при «Меньше анимаций». Поле — чтобы тест мог подменить. */
+  exitDelay: () => number = () => token('--dur-pop');
   /** Момент (мс, Date.now), до которого вход закрыт задержкой после неверных паролей. */
   retryUntil = $state(0);
   /** Код после `vault_create`: показывается один раз и очищается подтверждением. */
@@ -90,7 +95,14 @@ class SessionStore {
     this.retryUntil = 0;
     // Вход довёл до конца прерванный перевыпуск ключа: старый код не действует, показываем новый.
     this.recoveryCode = issued;
+    // Экран входа уходит вверх с затуханием, потом проявляется приложение (≤ 500 мс; при reduced-motion без паузы).
+    const exit = this.exitDelay();
+    if (exit > 0) {
+      this.leaving = true;
+      await new Promise((resolve) => setTimeout(resolve, exit));
+    }
     this.phase = 'unlocked';
+    this.leaving = false;
   }
 
   /** Перевыпуск ключа шифрования: новый recovery-код показывается тем же экраном, что при создании. */

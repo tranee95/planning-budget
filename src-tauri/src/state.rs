@@ -2,8 +2,7 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock};
-use std::time::Instant;
+use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 
 use planning_budget_storage::Db;
 use planning_budget_vault::VaultStore;
@@ -13,6 +12,7 @@ use crate::AppError;
 use crate::dto::TransactionDto;
 use crate::idle::IdleTimer;
 use crate::recent::{RecentRequests, check_request_id};
+use crate::sync::{MutexExt as _, RwLockExt as _};
 
 /// Выполняет блокирующую работу (Argon2, файлы, диалоги) вне async-рантайма.
 ///
@@ -73,13 +73,11 @@ struct Session {
     db: Mutex<Db>,
     /// Недавно созданные траты по `request_id` (идемпотентность `tx_create`).
     recent_tx: Mutex<RecentRequests<TransactionDto>>,
-    #[allow(dead_code, reason = "нужно idle-таймеру и логу длительности сессии")]
-    opened_at: Instant,
 }
 
 impl Session {
     fn run<T>(&self, f: impl FnOnce(&mut Db) -> Result<T, AppError>) -> Result<T, AppError> {
-        let mut db = self.db.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut db = self.db.lock_unpoisoned();
         f(&mut db)
     }
 
@@ -90,11 +88,8 @@ impl Session {
         request_id: String,
         f: impl FnOnce(&mut Db) -> Result<TransactionDto, AppError>,
     ) -> Result<TransactionDto, AppError> {
-        let mut db = self.db.lock().unwrap_or_else(PoisonError::into_inner);
-        let mut recent = self
-            .recent_tx
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
+        let mut db = self.db.lock_unpoisoned();
+        let mut recent = self.recent_tx.lock_unpoisoned();
         if let Some(done) = recent.get(&request_id) {
             return Ok(done);
         }
@@ -138,18 +133,12 @@ impl AppState {
     }
 
     pub fn set_legacy_dir(&self, dir: Option<PathBuf>) {
-        *self
-            .legacy_dir
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner) = dir;
+        *self.legacy_dir.lock_unpoisoned() = dir;
     }
 
     #[must_use]
     pub fn legacy_dir(&self) -> Option<PathBuf> {
-        self.legacy_dir
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .clone()
+        self.legacy_dir.lock_unpoisoned().clone()
     }
 
     pub fn set_migration_failed(&self, failed: bool) {
@@ -168,7 +157,7 @@ impl AppState {
 
     /// Сейф. Guard держится всю операцию «прочитать → изменить → записать».
     pub fn vault(&self) -> MutexGuard<'_, VaultStore> {
-        self.vault.lock().unwrap_or_else(PoisonError::into_inner)
+        self.vault.lock_unpoisoned()
     }
 
     #[must_use]
@@ -204,12 +193,11 @@ impl AppState {
         let session = Arc::new(Session {
             db: Mutex::new(db),
             recent_tx: Mutex::new(RecentRequests::new()),
-            opened_at: Instant::now(),
         });
         // Таймер сбрасывается до публикации сессии: иначе сторож успел бы увидеть
         // новую сессию со старой отметкой активности и сразу её закрыть.
         self.idle.touch();
-        *self.session.write().unwrap_or_else(PoisonError::into_inner) = Some(session);
+        *self.session.write_unpoisoned() = Some(session);
     }
 
     /// Закрывает сессию. `true`, если она была открыта.
@@ -218,18 +206,11 @@ impl AppState {
     /// отпустит соединение. Новые запросы получают `Locked` сразу.
     pub fn lock(&self) -> bool {
         self.allow_recovery_save(false);
-        self.session
-            .write()
-            .unwrap_or_else(PoisonError::into_inner)
-            .take()
-            .is_some()
+        self.session.write_unpoisoned().take().is_some()
     }
 
     fn current(&self) -> Option<Arc<Session>> {
-        self.session
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
-            .clone()
+        self.session.read_unpoisoned().clone()
     }
 
     /// Единственный путь к `Db` для команд с данными.
@@ -468,6 +449,35 @@ mod tests {
         assert!(matches!(res, Err(AppError::Internal { .. })));
         // Мьютекс отравлен паникой, но сессия остаётся рабочей.
         assert_eq!(block_on(state.with_session(one)).unwrap(), 1);
+    }
+
+    #[test]
+    fn panic_inside_a_transaction_rolls_it_back_and_the_session_keeps_working() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = state_in(&dir);
+        state.open_session(open_db(&state));
+        let res: Result<(), AppError> = block_on(state.with_session(|db| {
+            let tx = db.conn().unchecked_transaction().unwrap();
+            tx.execute_batch("CREATE TABLE panic_probe (x INTEGER)")
+                .unwrap();
+            panic!("boom");
+        }));
+        assert!(matches!(res, Err(AppError::Internal { .. })));
+        // Откат состоялся (таблицы нет), и новая транзакция открывается без ошибки.
+        let left = block_on(state.with_session(|db| {
+            let tx = db
+                .conn()
+                .unchecked_transaction()
+                .map_err(|e| AppError::internal("test", &e))?;
+            tx.query_row(
+                "SELECT count(*) FROM sqlite_master WHERE name = 'panic_probe'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .map_err(|e| AppError::internal("test", &e))
+        }))
+        .unwrap();
+        assert_eq!(left, 0);
     }
 
     #[test]

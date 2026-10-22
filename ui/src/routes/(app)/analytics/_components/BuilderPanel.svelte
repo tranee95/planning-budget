@@ -107,6 +107,25 @@
   }}
 >
   <div class="form">
+    <section class="preview" aria-label="Предпросмотр" aria-live="polite">
+      {#if builder.preview.status === 'ready'}
+        {#if isEmptyChart(builder.preview.data)}
+          <EmptyState title="Нет данных за период" hint="Измените период или фильтр." />
+        {:else}
+          <Chart
+            data={builder.preview.data}
+            type={draft.type}
+            title={draft.title}
+            options={draft.options}
+            {categoryColors}
+          />
+        {/if}
+      {:else if builder.preview.status === 'error'}
+        <p class="problem" role="alert">{problem ?? builder.preview.message}</p>
+      {:else}
+        <Skeleton height="100%" />
+      {/if}
+    </section>
     <TextField
       id="builder-title"
       label="Название"
@@ -289,26 +308,6 @@
         </div>
       </div>
     </fieldset>
-
-    <section class="preview" aria-label="Предпросмотр" aria-live="polite">
-      {#if builder.preview.status === 'ready'}
-        {#if isEmptyChart(builder.preview.data)}
-          <EmptyState title="Нет данных за период" hint="Измените период или фильтр." />
-        {:else}
-          <Chart
-            data={builder.preview.data}
-            type={draft.type}
-            title={draft.title}
-            options={draft.options}
-            {categoryColors}
-          />
-        {/if}
-      {:else if builder.preview.status === 'error'}
-        <p class="problem" role="alert">{problem ?? builder.preview.message}</p>
-      {:else}
-        <Skeleton height="100%" />
-      {/if}
-    </section>
   </div>
 
   {#snippet footer()}
@@ -372,7 +371,9 @@
   }
   .types button:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    box-shadow:
+      0 0 0 2px var(--bg),
+      0 0 0 4px var(--primary);
   }
   .metrics,
   .options {
@@ -412,8 +413,12 @@
     color: var(--ink);
     font: var(--fs-14) var(--font-sans);
   }
+  /* превью сверху и закреплено: изменения полей ниже видны сразу (обновляется с задержкой 150 мс) */
   .preview {
-    height: 240px;
+    position: sticky;
+    top: calc(-1 * var(--sp-5));
+    z-index: 1;
+    height: 220px;
     padding: var(--sp-3);
     border: 1px solid var(--line-2);
     border-radius: var(--r-md);

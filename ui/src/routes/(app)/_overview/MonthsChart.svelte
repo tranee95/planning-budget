@@ -2,6 +2,7 @@
   import type { MonthSummaryDto } from '$lib/api/bindings';
   import { Card, Segmented } from '$lib/components';
   import { formatMoney, formatMonth } from '$lib/format';
+  import { niceTop } from '$lib/charts/scale';
   import { FORMULAS } from '$lib/formulas';
   import type { ChartRange } from '../overview.svelte';
 
@@ -28,9 +29,9 @@
   ] as const);
 
   const series = [
-    { key: 'income', name: 'Доход', fill: 'var(--faint)' },
-    { key: 'expenses', name: 'Расходы', fill: 'var(--ink)' },
-    { key: 'savings', name: 'Сбережения', fill: 'var(--accent)' }
+    { key: 'income', name: 'Доход', fill: 'var(--chart-income)' },
+    { key: 'expenses', name: 'Расходы', fill: 'var(--chart-expenses)' },
+    { key: 'savings', name: 'Сбережения', fill: 'var(--chart-savings)' }
   ] as const;
 
   /** Нижняя граница верха шкалы, копейки: на пустых данных подписи оси не должны вырождаться в «0». */
@@ -39,13 +40,10 @@
   const hasData = $derived(months.some((m) => m.income > 0 || m.expenses > 0 || m.savings > 0));
 
   /** Верх шкалы — ближайший «круглый» шаг над максимумом ряда. */
-  const tickValue = $derived.by(() => {
-    const peak = Math.max(MIN_PEAK, ...months.flatMap((m) => [m.income, m.expenses, m.savings]));
-    const magnitude = 10 ** Math.floor(Math.log10(peak / TICKS));
-    const nice = [1, 2, 2.5, 5, 10].find((k) => k * magnitude * TICKS >= peak) ?? 10;
-    return nice * magnitude;
-  });
-  const top = $derived(tickValue * TICKS);
+  const top = $derived(
+    niceTop(Math.max(MIN_PEAK, ...months.flatMap((m) => [m.income, m.expenses, m.savings])), TICKS)
+  );
+  const tickValue = $derived(top / TICKS);
 
   const slot = $derived(months.length === 0 ? 0 : (W - LEFT) / months.length);
   const barW = $derived(Math.min(14, slot / 4));

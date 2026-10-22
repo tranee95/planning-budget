@@ -21,15 +21,6 @@
     cursor: pointer;
   }
   input {
-    flex-shrink: 0;
-    width: 18px;
-    height: 18px;
-    margin: 2px 0 0;
-    accent-color: var(--accent);
-    cursor: pointer;
-  }
-  input:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    margin-top: 2px;
   }
 </style>

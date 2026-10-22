@@ -10,6 +10,7 @@ use planning_budget_storage::{Db, PlanWizardInput, SavingsPlanInput};
 
 use super::parse_month;
 use crate::AppError;
+use crate::clock::Now;
 use crate::dto::{MonthPlanDto, PlanRepaymentDto, PlanWizardInputDto, WizardSavingsPlanDto};
 
 fn load(db: &Db, month: YearMonth) -> Result<MonthPlanDto, AppError> {
@@ -74,9 +75,9 @@ pub fn copy_from_previous(
 
 /// Автоперенос плана в новый месяц (U-1): число созданных строк, 0 — переносить нечего или уже
 /// переносили.
-pub fn carry_forward(db: &mut Db, month: &str, now: DateTime<Utc>) -> Result<u32, AppError> {
+pub fn carry_forward(db: &mut Db, month: &str, now: &Now) -> Result<u32, AppError> {
     let to = parse_month(month, "month")?;
-    let created = db.plan_carry_forward(to, now)?;
+    let created = db.plan_carry_forward(to, now.month()?, now.utc)?;
     Ok(u32::try_from(created).unwrap_or(u32::MAX))
 }
 

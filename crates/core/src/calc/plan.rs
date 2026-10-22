@@ -41,6 +41,16 @@ pub struct MonthPlan {
     pub saved: Money,
     /// В месяце есть записи со статусом «План»: мастер плана заполняет только месяц без них.
     pub has_planned_lines: bool,
+    /// Фиксированный план накоплений, действующий в месяце (строка истории с суммой, а не
+    /// процентом); мастер плана подставляет его в поля накоплений.
+    pub savings_fixed: Vec<SavingsFixed>,
+}
+
+/// Фиксированная ежемесячная сумма накопления, действующая в месяце.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct SavingsFixed {
+    pub category_id: CategoryId,
+    pub fixed: Money,
 }
 
 /// Итог распределения дохода: что показать рядом с «Не распределено».
@@ -128,8 +138,18 @@ impl Ledger<'_> {
         let mut plan_expenses = Money::ZERO;
         let mut plan_savings = Money::ZERO;
         let mut rows = Vec::new();
+        let mut savings_fixed = Vec::new();
         for category in &self.data().categories {
             let is_savings = category.kind == CategoryKind::Savings;
+            if let Some(fixed) = is_savings
+                .then(|| self.plan_entry(month, category.id).and_then(|e| e.fixed))
+                .flatten()
+            {
+                savings_fixed.push(SavingsFixed {
+                    category_id: category.id,
+                    fixed,
+                });
+            }
             let plan = if is_savings {
                 match locked {
                     Some(l) => l.savings.get(&category.id).copied().unwrap_or(Money::ZERO),
@@ -185,6 +205,7 @@ impl Ledger<'_> {
                 .transactions
                 .iter()
                 .any(|t| t.month == month && t.status == TxStatus::Planned),
+            savings_fixed,
         })
     }
 
@@ -236,5 +257,115 @@ impl Ledger<'_> {
                 })
             })
             .collect()
+    }
+}
+
+/// Что известно о месяце, в который переносят план (, «Автоперенос (U-1)»).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct CarryFacts {
+    /// Месяц, в который переносят.
+    pub to: YearMonth,
+    /// Текущий месяц по местной дате пользователя.
+    pub today: YearMonth,
+    /// Месяц зафиксирован кнопкой «План готов».
+    pub locked: bool,
+    /// Автоперенос в этот месяц уже выполнялся (отметка `month_carry`).
+    pub already_carried: bool,
+    /// В месяце есть записи.
+    pub has_records: bool,
+    /// Данные есть в более поздних месяцах: «последнего» месяца для `to` нет.
+    pub newer_data: bool,
+    /// Ближайший прошлый месяц с тратами не в накоплениях.
+    pub source: Option<YearMonth>,
+}
+
+/// Решение автопереноса.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum CarryDecision {
+    /// Ничего не делать и отметку не ставить.
+    Skip,
+    /// Скопировать плановые строки из месяца и поставить отметку.
+    CopyFrom(YearMonth),
+    /// Копировать нечего (в месяце уже есть записи): только поставить отметку.
+    MarkOnly,
+}
+
+/// Правила автопереноса: не позже текущего месяца, не зафиксированный, не переносившийся, без
+/// более новых данных и с источником; месяц с записями только получает отметку.
+#[must_use]
+pub fn carry_decision(facts: &CarryFacts) -> CarryDecision {
+    if facts.to > facts.today || facts.locked || facts.already_carried || facts.newer_data {
+        return CarryDecision::Skip;
+    }
+    match facts.source {
+        Some(from) if !facts.has_records => CarryDecision::CopyFrom(from),
+        Some(_) => CarryDecision::MarkOnly,
+        None => CarryDecision::Skip,
+    }
+}
+
+#[cfg(test)]
+mod carry_tests {
+    use super::*;
+
+    fn ym(s: &str) -> YearMonth {
+        YearMonth::parse(s).unwrap()
+    }
+
+    fn open() -> CarryFacts {
+        CarryFacts {
+            to: ym("2026-11"),
+            today: ym("2026-11"),
+            locked: false,
+            already_carried: false,
+            has_records: false,
+            newer_data: false,
+            source: Some(ym("2026-10")),
+        }
+    }
+
+    #[test]
+    fn copies_from_the_source_into_an_empty_current_month() {
+        assert_eq!(
+            carry_decision(&open()),
+            CarryDecision::CopyFrom(ym("2026-10"))
+        );
+    }
+
+    #[test]
+    fn a_month_with_records_is_only_marked() {
+        let facts = CarryFacts {
+            has_records: true,
+            ..open()
+        };
+        assert_eq!(carry_decision(&facts), CarryDecision::MarkOnly);
+    }
+
+    #[test]
+    fn skips_future_locked_carried_and_older_than_data() {
+        for facts in [
+            CarryFacts {
+                today: ym("2026-10"),
+                ..open()
+            },
+            CarryFacts {
+                locked: true,
+                ..open()
+            },
+            CarryFacts {
+                already_carried: true,
+                ..open()
+            },
+            CarryFacts {
+                newer_data: true,
+                ..open()
+            },
+            CarryFacts {
+                source: None,
+                ..open()
+            },
+        ] {
+            assert_eq!(carry_decision(&facts), CarryDecision::Skip, "{facts:?}");
+        }
     }
 }

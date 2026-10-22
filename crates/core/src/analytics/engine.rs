@@ -176,7 +176,7 @@ fn status_label(status: TxStatus) -> (&'static str, &'static str) {
     match status {
         TxStatus::Paid => ("Оплачено", "status.paid"),
         TxStatus::Debt => ("Долг", "status.debt"),
-        TxStatus::Unplanned => ("Внеплановые", "status.unplanned"),
+        TxStatus::Unplanned => ("Незапланировано", "status.unplanned"),
         TxStatus::Planned => ("План", "status.planned"),
     }
 }

@@ -68,6 +68,24 @@ export function formatPercent(basisPoints: number): string {
   return `${sign}${normalize(fraction.format(Math.abs(basisPoints) / 100))}${NBSP}%`;
 }
 
+const oneDecimal = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 });
+
+/** Проценты для сводок и KPI: целые («19 %»), без ложной точности. */
+export function formatPercentWhole(basisPoints: number): string {
+  const whole = Math.round(Math.abs(basisPoints) / 100);
+  // знак минус только у ненулевого результата: «−0 %» не бывает
+  const sign = basisPoints < 0 && whole !== 0 ? MINUS : '';
+  return `${sign}${String(whole)}${NBSP}%`;
+}
+
+/** Проценты на графиках: не больше одного знака («12,3 %», «14 %»). */
+export function formatPercentShort(basisPoints: number): string {
+  const shown = oneDecimal.format(Math.abs(basisPoints) / 100);
+  // минус только у ненулевого результата: «−0 %» не бывает
+  const sign = basisPoints < 0 && Math.round(Math.abs(basisPoints) / 10) !== 0 ? MINUS : '';
+  return `${sign}${normalize(shown)}${NBSP}%`;
+}
+
 const weeks = new Intl.NumberFormat('ru-RU', {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1
@@ -99,6 +117,33 @@ export function formatMonthPrepositional(month: string): string {
   const [year, number] = parseMonth(month);
   const name = MONTHS_PREPOSITIONAL[number - 1];
   return name === undefined ? month : `${name} ${String(year)}`;
+}
+
+const MONTHS_GENITIVE = [
+  'января',
+  'февраля',
+  'марта',
+  'апреля',
+  'мая',
+  'июня',
+  'июля',
+  'августа',
+  'сентября',
+  'октября',
+  'ноября',
+  'декабря'
+] as const;
+
+/** `YYYY-MM` → «октября 2026»: для фраз «действует с октября 2026». */
+export function formatMonthGenitive(month: string): string {
+  const [year, number] = parseMonth(month);
+  const name = MONTHS_GENITIVE[number - 1];
+  return name === undefined ? month : `${name} ${String(year)}`;
+}
+
+/** `YYYY-MM` → «октябрь 2026» с маленькой буквы: для фраз «план на октябрь 2026», «взято · март 2026». */
+export function formatMonthLower(month: string): string {
+  return formatMonth(month).toLowerCase();
 }
 
 /** Сдвигает `YYYY-MM` на `delta` месяцев. */
@@ -161,4 +206,54 @@ export function formatDay(date: string | null): string {
   if (date === null) return '—';
   const [, month = '', day = ''] = date.split('-');
   return `${day}.${month}`;
+}
+
+/** Текст поля суммы: «30 000», копейки только если они есть — «30 000,50»; без знака ₽. */
+export function formatMoneyField(kopecks: number): string {
+  const text = formatMoneyTrim(Math.abs(kopecks)).replace(/\s?₽$/, '');
+  return text.replace(/^−/, '');
+}
+
+/**
+ * Разряды на лету: «15000» → «15 000», «1234,5» → «1 234,5». Точка и запятая — разделитель копеек,
+ * знаки после него остаются как набраны (лишние покажет проверка поля). Текст с буквами и прочим не меняется: поле само покажет ошибку.
+ */
+export function groupMoneyInput(text: string): string {
+  if (!/^[\d\s.,]*$/.test(text)) return text;
+  const compact = text.replace(/\s/g, '');
+  const cut = compact.search(/[.,]/);
+  const whole = cut === -1 ? compact : compact.slice(0, cut);
+  const fractionPart = cut === -1 ? null : compact.slice(cut + 1).replace(/[.,]/g, '');
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
+  return fractionPart === null ? grouped : `${grouped},${fractionPart}`;
+}
+
+/** `2026-09-05` → «05.09.2026»; пустое значение — пустая строка. */
+export function isoToDateField(iso: string | null | undefined): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? '');
+  return match ? `${match[3] ?? ''}.${match[2] ?? ''}.${match[1] ?? ''}` : '';
+}
+
+/** «05.09.2026» → `2026-09-05`; несуществующая дата (31.02) и неполный ввод дают `null`. */
+export function dateFieldToIso(text: string): string | null {
+  const match = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(text);
+  if (!match) return null;
+  const [day, month, year] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  )
+    return null;
+  return `${match[3] ?? ''}-${match[2] ?? ''}-${match[1] ?? ''}`;
+}
+
+/** Маска «дд.мм.гггг» на лету: только цифры, точки ставятся сами, не длиннее 10 знаков. */
+export function maskDateInput(text: string): string {
+  const digits = text.replace(/\D/g, '').slice(0, 8);
+  const parts = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4)].filter((p) => p !== '');
+  const masked = parts.join('.');
+  // «05» — день закончен, точка нужна сразу, чтобы курсор не стоял перед ней
+  return digits.length === 2 || digits.length === 4 ? `${masked}.` : masked;
 }

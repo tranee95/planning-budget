@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { DebtDto } from '$lib/api/bindings';
   import { Progress } from '$lib/components';
-  import { formatMoney, formatMonth } from '$lib/format';
+  import { formatMoney, formatMonthLower } from '$lib/format';
   import { categories } from '$lib/stores/categories.svelte';
 
   type Props = {
@@ -28,16 +28,39 @@
         <span class="head">
           <span class="name">{debt.lender}</span>
           {#if debt.categoryId !== null}
-            <span class="chip">{categories.byId.get(debt.categoryId)?.name ?? ''}</span>
+            {@const category = categories.byId.get(debt.categoryId)}
+            <span class="chip">
+              <span class="swatch" style:background={category?.color ?? 'var(--faint)'}></span>
+              {category?.name ?? ''}
+            </span>
           {/if}
           <span class="rest num">{formatMoney(debt.remaining)}</span>
         </span>
-        <Progress value={debt.paidBp / 10_000} label="{debt.lender}: погашено" />
+        <Progress value={debt.paidBp / 10_000} label="{debt.lender}: погашено" kind="goal" />
+        <span class="paid-line">
+          <span class="num"
+            >оплачено {formatMoney(debt.amount - debt.remaining)} из {formatMoney(
+              debt.amount
+            )}</span
+          >
+          {#if debt.payments.length > 1}
+            <!-- по точке на каждый платёж графика: закрашена — оплачен -->
+            <span
+              class="dots"
+              role="img"
+              aria-label="Платежей оплачено {debt.payments.filter((p) => p.status === 'paid')
+                .length} из {debt.payments.length}"
+            >
+              {#each debt.payments as p (p.id)}<span class="dot" class:on={p.status === 'paid'}
+                ></span>{/each}
+            </span>
+          {/if}
+        </span>
         <span class="foot">
-          <span>взято {formatMoney(debt.amount)} · {formatMonth(debt.takenMonth)}</span>
+          <span>взято {formatMoney(debt.amount)} · {formatMonthLower(debt.takenMonth)}</span>
           <span>
             {#if debt.nextPayment}
-              следующий платёж: {formatMonth(debt.nextPayment.month)} · {formatMoney(
+              следующий платёж: {formatMonthLower(debt.nextPayment.month)} · {formatMoney(
                 debt.nextPayment.amount
               )}
             {:else}
@@ -111,5 +134,35 @@
     gap: var(--sp-3);
     color: var(--muted);
     font-size: var(--fs-12);
+  }
+  .swatch {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-inline-end: var(--sp-1);
+    border-radius: 2px;
+  }
+  .paid-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    color: var(--muted);
+    font-size: var(--fs-12);
+  }
+  .dots {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border: 1.5px solid var(--faint);
+    border-radius: var(--r-full);
+  }
+  .dot.on {
+    border-color: var(--paid-bar);
+    background: var(--paid-bar);
   }
 </style>

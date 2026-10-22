@@ -87,6 +87,9 @@ impl From<StorageError> for AppError {
                 entity: "record".into(),
                 id: 0,
             },
+            other if other.is_busy() => Self::Conflict {
+                message_key: "errors.db.busy".into(),
+            },
             other => Self::internal("storage", &other),
         }
     }

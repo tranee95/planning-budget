@@ -75,8 +75,6 @@ pub(crate) fn all() -> tauri_specta::Commands<tauri::Wry> {
         super::analytics::charts_update,
         super::analytics::charts_delete,
         super::analytics::charts_layout_set,
-        super::savings::savings_overview,
-        super::savings::savings_params_set,
         super::savings::savings_fixed_set,
         super::savings::savings_progress,
         super::debts::debts_list,

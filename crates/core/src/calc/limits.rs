@@ -11,11 +11,11 @@ use crate::period::YearMonth;
 /// Уровень использования лимита.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum LimitLevel {
-    /// Меньше 85% лимита.
+    /// Меньше 90% лимита.
     Ok,
-    /// От 85% до 100% включительно.
+    /// От 90% лимита и до 100% не включая.
     Warn,
-    /// Больше лимита; при нулевом лимите — любая трата.
+    /// Лимит исчерпан или превышен (от 100%); при нулевом лимите — любая трата.
     Over,
 }
 
@@ -52,7 +52,7 @@ pub struct MonthLimits {
     pub expenses: Money,
     pub spent_vs_limits: Option<f64>,
     pub limits_remaining: Money,
-    /// Сколько категорий вышло за лимит (`level = Over`).
+    /// Сколько категорий исчерпало лимит или вышло за него (`level = Over`).
     pub over_count: u32,
 }
 
@@ -279,13 +279,13 @@ fn usage_percent(fact: Money, limit: Money) -> i32 {
     fact.ratio_percent(limit).unwrap_or(0)
 }
 
-/// Границы сравниваются в целых числах: ровно 85% и ровно 100% не зависят от `f64`.
+/// Границы сравниваются в целых числах: ровно 90% и ровно 100% не зависят от `f64`.
 fn level(fact: Money, limit: Money) -> LimitLevel {
     if fact.is_zero() {
         LimitLevel::Ok
-    } else if fact > limit {
+    } else if fact >= limit {
         LimitLevel::Over
-    } else if i128::from(fact.kopecks()) * 100 < i128::from(limit.kopecks()) * 85 {
+    } else if i128::from(fact.kopecks()) * 100 < i128::from(limit.kopecks()) * 90 {
         LimitLevel::Ok
     } else {
         LimitLevel::Warn

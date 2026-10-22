@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 async function open(page: Page): Promise<void> {
   await page.goto('/analytics?vault=open');
@@ -7,6 +7,12 @@ async function open(page: Page): Promise<void> {
 
 const titles = (page: Page): Promise<string[]> =>
   page.getByRole('heading', { level: 2 }).allTextContents();
+
+/** Свой список вместо нативного select: открыть и выбрать пункт по подписи. */
+async function pick(panel: Locator, label: string, option: string | RegExp): Promise<void> {
+  await panel.getByRole('combobox', { name: label, exact: true }).click();
+  await panel.getByRole('option', { name: option, exact: true }).click();
+}
 
 test('аналитика: стандартный дашборд, девять карточек в порядке чтения', async ({ page }) => {
   await open(page);
@@ -134,7 +140,7 @@ test('конструктор: новый график с живым превью
   await expect(donut).toHaveAttribute('title', /не по месяцам/);
 
   await panel.getByLabel('Название').fill('Траты по типам');
-  await panel.getByLabel('Разбить по').selectOption('kind');
+  await pick(panel, 'Разбить по', 'Типам');
   await expect(donut).toBeEnabled();
   await donut.click();
   await expect(donut).toHaveAttribute('aria-checked', 'true');
@@ -173,10 +179,10 @@ test('конструктор: серии по показателям и свой
   await open(page);
   await page.getByRole('button', { name: 'График', exact: true }).click();
   const panel = page.getByRole('dialog', { name: 'Новый график' });
-  await panel.getByLabel('Серии').selectOption('metric');
+  await pick(panel, 'Серии', 'По показателям');
   await expect(panel.getByRole('checkbox', { name: 'Доходы' })).toBeChecked();
   await panel.getByRole('checkbox', { name: 'Сбережения', exact: true }).check();
-  await panel.getByLabel('Период', { exact: true }).selectOption('range');
+  await pick(panel, 'Период', 'Свой период');
   await expect(panel.getByLabel('С', { exact: true })).toBeVisible();
   await expect(panel.getByRole('img', { name: 'Новый график' })).toBeVisible();
   await page.keyboard.press('Escape');
@@ -192,8 +198,8 @@ test('сценарий 6: график с накоплением по стату
   await page.getByRole('button', { name: 'График', exact: true }).click();
   const panel = page.getByRole('dialog', { name: 'Новый график' });
   await panel.getByLabel('Название').fill('Статусы по месяцам');
-  await panel.getByLabel('Серии').selectOption('status');
-  await panel.getByRole('radio', { name: 'С накоплением' }).click();
+  await pick(panel, 'Серии', 'По статусам');
+  await panel.getByRole('radio', { name: 'Стек' }).click();
   await panel.getByRole('button', { name: 'Добавить на панель' }).click();
   await expect(page.getByRole('heading', { level: 2 })).toHaveCount(10);
 

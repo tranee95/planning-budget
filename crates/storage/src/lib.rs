@@ -7,12 +7,13 @@ mod debts;
 mod devseed;
 mod incomes;
 mod legacy;
+mod limits;
 mod migrations;
 mod month_plans;
-mod plan;
 mod platform;
 mod records;
 mod saved_filters;
+mod savings_plans;
 mod search;
 mod search_list;
 mod seed;
@@ -68,7 +69,26 @@ pub enum StorageError {
     Corrupt,
 }
 
+impl From<planning_budget_core::records::RecordError> for StorageError {
+    fn from(e: planning_budget_core::records::RecordError) -> Self {
+        Self::Invalid(e.0)
+    }
+}
+
 impl StorageError {
+    /// База занята другой операцией дольше `busy_timeout` (SQLITE_BUSY / SQLITE_LOCKED): повтор обычно проходит.
+    #[must_use]
+    pub fn is_busy(&self) -> bool {
+        matches!(
+            self,
+            Self::Sqlite(rusqlite::Error::SqliteFailure(e, _))
+                if matches!(
+                    e.code,
+                    rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked
+                )
+        )
+    }
+
     /// Нарушение ограничения SQLite (уникальность, внешний ключ, CHECK).
     pub(crate) fn is_constraint(&self) -> bool {
         matches!(
@@ -208,5 +228,27 @@ impl Drop for Db {
     fn drop(&mut self) {
         // Ошибку оптимизатора при закрытии сессии обрабатывать нечем и незачем.
         let _ = self.conn.execute_batch("PRAGMA optimize");
+    }
+}
+
+#[cfg(test)]
+mod busy_tests {
+    use super::StorageError;
+    use rusqlite::{Error, ffi};
+
+    fn failure(code: i32) -> StorageError {
+        StorageError::Sqlite(Error::SqliteFailure(ffi::Error::new(code), None))
+    }
+
+    #[test]
+    fn busy_and_locked_are_retryable() {
+        assert!(failure(ffi::SQLITE_BUSY).is_busy());
+        assert!(failure(ffi::SQLITE_LOCKED).is_busy());
+    }
+
+    #[test]
+    fn other_failures_are_not_busy() {
+        assert!(!failure(ffi::SQLITE_CONSTRAINT).is_busy());
+        assert!(!StorageError::Corrupt.is_busy());
     }
 }

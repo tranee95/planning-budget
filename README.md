@@ -129,7 +129,6 @@ crates/core      домен, деньги, расчёты (чистый крей
 crates/vault     пароль, ключи, ключ восстановления
 crates/storage   SQLCipher, миграции, репозитории
 crates/import    парсеры выписок (в интерфейс пока не подключены)
-crates/export    экспорт и резервные копии (в интерфейс пока не подключены)
 crates/broker    заглушка брокера
 src-tauri        оболочка Tauri: команды, события, сессия, автоблокировка
 ui               интерфейс: SvelteKit, Svelte 5, TypeScript

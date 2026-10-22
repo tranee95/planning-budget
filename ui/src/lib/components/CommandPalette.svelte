@@ -201,6 +201,7 @@
     inset: 0;
     border: 0;
     background: var(--scrim);
+    backdrop-filter: blur(4px);
     cursor: default;
   }
   .panel {

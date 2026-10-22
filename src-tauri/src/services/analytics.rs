@@ -3,7 +3,7 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use planning_budget_core::YearMonth;
 use planning_budget_core::analytics::{
-    AnalyticsError, ChartData, ChartSpec, Context, Options, PeriodSpec, SpecError, Unit, compute,
+    AnalyticsError, ChartData, ChartSpec, Context, Options, PeriodSpec, SpecError, Unit,
     compute_many, period_bounds,
 };
 use planning_budget_storage::{CardPlacement, ChartCard, Dashboard, Db};
@@ -142,22 +142,20 @@ pub fn check(specs: &[ChartSpecDto]) -> Result<Vec<Option<String>>, AppError> {
 /// Считает график. Загружаются только месяцы периода (и предыдущего, если он нужен для
 /// сравнения); `all` читает всю историю.
 pub fn run(db: &Db, spec: &ChartSpecDto, today: NaiveDate) -> Result<ChartDataDto, AppError> {
-    let spec = spec_from_dto(spec)?;
-    spec.validate().map_err(spec_error)?;
-    let today = month_of(today)?;
-    let (from, to) = load_bounds(&spec, today)?;
-    let data = db.dataset(from, to)?;
-    let tx_tags = if spec.uses_tags(today.year()) {
-        db.tx_tag_names(from, to)?
-    } else {
-        BTreeMap::new()
-    };
-    let ctx = Context {
-        today,
-        tx_tags: &tx_tags,
-    };
-    let chart = compute(&data, &spec, &ctx).map_err(analytics_error)?;
-    Ok(chart.into())
+    // Ошибку разбора описания отдаём как есть, с полем: `run_many` хранит только ключ причины.
+    spec_from_dto(spec)?.validate().map_err(spec_error)?;
+    let run = run_many(db, std::slice::from_ref(spec), today)?
+        .into_iter()
+        .next()
+        .ok_or_else(|| AppError::internal("analytics_run", &"no result"))?;
+    match (run.data, run.error_key) {
+        (Some(data), _) => Ok(data),
+        (None, Some(message_key)) => Err(AppError::Validation {
+            message_key,
+            field: None,
+        }),
+        (None, None) => Err(AppError::internal("analytics_run", &"empty result")),
+    }
 }
 
 /// Месяцы, которые нужно загрузить для графика: период и предыдущий, если он нужен для сравнения.

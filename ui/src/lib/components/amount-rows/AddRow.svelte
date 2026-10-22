@@ -37,12 +37,16 @@
     }
   }
 
+  function confirm(): void {
+    if (amount === null) return;
+    if (keepOpen) void submitAgain({ title, amount });
+    else void onsubmit({ title, amount }, false);
+  }
+
   function onKeydown(event: KeyboardEvent): void {
     if (event.key === 'Enter') {
       event.preventDefault();
-      if (amount === null) return;
-      if (keepOpen) void submitAgain({ title, amount });
-      else void onsubmit({ title, amount }, false);
+      confirm();
     } else if (event.key === 'Escape') {
       event.stopPropagation();
       oncancel();
@@ -65,14 +69,14 @@
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <li class="row" bind:this={row} onkeydown={onKeydown} onfocusout={onFocusOut}>
   <input
-    class="title"
+    class="title ring-field"
     aria-label="Наименование, {categoryName}"
     placeholder={PLACEHOLDERS.rowTitle}
     autocomplete="off"
     bind:value={title}
   />
   <input
-    class="amount num"
+    class="amount num ring-field"
     aria-label="Сумма, ₽"
     placeholder={PLACEHOLDERS.rowAmount}
     inputmode="decimal"
@@ -82,6 +86,15 @@
     bind:this={amountInput}
     use:focusOnMount
   />
+  <button
+    type="button"
+    class="ok"
+    aria-label="Сохранить"
+    aria-keyshortcuts="Enter"
+    title="Сохранить (Enter)"
+    disabled={amount === null}
+    onclick={confirm}><span aria-hidden="true">✓</span></button
+  >
 </li>
 
 <style>
@@ -104,6 +117,29 @@
   }
   .title {
     flex-grow: 1;
+  }
+  .ok {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--primary);
+    border-radius: var(--r-sm);
+    background: var(--primary);
+    color: var(--primary-fg);
+    cursor: pointer;
+  }
+  .ok:disabled {
+    border-color: var(--line);
+    background: transparent;
+    color: var(--faint);
+    cursor: default;
+  }
+  .ok:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--bg),
+      0 0 0 4px var(--primary);
   }
   .amount {
     width: 96px;

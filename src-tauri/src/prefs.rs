@@ -2,7 +2,9 @@
 
 use std::fs;
 use std::path::Path;
-use std::sync::{Mutex, PoisonError};
+use std::sync::Mutex;
+
+use crate::sync::MutexExt as _;
 
 use crate::AppError;
 use crate::dto::{Prefs, PrefsPatch};
@@ -96,7 +98,7 @@ fn save(path: &Path, prefs: &Prefs) -> Result<(), AppError> {
 /// # Errors
 /// `Validation` для недопустимых значений, `Io` при ошибке записи.
 pub fn update(path: &Path, patch: PrefsPatch) -> Result<Prefs, AppError> {
-    let _guard = WRITE.lock().unwrap_or_else(PoisonError::into_inner);
+    let _guard = WRITE.lock_unpoisoned();
     let mut prefs = load(path);
     if let Some(theme) = patch.theme {
         prefs.theme = theme;
@@ -136,7 +138,7 @@ pub fn update(path: &Path, patch: PrefsPatch) -> Result<Prefs, AppError> {
 /// # Errors
 /// `Io` при ошибке записи.
 pub fn set_last_update_check(path: &Path, secs: i64) -> Result<(), AppError> {
-    let _guard = WRITE.lock().unwrap_or_else(PoisonError::into_inner);
+    let _guard = WRITE.lock_unpoisoned();
     let mut prefs = load(path);
     prefs.last_update_check = Some(secs);
     save(path, &prefs)
@@ -148,7 +150,7 @@ pub fn set_last_update_check(path: &Path, secs: i64) -> Result<(), AppError> {
 /// # Errors
 /// `Io` при ошибке записи.
 pub fn set_autolock_minutes(path: &Path, minutes: Option<u16>) -> Result<(), AppError> {
-    let _guard = WRITE.lock().unwrap_or_else(PoisonError::into_inner);
+    let _guard = WRITE.lock_unpoisoned();
     let mut prefs = load(path);
     if prefs.autolock_minutes == minutes {
         return Ok(());

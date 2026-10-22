@@ -6,13 +6,13 @@
   import { onMount } from 'svelte';
   import { planApi, searchApi } from '$lib/api/data';
   import { categories } from '$lib/stores/categories.svelte';
+  import { afterNavigate } from '$app/navigation';
   import { page } from '$app/state';
   import CommandPalette from '$lib/components/CommandPalette.svelte';
   import ToastHost from '$lib/components/ToastHost.svelte';
   import { monthOut, monthSlide, routeIn, routeOut } from '$lib/motion';
   import { routeMeta } from '$lib/nav';
   import { shortcuts } from '$lib/shortcuts';
-  import { errorText } from '$lib/i18n/errors';
   import { toasts } from '$lib/stores/toasts.svelte';
   import { month } from '$lib/stores/month.svelte';
   import { onboarding } from '$lib/stores/onboarding.svelte';
@@ -33,6 +33,11 @@
 
   // Страницы без данных месяца (настройки, аналитика с собственными периодами) не перерисовываются при смене месяца.
   const meta = $derived(routeMeta(page.url.pathname));
+
+  // Тосты прежнего раздела не переезжают на следующий (ошибки остаются, пока их не закроют).
+  afterNavigate(({ from, to }) => {
+    if (from?.url.pathname !== to?.url.pathname) toasts.dismissOnNavigate();
+  });
   const monthScoped = $derived(meta?.monthScoped ?? true);
   const title = $derived(meta ? (meta.title ?? meta.label) : 'Planning Budget');
 
@@ -42,7 +47,7 @@
   $effect(() => {
     if (session.phase !== 'unlocked' || !monthScoped) return;
     planApi.carryForward(month.current).catch((e: unknown) => {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e);
     });
   });
 
@@ -146,7 +151,9 @@
   .content:focus {
     outline: none;
   }
+  /* единственная «декоративная» анимация: после входа приложение проявляется (≤ 500 мс) */
   .shell {
+    animation: shell-in var(--dur-pop) var(--ease-out);
     display: flex;
     min-height: var(--screen-h);
   }
@@ -186,6 +193,11 @@
   @media (max-width: 1199px) {
     .shell > :global(.sidebar) {
       flex-basis: 64px;
+    }
+  }
+  @keyframes shell-in {
+    from {
+      opacity: 0;
     }
   }
 </style>

@@ -1,6 +1,6 @@
 //! Сводки месяца и года.
 
-use chrono::Local;
+use crate::clock::Now;
 use tauri::State;
 
 use crate::AppError;
@@ -15,7 +15,7 @@ pub async fn summary_month(
     month: String,
 ) -> Result<MonthOverviewDto, AppError> {
     state
-        .with_session(move |db| service::month(db, &month, Local::now().date_naive()))
+        .with_session(move |db| service::month(db, &month, Now::capture().today))
         .await
 }
 
@@ -38,6 +38,6 @@ pub async fn summary_year(
     year: u16,
 ) -> Result<YearSummaryDto, AppError> {
     state
-        .with_session(move |db| service::year(db, year, Local::now().date_naive()))
+        .with_session(move |db| service::year(db, year, Now::capture().today))
         .await
 }

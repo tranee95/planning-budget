@@ -2,7 +2,7 @@
 //!.
 
 use chrono::{DateTime, NaiveDate, Utc};
-use planning_budget_core::calc::validate_schedule;
+use planning_budget_core::calc::{debt_is_closed, validate_schedule};
 use planning_budget_core::{CategoryId, DebtId, DebtPaymentStatus, Money, TxId, YearMonth};
 use rusqlite::{Row, params};
 
@@ -393,13 +393,19 @@ fn refresh_closed(
     id: DebtId,
     now: DateTime<Utc>,
 ) -> Result<(), StorageError> {
+    let (amount, paid): (i64, i64) = conn.query_row(
+        "SELECT amount, (SELECT COALESCE(SUM(amount), 0) FROM debt_payments
+                         WHERE debt_id = debts.id AND status = 'paid')
+         FROM debts WHERE id = ?1",
+        [id.0],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )?;
+    // Решение — в core; хранилище только записывает отметку.
+    let closed = debt_is_closed(Money::from_kopecks(amount), Money::from_kopecks(paid));
     conn.execute(
-        "UPDATE debts SET closed_at = CASE
-             WHEN (SELECT COALESCE(SUM(amount), 0) FROM debt_payments
-                   WHERE debt_id = debts.id AND status = 'paid') = debts.amount
-             THEN COALESCE(closed_at, ?2) ELSE NULL END
+        "UPDATE debts SET closed_at = CASE WHEN ?3 THEN COALESCE(closed_at, ?2) ELSE NULL END
          WHERE id = ?1",
-        params![id.0, stamp(now)],
+        params![id.0, stamp(now), closed],
     )?;
     Ok(())
 }

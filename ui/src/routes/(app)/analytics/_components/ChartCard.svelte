@@ -127,6 +127,31 @@
     gap: var(--sp-1) var(--sp-2);
     min-width: 0;
   }
+  /* Размер, настройки, копия и удаление видны, пока курсор над карточкой или фокус внутри неё; на сенсорных экранах — всегда */
+  .tools {
+    opacity: 0;
+    transition: opacity var(--dur-fast) var(--ease-out);
+  }
+  .card:hover .tools,
+  .card:focus-within .tools,
+  /* поднятая карточка: тень и scale 1,02, на её месте остаётся пустая ячейка сетки */
+  .card {
+    transition:
+      transform var(--dur-fast) var(--ease-out),
+      box-shadow var(--dur-fast) var(--ease-out);
+  }
+  .card.dragging {
+    transform: scale(1.02);
+    box-shadow: 0 16px 40px color-mix(in srgb, var(--ink) 20%, transparent);
+  }
+  .card.dragging .tools {
+    opacity: 1;
+  }
+  @media (hover: none) {
+    .tools {
+      opacity: 1;
+    }
+  }
   .tools {
     display: flex;
     align-items: center;
@@ -138,11 +163,9 @@
     min-width: 0;
     margin: 0;
     overflow: hidden;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    overflow-wrap: anywhere;
+    /* заголовок в одну строку: переносы сдвигали график относительно соседа; полный текст — в title */
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-size: var(--fs-14);
     font-weight: var(--fw-semibold);
   }

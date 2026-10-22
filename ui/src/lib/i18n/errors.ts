@@ -24,6 +24,7 @@ export const messages: Record<string, string> = {
     'Прошлый перевыпуск ключа не завершён. Заблокируйте приложение и войдите снова, затем повторите.',
   'errors.vault.rekey_interrupted':
     'Перевыпуск ключа был прерван, и этот ключ восстановления больше не подходит. Войдите с паролем.',
+  'errors.db.busy': 'База занята другой операцией. Повторите через пару секунд.',
   'errors.io.vault': 'Не удалось прочитать или записать файл ключей.',
   'errors.io.migration':
     'Перенос данных из прежней папки снова не удался. Прежние данные не изменены.',
@@ -151,11 +152,27 @@ export function errorText(e: unknown): string {
         ? 'Хранилище не найдено.'
         : 'Запись не найдена: возможно, её уже удалили.';
     case 'Internal':
-      return `Внутренняя ошибка. Код для журнала: ${err.correlationId}.`;
+      return 'Внутренняя ошибка. Повторите действие; подробности записаны в журнал приложения.';
   }
+}
+
+/** Технический код для «Подробностей» тоста и журнала: пользователю в основном тексте не показывается. */
+export function errorDetail(e: unknown): string | null {
+  return e instanceof ApiError && e.error.code === 'Internal'
+    ? `Код для журнала: ${e.error.correlationId}`
+    : null;
 }
 
 /** Поле, к которому относится ошибка валидации (если бэкенд его указал). */
 export function errorField(e: unknown): string | null {
   return e instanceof ApiError && e.error.code === 'Validation' ? e.error.field : null;
+}
+
+/** Ошибки, при которых повтор имеет смысл: база занята или внутренний сбой. Ввод, права и конфликты состояния повтором не лечатся. */
+export function isRetryable(e: unknown): boolean {
+  if (!(e instanceof ApiError)) return false;
+  const err = e.error;
+  return (
+    err.code === 'Internal' || (err.code === 'Conflict' && err.messageKey === 'errors.db.busy')
+  );
 }

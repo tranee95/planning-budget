@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::model::{CategoryKind, TxStatus};
 use crate::money::Money;
 use crate::period::YearMonth;
+use crate::text::normalize;
 
 /// Включительный диапазон месяцев.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -267,18 +268,13 @@ fn unquote(tok: &[char]) -> String {
     }
 }
 
-/// Нижний регистр и `ё = е`.
-fn norm(s: &str) -> String {
-    s.to_lowercase().replace('ё', "е")
-}
-
 fn apply(filter: &mut Filter, tok: &[char], year: u16) -> Applied {
     let (negated, body) = match tok {
         ['-', rest @ ..] if !rest.is_empty() => (true, rest),
         _ => (false, tok),
     };
     if let ['#', name @ ..] = body {
-        let name = norm(&unquote(name));
+        let name = normalize(&unquote(name));
         if name.is_empty() {
             return Applied::Rejected(QueryErrorKind::EmptyValue);
         }
@@ -299,7 +295,7 @@ fn apply(filter: &mut Filter, tok: &[char], year: u16) -> Applied {
     let Some((key, rest)) = body.split_at_checked(op) else {
         return Applied::Text;
     };
-    let key = norm(&key.iter().collect::<String>());
+    let key = normalize(&key.iter().collect::<String>());
     let rest: String = rest.iter().collect();
     let is_key = |names: &[&str]| names.contains(&key.as_str());
 
@@ -333,7 +329,7 @@ fn apply(filter: &mut Filter, tok: &[char], year: u16) -> Applied {
     } else {
         return Applied::Text;
     };
-    let value = norm(
+    let value = normalize(
         value
             .strip_prefix('"')
             .map_or(value, |v| v.strip_suffix('"').unwrap_or(v)),
@@ -378,7 +374,7 @@ fn apply_keyword(filter: &mut Filter, body: &[char], negated: bool) -> Applied {
     if negated {
         return Applied::Text;
     }
-    let word = norm(&body.iter().collect::<String>());
+    let word = normalize(&body.iter().collect::<String>());
     let Some(record) = RECORDS
         .iter()
         .find(|(names, _)| names.contains(&word.as_str()))

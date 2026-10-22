@@ -7,7 +7,9 @@ test('обновления: при запуске предлагается но�
   const dialog = page.getByRole('dialog', { name: 'Доступна версия 0.7.0' });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText('У вас версия 0.6.16');
-  await expect(dialog).toContainText('Исправления и улучшения.');
+  // Список изменений свёрнут, пока его не раскроют
+  await dialog.getByText('Что нового').click();
+  await expect(dialog).toContainText('Исправления в расчёте накоплений');
   await dialog.getByRole('button', { name: 'Позже' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });

@@ -26,3 +26,117 @@ body {
   font-size: 14px;
   line-height: 1.45;
 }
+
+/* Деструктивное действие строки («×», «в архив»): видно при наведении на строку и при фокусе внутри неё
+   (клавиатура), на устройствах без наведения — всегда. Кнопка остаётся в разметке и доступна скринридеру. */
+.reveal-action {
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+:hover > .reveal-action,
+:focus-within > .reveal-action,
+.reveal-action:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .reveal-action {
+    opacity: 1;
+  }
+}
+
+/* Флажки: единый вид вместо нативного. Переключатели (role="switch") остаются на своём компоненте. */
+input[type='checkbox']:not([role='switch']) {
+  appearance: none;
+  display: inline-grid;
+  flex: none;
+  place-content: center;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  border: 1.5px solid var(--faint);
+  border-radius: 5px;
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+input[type='checkbox']:not([role='switch'])::after {
+  content: '';
+  width: 5px;
+  height: 9px;
+  margin-top: -2px;
+  border: solid var(--primary-fg);
+  border-width: 0 2px 2px 0;
+  opacity: 0;
+  transform: rotate(45deg) scale(0.6);
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-spring);
+}
+input[type='checkbox']:not([role='switch']):checked {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+input[type='checkbox']:not([role='switch']):checked::after {
+  opacity: 1;
+  transform: rotate(45deg) scale(1);
+}
+input[type='checkbox']:not([role='switch']):indeterminate {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+input[type='checkbox']:not([role='switch']):disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/*
+ * Фокус.
+ * Поля: кольцо рисует обёртка поля (граница + box-shadow повторяют её радиус и охватывают иконки и кнопки внутри),
+ * а не outline внутреннего input — иначе внутри скруглённого поля появляется прямоугольная вторая рамка.
+ * Кнопки, ссылки, чипы, пункты: двойное кольцо (зазор цвета фона + основной цвет) только по :focus-visible.
+ */
+input:not([type='checkbox']):not([type='radio']),
+textarea,
+select {
+  outline: none;
+}
+input[type='checkbox']:not([role='switch']):focus-visible {
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--primary);
+}
+:where(
+  button,
+  a[href],
+  [role='button'],
+  [role='tab'],
+  [role='radio'],
+  [role='option'],
+  [role='menuitem'],
+  [tabindex]
+):focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--primary);
+}
+
+/* Голое поле с собственной рамкой (строки внутри карточек): кольцо на самом поле */
+.ring-field {
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.ring-field:hover {
+  border-color: var(--faint);
+}
+.ring-field:focus-visible {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.ring-field[aria-invalid='true']:focus-visible {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px var(--danger-ring);
+}

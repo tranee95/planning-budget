@@ -1,6 +1,6 @@
 //! План месяца.
 
-use chrono::Utc;
+use crate::clock::Now;
 use tauri::{AppHandle, State};
 
 use crate::AppError;
@@ -29,7 +29,7 @@ pub async fn plan_lock(
     month: String,
 ) -> Result<MonthPlanDto, AppError> {
     let dto = state
-        .with_session(move |db| service::lock(db, &month, Utc::now()))
+        .with_session(move |db| service::lock(db, &month, Now::capture().utc))
         .await?;
     data_changed(&app, ChangeScope::Plan, vec![dto.month.clone()]);
     Ok(dto)
@@ -59,7 +59,7 @@ pub async fn plan_copy_from_previous(
     month: String,
 ) -> Result<MonthPlanDto, AppError> {
     let dto = state
-        .with_session(move |db| service::copy_from_previous(db, &month, Utc::now()))
+        .with_session(move |db| service::copy_from_previous(db, &month, Now::capture().utc))
         .await?;
     // Копирование создаёт траты: меняются и записи месяца, и его план.
     data_changed(&app, ChangeScope::Plan, vec![dto.month.clone()]);
@@ -78,7 +78,7 @@ pub async fn plan_carry_forward(
 ) -> Result<u32, AppError> {
     let target = month.clone();
     let created = state
-        .with_session(move |db| service::carry_forward(db, &month, Utc::now()))
+        .with_session(move |db| service::carry_forward(db, &month, &Now::capture()))
         .await?;
     if created > 0 {
         data_changed(&app, ChangeScope::Plan, vec![target.clone()]);
@@ -110,7 +110,7 @@ pub async fn plan_wizard_apply(
     input: PlanWizardInputDto,
 ) -> Result<MonthPlanDto, AppError> {
     let dto = state
-        .with_session(move |db| service::wizard_apply(db, &month, &input, Utc::now()))
+        .with_session(move |db| service::wizard_apply(db, &month, &input, Now::capture().utc))
         .await?;
     let months = vec![dto.month.clone()];
     data_changed(&app, ChangeScope::Plan, months.clone());

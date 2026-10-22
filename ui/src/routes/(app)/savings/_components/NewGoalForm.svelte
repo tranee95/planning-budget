@@ -42,7 +42,7 @@
     onescape={cancel}
   />
   <div class="actions">
-    <Button type="submit" variant="success" loading={vm.adding} disabled={vm.newName.trim() === ''}
+    <Button type="submit" variant="primary" loading={vm.adding} disabled={vm.newName.trim() === ''}
       >Создать</Button
     >
     <Button variant="ghost" onclick={cancel}>Отмена</Button>

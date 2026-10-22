@@ -141,3 +141,22 @@ test.each([
 ] as const)('routeFor(%s, %s, recovery=%s) → %s', (phase, path, pending, expected) => {
   expect(routeFor(phase, path, pending)).toBe(expected);
 });
+
+test('unlock: экран входа уходит перед сменой экрана и без паузы при reduced-motion', async () => {
+  const original = session.exitDelay;
+  session.exitDelay = () => 300;
+  const pending = session.unlock('correct horse battery');
+  await vi.waitFor(() => {
+    expect(session.leaving).toBe(true);
+  });
+  expect(session.phase).not.toBe('unlocked');
+  await pending;
+  expect(session.phase).toBe('unlocked');
+  expect(session.leaving).toBe(false);
+
+  session.phase = 'locked';
+  session.exitDelay = () => 0;
+  await session.unlock('correct horse battery');
+  expect(session.phase).toBe('unlocked');
+  session.exitDelay = original;
+});

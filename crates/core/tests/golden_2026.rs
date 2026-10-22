@@ -294,7 +294,7 @@ fn bonds() {
     );
 
     let params = data.savings_params[&savings];
-    let rates = planning_budget_core::calc::BondRates::new(params.annual_rate, params.tax);
+    let rates = planning_budget_core::calc::DepositRates::new(params.annual_rate, params.tax);
     check_ratio(
         &mut errs,
         "bonds.effective_rate",

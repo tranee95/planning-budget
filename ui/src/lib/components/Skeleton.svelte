@@ -7,26 +7,41 @@
 <span class="skeleton" style:width style:height aria-hidden="true"></span>
 
 <style>
+  /* Показывается, только если загрузка длится дольше 150 мс: быстрые ответы не мигают заглушкой */
   .skeleton {
+    position: relative;
     display: block;
+    overflow: hidden;
     border-radius: var(--r-xs);
     background: var(--line-2);
-    animation: pulse 1.2s var(--ease-in-out) infinite alternate;
+    opacity: 0;
+    animation: reveal 0s linear 150ms forwards;
   }
-  @keyframes pulse {
-    from {
+  /* блик 1,2 с: двигается только transform */
+  .skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, var(--surface-2), transparent);
+    transform: translateX(-100%);
+    animation: shimmer 1.2s var(--ease-in-out) infinite;
+  }
+  @keyframes reveal {
+    to {
       opacity: 1;
     }
+  }
+  @keyframes shimmer {
     to {
-      opacity: 0.5;
+      transform: translateX(100%);
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .skeleton {
+    .skeleton::after {
       animation: none;
     }
   }
-  :global(:root[data-motion='reduce']) .skeleton {
+  :global(:root[data-motion='reduce']) .skeleton::after {
     animation: none;
   }
 </style>

@@ -2,10 +2,10 @@ import type { AppError, Prefs, PrefsPatch, VaultStatusDto } from '../bindings';
 import { dashboardHandlers } from './dashboards';
 import {
   budgetHandlers,
-  mockPlanRateBp,
   mockAllSavingsCategories,
   mockSavingsCategories,
   mockSavingsFacts,
+  mockSettings,
   mockTransactionById
 } from './budget';
 import { createSavingsHandlers } from './savings';
@@ -90,12 +90,7 @@ export const handlers = {
   ...budgetHandlers,
   ...dashboardHandlers,
   ...createDebtHandlers(mockTransactionById),
-  ...createSavingsHandlers(
-    mockSavingsCategories,
-    mockPlanRateBp,
-    mockSavingsFacts,
-    mockAllSavingsCategories
-  ),
+  ...createSavingsHandlers(mockSavingsCategories, mockSavingsFacts, mockAllSavingsCategories),
   app_version: () => '0.0.0-mock',
 
   vault_status: (): VaultStatusDto => ({
@@ -168,7 +163,8 @@ export const handlers = {
   activity_ping: () => null,
   client_error_log: () => null,
 
-  prefs_get: () => prefs,
+  // как в Rust: копия порога автоблокировки для экрана входа всегда равна настройке
+  prefs_get: () => ({ ...prefs, autolockMinutes: mockSettings().autolockMinutes }),
   // В браузере тему ОС отдаёт media-запрос (в окне Tauri её сообщает Rust).
   system_dark: () => globalThis.matchMedia('(prefers-color-scheme: dark)').matches,
   prefs_set: (args: { patch: PrefsPatch }) => {
@@ -178,7 +174,7 @@ export const handlers = {
       locale: locale ?? prefs.locale,
       uiScale: uiScale ?? prefs.uiScale,
       reducedMotion: reducedMotion ?? prefs.reducedMotion,
-      autolockMinutes: prefs.autolockMinutes,
+      autolockMinutes: mockSettings().autolockMinutes,
       introDone: introDone ?? prefs.introDone,
       checkUpdates: checkUpdates ?? prefs.checkUpdates,
       lastUpdateCheck: prefs.lastUpdateCheck
@@ -195,7 +191,8 @@ export const handlers = {
         state: 'available',
         currentVersion: current,
         version: '0.7.0',
-        notes: 'Исправления и улучшения.'
+        notes:
+          '— Новый конструктор графиков с превью\n— Свой выбор значений вместо системных списков\n— Исправления в расчёте накоплений'
       };
     }
     return {

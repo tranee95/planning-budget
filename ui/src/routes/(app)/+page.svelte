@@ -3,6 +3,7 @@
   import { Button, CorridorBar, EmptyState, Kpi, Skeleton } from '$lib/components';
   import { FORMULAS } from '$lib/formulas';
   import { month } from '$lib/stores/month.svelte';
+  import { onboarding } from '$lib/stores/onboarding.svelte';
   import LimitsList from './_overview/LimitsList.svelte';
   import PlanCard from './_overview/PlanCard.svelte';
   import MonthsChart from './_overview/MonthsChart.svelte';
@@ -58,13 +59,22 @@
         onlock={() => void vm.lockPlan()}
         onunlock={() => void vm.unlockPlan()}
         oncopy={() => void vm.copyPlan()}
+        onstart={() => {
+          onboarding.openWizard();
+        }}
+        month={month.current}
         onrepay={(id: number, paid: boolean) => void vm.payRepayment(id, paid)}
       />
     {/if}
 
-    <div class="kpis">
+    <div class="kpis" class:quiet={vm.emptyMonth}>
       <div class="card">
-        <Kpi label="Доход" amount={summary.income} hint={vm.incomeHint} formula={FORMULAS.income} />
+        <Kpi
+          label="Получено"
+          amount={summary.incomeReceived}
+          hint={vm.incomeHint}
+          formula={FORMULAS.incomeReceived}
+        />
       </div>
       <div class="card">
         <Kpi label="Расходы" amount={summary.expenses} formula={FORMULAS.expenses}>
@@ -193,11 +203,16 @@
     display: grid;
     grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
     gap: var(--sp-4);
-    align-items: start;
+    /* карточки нижнего ряда одной высоты: лимиты не обрываются на полпути */
+    align-items: stretch;
   }
   @media (max-width: 1100px) {
     .main {
       grid-template-columns: minmax(0, 1fr);
     }
+  }
+  /* Пустой месяц: цифры серые (не через opacity: контраст остаётся ≥ 4.5:1), главное — призыв составить план выше */
+  .kpis.quiet :global(.value) {
+    color: var(--muted);
   }
 </style>

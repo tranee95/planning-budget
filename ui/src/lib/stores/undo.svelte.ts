@@ -1,4 +1,3 @@
-import { errorText } from '$lib/i18n/errors';
 import { onLock } from './session.svelte';
 import { toasts } from './toasts.svelte';
 
@@ -32,7 +31,7 @@ class UndoStack {
   async undo(target?: UndoEntry): Promise<void> {
     const entry = target ?? this.#done.at(-1);
     if (!entry || !this.#done.includes(entry) || this.#busy) return;
-    if (!(await this.#run(entry.undo))) return;
+    if (!(await this.#run(entry.undo, () => this.undo(entry)))) return;
     this.#done = this.#done.filter((e) => e !== entry);
     this.#undone = [...this.#undone, entry];
     toasts.push({ message: `Отменено: ${entry.label}` });
@@ -41,7 +40,7 @@ class UndoStack {
   async redo(): Promise<void> {
     const entry = this.#undone.at(-1);
     if (!entry || this.#busy) return;
-    if (!(await this.#run(entry.redo))) return;
+    if (!(await this.#run(entry.redo, () => this.redo()))) return;
     this.#undone = this.#undone.slice(0, -1);
     this.#done = [...this.#done, entry];
     toasts.push({ message: `Повторено: ${entry.label}` });
@@ -53,13 +52,16 @@ class UndoStack {
   }
 
   /** При ошибке запись остаётся на месте: пользователь может повторить. */
-  async #run(action: () => Promise<void> | void): Promise<boolean> {
+  async #run(action: () => Promise<void> | void, retry: () => Promise<void>): Promise<boolean> {
     this.#busy = true;
     try {
       await action();
       return true;
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      // повтор идёт через undo()/redo(): стеки и тост «Отменено» обновятся, как при первой попытке
+      toasts.fail(e, () => {
+        void retry();
+      });
       return false;
     } finally {
       this.#busy = false;

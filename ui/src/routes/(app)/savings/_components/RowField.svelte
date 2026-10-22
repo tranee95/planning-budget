@@ -114,11 +114,15 @@
     background: var(--surface);
   }
   .box:focus-within {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--focus-ring);
   }
   .box.invalid {
     border-color: var(--unpl);
+  }
+  .box.invalid:focus-within {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px var(--danger-ring);
   }
   input {
     flex: 1;

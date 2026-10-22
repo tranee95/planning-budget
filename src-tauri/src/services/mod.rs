@@ -8,16 +8,26 @@ pub mod client_log;
 #[cfg(test)]
 mod data_tests;
 pub mod debts;
+#[cfg(test)]
+mod debts_tests;
 pub mod devseed;
 pub mod legacy;
 pub mod plan;
+#[cfg(test)]
+mod plan_tests;
 pub mod records;
 #[cfg(test)]
 mod records_tests;
 pub mod savings;
+#[cfg(test)]
+mod savings_tests;
 pub mod search;
 pub mod settings;
 pub mod summary;
+#[cfg(test)]
+mod summary_tests;
+#[cfg(test)]
+mod test_support;
 pub mod updates;
 pub mod vault;
 

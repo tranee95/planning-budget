@@ -161,7 +161,7 @@ fn statuses_and_kinds_match_golden_months() {
         for (label, key) in [
             ("Оплачено", "paid"),
             ("Долг", "debt"),
-            ("Внеплановые", "unplanned"),
+            ("Незапланировано", "unplanned"),
             ("План", "planned"),
         ] {
             let expected = m["status"][key].as_f64().unwrap();

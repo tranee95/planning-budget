@@ -8,6 +8,7 @@ import {
   type CssReader
 } from './colors';
 import { formatAxis, formatValue } from './format';
+import { niceTop } from './scale';
 
 /** Единственная точка, где `ChartData` превращается в настройки ECharts. */
 
@@ -20,6 +21,7 @@ export type ChartEnv = {
 /** Больше точек — маркеры на линии только мешают. */
 const MAX_MARKED_POINTS = 12;
 const PREVIOUS_OPACITY = 0.5;
+const VALUE_TICKS = 5;
 
 /** Что нужно для отрисовки: тип и параметры. Остальные поля `ChartSpecDto` относятся к запросу. */
 export type ChartView = { type: ChartSpecDto['type']; options: ChartOptionsDto };
@@ -79,7 +81,7 @@ function seriesOption(
     }
     return {
       ...base,
-      data: categoryBars(series.values, data, isLine, env) ?? series.values,
+      data: categoryBars(series.values, data, isLine, env, limitOf(data)) ?? series.values,
       type: 'bar',
       stack: stacked ? 'total' : undefined,
       barMaxWidth: horizontal ? 18 : 32,
@@ -114,18 +116,29 @@ function categoryBars(
   values: (number | null)[],
   data: ChartDataDto,
   isLine: boolean,
-  env: ChartEnv
-): { value: number | null; itemStyle: { color: string } }[] | null {
+  env: ChartEnv,
+  limit: number | null
+): { value: number | null; itemStyle: { color: string }; label?: { color: string } }[] | null {
   if (isLine || data.series.length !== 1) return null;
   if (
     data.categoryTokens.length === 0 ||
     !data.categoryTokens.every((t) => t.startsWith('category:'))
   )
     return null;
-  return values.map((value, i) => ({
-    value,
-    itemStyle: { color: resolveColor(data.categoryTokens[i] ?? '', env.css, env.categoryColors) }
-  }));
+  return values.map((value, i) => {
+    const over = limit !== null && value !== null && value >= limit;
+    const color = over
+      ? env.css('--unpl-bar')
+      : resolveColor(data.categoryTokens[i] ?? '', env.css, env.categoryColors);
+    return over
+      ? { value, itemStyle: { color }, label: { color: env.css('--unpl') } }
+      : { value, itemStyle: { color } };
+  });
+}
+
+/** Лимит у всех категорий один и тот же — 100 % своего лимита, поэтому линия общая, а превышение видно по столбцу. */
+function limitOf(data: ChartDataDto): number | null {
+  return data.referenceLines.find((l) => l.to === null)?.from ?? null;
 }
 
 /** Лимит — штриховая линия, коридор — полоса; рисуются на первой серии. */
@@ -146,7 +159,8 @@ function referenceLines(
             silent: true,
             symbol: 'none',
             lineStyle: { color: env.css('--muted'), type: 'dashed', width: 1 },
-            label: { ...label, formatter: '{b}' },
+            // подпись над осью значений, а не на её делениях
+            label: { ...label, formatter: '{b}', position: 'end' },
             data: lines.map((l) => ({ name: l.name, [axis]: l.from }))
           },
     markArea:
@@ -155,7 +169,8 @@ function referenceLines(
         : {
             silent: true,
             itemStyle: { color: env.css('--accent'), opacity: 0.1 },
-            label: { ...label, position: 'insideTopLeft' },
+            // подпись справа от области: точки данных внутри не перекрываются
+            label: { ...label, position: 'right' },
             data: bands.map((b) => [{ name: b.name, [axis]: b.from }, { [axis]: b.to }])
           }
   };
@@ -211,7 +226,11 @@ export function toEcharts(data: ChartDataDto, spec: ChartView, env: ChartEnv): E
   const horizontal = orientation(spec) === 'horizontal';
   const valueAxis = {
     type: 'value',
-    max: spec.options.percent ? 100 : undefined,
+    // Верх шкалы считаем сами: ECharts берёт круглое число вплотную к максимуму, и столбец упирается в край.
+    max: spec.options.percent
+      ? 100
+      : (value: { max: number }) => niceTop(value.max, VALUE_TICKS) || 1,
+    splitNumber: VALUE_TICKS,
     // Подписи оси целые: без шага от 1 на пустом графике ось 0…1 даёт повторы «0 0 0 1 1 1».
     minInterval: data.unit === 'percent' ? undefined : 1,
     axisLabel: {
@@ -230,9 +249,17 @@ export function toEcharts(data: ChartDataDto, spec: ChartView, env: ChartEnv): E
     axisLabel: { color: css('--muted'), fontSize: 12, hideOverlap: true }
   };
   const isLine = spec.type === 'line' || spec.type === 'area';
+  const hasLine = data.referenceLines.some((l) => l.to === null);
+  const hasBand = data.referenceLines.some((l) => l.to !== null);
   return {
     ...common,
-    grid: { left: 8, right: horizontal ? 56 : 16, top: 16, bottom: 8, containLabel: true },
+    grid: {
+      left: 8,
+      right: horizontal ? 56 : hasBand || hasLine ? 112 : 16,
+      top: horizontal && hasLine ? 28 : 16,
+      bottom: 8,
+      containLabel: true
+    },
     tooltip: {
       ...tooltip,
       trigger: 'axis',

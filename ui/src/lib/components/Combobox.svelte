@@ -191,8 +191,8 @@
   }
   input:focus-visible {
     outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--focus-ring);
   }
   ul {
     position: fixed;

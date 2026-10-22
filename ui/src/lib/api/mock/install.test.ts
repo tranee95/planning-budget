@@ -20,7 +20,6 @@ it('чтение не сбрасывает кеш расчётов, запись
     'analytics_check',
     'dashboards_list',
     'charts_list',
-    'savings_overview',
     'savings_progress',
     'debts_list',
     'debt_schedule_preview',

@@ -1,5 +1,5 @@
 import type { ChartUnitDto } from '$lib/api/bindings';
-import { formatMoney, formatPercent } from '$lib/format';
+import { formatMoney, formatPercentShort } from '$lib/format';
 
 const count = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 });
 const compact = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 });
@@ -11,7 +11,7 @@ export function formatValue(value: number, unit: ChartUnitDto): string {
     case 'rub':
       return formatMoney(Math.round(value * 100));
     case 'percent':
-      return formatPercent(Math.round(value * 100));
+      return formatPercentShort(Math.round(value * 100));
     case 'count':
       return count.format(value).replace(/\s/g, NBSP);
   }

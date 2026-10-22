@@ -2,8 +2,8 @@
 //!
 //! Что именно фиксировать, решает `core::calc::Ledger::lock_snapshot`; здесь только запись.
 
-use chrono::{DateTime, Datelike, Utc};
-use planning_budget_core::calc::Ledger;
+use chrono::{DateTime, Utc};
+use planning_budget_core::calc::{CarryDecision, CarryFacts, Ledger, carry_decision};
 use planning_budget_core::{BasisPoints, CategoryId, CategoryKind, Money, YearMonth};
 use rusqlite::params;
 
@@ -280,7 +280,7 @@ impl Db {
     /// Автоперенос плана в новый месяц (U-1): строки плана ближайшего прошлого месяца с тратами
     /// создаются в `to` со статусом «План». Выполняется один раз на месяц: после переноса (или если
     /// в месяце уже есть записи) остаётся отметка, и очищенный пользователем месяц не заполняется
-    /// заново. Не трогаются: будущие месяцы (позже месяца `now`), зафиксированный месяц, месяц без
+    /// заново. Не трогаются: будущие месяцы (позже локального месяца `today`; хранилище не выводит его из UTC), зафиксированный месяц, месяц без
     /// прошлых данных и месяц, после которого уже есть данные («последнего» месяца для него нет). Возвращает число
     /// созданных строк.
     ///
@@ -289,30 +289,14 @@ impl Db {
     pub fn plan_carry_forward(
         &mut self,
         to: YearMonth,
+        today: YearMonth,
         now: DateTime<Utc>,
     ) -> Result<usize, StorageError> {
-        let today = YearMonth::new(
-            u16::try_from(now.year()).unwrap_or(0),
-            u8::try_from(now.month()).unwrap_or(1),
-        )
-        .map_err(|_| StorageError::Corrupt)?;
-        if to > today || self.plan_is_locked(to)? {
-            return Ok(0);
-        }
         let month = to.to_string();
-        let carried: bool = self.conn.query_row(
-            "SELECT EXISTS (SELECT 1 FROM month_carry WHERE month = ?1)",
-            [&month],
-            |r| r.get(0),
-        )?;
-        if carried {
-            return Ok(0);
-        }
-        let has_records: bool = self.conn.query_row(
-            "SELECT EXISTS (SELECT 1 FROM v_transactions WHERE month = ?1)",
-            [&month],
-            |r| r.get(0),
-        )?;
+        let exists = |sql: &str| -> Result<bool, StorageError> {
+            Ok(self.conn.query_row(sql, [&month], |r| r.get(0))?)
+        };
+        // Хранилище только собирает факты; решение принимает core.
         let source: Option<String> = self.conn.query_row(
             "SELECT max(t.month) FROM v_transactions t
              JOIN categories c ON c.id = t.category_id
@@ -320,20 +304,22 @@ impl Db {
             [&month],
             |r| r.get(0),
         )?;
-        let newer_data: bool = self.conn.query_row(
-            "SELECT EXISTS (SELECT 1 FROM v_transactions WHERE month > ?1)",
-            [&month],
-            |r| r.get(0),
-        )?;
-        if newer_data {
-            return Ok(0);
-        }
-        let created = match source {
-            Some(from) if !has_records => {
-                self.plan_copy_from(crate::records::parse_month(&from)?, to, now)?
-            }
-            Some(_) => 0,
-            None => return Ok(0),
+        let facts = CarryFacts {
+            to,
+            today,
+            locked: self.plan_is_locked(to)?,
+            already_carried: exists("SELECT EXISTS (SELECT 1 FROM month_carry WHERE month = ?1)")?,
+            has_records: exists("SELECT EXISTS (SELECT 1 FROM v_transactions WHERE month = ?1)")?,
+            newer_data: exists("SELECT EXISTS (SELECT 1 FROM v_transactions WHERE month > ?1)")?,
+            source: source
+                .as_deref()
+                .map(crate::records::parse_month)
+                .transpose()?,
+        };
+        let created = match carry_decision(&facts) {
+            CarryDecision::Skip => return Ok(0),
+            CarryDecision::CopyFrom(from) => self.plan_copy_from(from, to, now)?,
+            CarryDecision::MarkOnly => 0,
         };
         self.conn.execute(
             "INSERT INTO month_carry (month, carried_at) VALUES (?1, ?2)",

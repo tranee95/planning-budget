@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it } from 'vitest';
 import { planApi, transactionsApi } from '$lib/api/data';
 import { resetMockBudget } from '$lib/api/mock/budget';
 import { installMocks } from '$lib/api/mock/install';
+import { setMockFixedPlan } from '$lib/api/mock/savings';
 import { categories } from '$lib/stores/categories.svelte';
 import { onboarding } from '$lib/stores/onboarding.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
@@ -32,6 +33,17 @@ it('загрузка: статьи расходов и накопления из
   expect(vm.savings[0]?.fixed).toBeNull();
   expect(vm.preview?.balance).toBe('empty');
   expect(vm.monthName).toBe('Март 2027');
+});
+
+it('фиксированный план накопления приходит из плана месяца', async () => {
+  const vm = new WizardVm(MONTH);
+  await vm.init();
+  const saving = vm.savings[0];
+  if (!saving) throw new Error('нет категории накопления');
+  setMockFixedPlan(saving.category.id, 700_000);
+  const again = new WizardVm(MONTH);
+  await again.init();
+  expect(again.savings[0]?.fixed).toBe(700_000);
 });
 
 it('ввод собирается без пустых и нулевых строк', async () => {
@@ -117,7 +129,7 @@ it('«План готов» записывает план, фиксирует м
   expect(vm.error).toBe('');
   expect(onboarding.wizardOpen).toBe(false);
   expect(onboarding.refreshKey).toBe(before + 1);
-  expect(toasts.items.at(-1)?.message).toBe('План на Март 2027 готов');
+  expect(toasts.items.at(-1)?.message).toBe('План на март 2027 готов');
   const plan = await planApi.month(MONTH);
   expect(plan.locked).toBe(true);
   expect(plan.income).toBe(10_000_000);

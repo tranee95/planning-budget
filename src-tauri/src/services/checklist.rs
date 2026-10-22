@@ -4,7 +4,7 @@
 use std::fs;
 use std::io;
 use std::path::Path;
-use std::sync::{Arc, Mutex, OnceLock, PoisonError};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use chrono::{DateTime, TimeZone, Utc};
 use planning_budget_storage::Db;
@@ -16,6 +16,7 @@ use tracing_subscriber::fmt::MakeWriter;
 use super::vault;
 use crate::AppError;
 use crate::state::{AppPaths, AppState};
+use crate::sync::MutexExt as _;
 
 const FAST: KdfParams = KdfParams {
     m_kib: 8,
@@ -257,11 +258,7 @@ struct CapturedWriter(Captured);
 
 impl io::Write for CapturedWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        (self.0)
-            .0
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .extend_from_slice(buf);
+        (self.0).0.lock_unpoisoned().extend_from_slice(buf);
         Ok(buf.len())
     }
 
@@ -740,8 +737,7 @@ fn panic_text_from_the_session_worker_never_reaches_the_log() {
         tauri::async_runtime::block_on(state.with_session(move |_| panic!("{secret}")));
     assert!(matches!(res, Err(AppError::Internal { .. })));
 
-    let log = String::from_utf8_lossy(&captured.0.lock().unwrap_or_else(PoisonError::into_inner))
-        .into_owned();
+    let log = String::from_utf8_lossy(&captured.0.lock_unpoisoned()).into_owned();
     assert!(log.contains("worker panicked"), "факт паники в журнале");
     assert!(!log.contains(secret), "текст паники в журнале");
 }

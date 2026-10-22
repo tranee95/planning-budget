@@ -1,7 +1,9 @@
 //! Накопления: баланс и прогноз по каждой категории-сбережению.
 
-use super::bonds::forecast;
-use super::{BondRates, BondsFact, BondsForecast, ForecastScenario, Ledger, Scenario};
+use super::accumulation::forecast;
+use super::{
+    AccumulationFact, AccumulationForecast, DepositRates, ForecastScenario, Ledger, Scenario,
+};
 use crate::error::CoreError;
 use crate::model::{BasisPoints, CategoryId, CategoryKind, SavingsParams, TxStatus};
 use crate::money::Money;
@@ -21,8 +23,8 @@ pub struct Accumulation {
     pub plan_rate: BasisPoints,
     /// … либо фиксированная сумма.
     pub plan_fixed: Option<Money>,
-    pub fact: BondsFact,
-    pub forecast: BondsForecast,
+    pub fact: AccumulationFact,
+    pub forecast: AccumulationForecast,
 }
 
 /// Величины года, общие для прогнозов всех накоплений.
@@ -70,10 +72,10 @@ impl Ledger<'_> {
         &self,
         category: CategoryId,
         year: u16,
-    ) -> Result<BondsFact, CoreError> {
+    ) -> Result<AccumulationFact, CoreError> {
         let params = self.params_or_default(category, year)?;
         self.accumulate(
-            BondRates::new(params.annual_rate, params.tax),
+            DepositRates::new(params.annual_rate, params.tax),
             params.initial_balance,
             params.initial_month,
             year,
@@ -133,7 +135,7 @@ impl Ledger<'_> {
         category: CategoryId,
         year: u16,
         current: YearMonth,
-    ) -> Result<BondsForecast, CoreError> {
+    ) -> Result<AccumulationForecast, CoreError> {
         let start_balance = self.accumulation_fact(category, year)?.dec_balance;
         let context = self.forecast_context(year, current)?;
         self.forecast_with(&context, category, year, current, start_balance)
@@ -146,9 +148,9 @@ impl Ledger<'_> {
         year: u16,
         current: YearMonth,
         start_balance: Money,
-    ) -> Result<BondsForecast, CoreError> {
+    ) -> Result<AccumulationForecast, CoreError> {
         let params = self.params_or_default(category, year)?;
-        let rates = BondRates::new(params.annual_rate, params.tax);
+        let rates = DepositRates::new(params.annual_rate, params.tax);
         let plan = self.typical_plan(category, current, context.avg_income)?;
         let economy_share = match plan.ratio(context.plan_sum) {
             Some(share) => context.economy.mul_ratio(share)?,
@@ -165,7 +167,7 @@ impl Ledger<'_> {
             (Scenario::C, actual),
         ]
         .map(|(scenario, contribution)| forecast(scenario, contribution, start_balance, rates));
-        Ok(BondsForecast {
+        Ok(AccumulationForecast {
             start_balance,
             scenarios: [a?, b?, c?],
         })
@@ -196,7 +198,7 @@ impl Ledger<'_> {
                 plan_rate: entry.map_or(BasisPoints(0), |e| e.rate),
                 plan_fixed: entry.and_then(|e| e.fixed),
                 plan: self.typical_plan(category.id, current, context.avg_income)?,
-                effective_rate: BondRates::new(params.annual_rate, params.tax).effective_bp(),
+                effective_rate: DepositRates::new(params.annual_rate, params.tax).effective_bp(),
                 forecast: self.forecast_with(
                     &context,
                     category.id,

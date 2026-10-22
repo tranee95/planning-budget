@@ -1,7 +1,6 @@
 import { SvelteMap } from 'svelte/reactivity';
 import type { CategoryDto, TitleSuggestionDto, TxStatusDto } from '$lib/api/bindings';
 import { transactionsApi } from '$lib/api/data';
-import { errorText } from '$lib/i18n/errors';
 import { formatMoney, monthRange } from '$lib/format';
 import { categories } from '$lib/stores/categories.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
@@ -100,7 +99,11 @@ export class QuickAddVm {
   );
 
   /** Дата вне месяца экрана: строка попала бы в один месяц, а датирована другим. */
+  /** Дата набрана не до конца или не существует: пока так, трату не сохранить. */
+  dateValid = $state(true);
+
   dateError = $derived.by<string | null>(() => {
+    if (!this.dateValid) return 'Укажите дату полностью: дд.мм.гггг';
     if (this.date === '') return null;
     const { first, last } = monthRange(this.#expenses.month);
     return this.date < first || this.date > last ? 'Дата должна быть в этом месяце' : null;
@@ -187,7 +190,7 @@ export class QuickAddVm {
       });
       this.#requestId = crypto.randomUUID();
       this.#expenses.trackCreated(created);
-      toasts.push({ message: `Добавлено: ${title}, ${formatMoney(amount)}` });
+      toasts.push({ message: `Добавлено: ${title}, ${formatMoney(amount)}`, kind: 'success' });
       await this.#expenses.load(this.#expenses.month);
       if (another) {
         this.amount = null;
@@ -198,7 +201,9 @@ export class QuickAddVm {
         this.#expenses.closeEditor();
       }
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e, () => {
+        void this.save(another);
+      });
     } finally {
       this.saving = false;
     }

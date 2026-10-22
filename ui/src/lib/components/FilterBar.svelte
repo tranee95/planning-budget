@@ -3,7 +3,6 @@
   import { rise } from '$lib/motion';
   import Search from '@lucide/svelte/icons/search';
   import X from '@lucide/svelte/icons/x';
-  import { errorText } from '$lib/i18n/errors';
   import { formatMoney } from '$lib/format';
   import type { FilterScreenDto } from '$lib/api/bindings';
   import type { QueryFilter } from '$lib/filters/query-filter.svelte';
@@ -44,7 +43,7 @@
       name = '';
       toasts.push({ message: 'Фильтр сохранён' });
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e);
     }
   }
 
@@ -52,7 +51,7 @@
     try {
       await savedFilters.remove(id);
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e);
     }
   }
 </script>
@@ -185,8 +184,8 @@
     color: var(--muted);
   }
   .field:focus-within {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--focus-ring);
   }
   input {
     flex: 1;

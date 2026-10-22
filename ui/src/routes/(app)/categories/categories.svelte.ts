@@ -49,6 +49,8 @@ export class CategoriesVm {
   balance = $state.raw<BudgetBalanceDto | null>(null);
   settings = $state.raw<SettingsDto | null>(null);
   showArchived = $state(false);
+  /** Архивных категорий (кроме сбережений): «Показать архив» при нуле объясняет, что показывать нечего. */
+  archivedCount = $derived(this.items.filter((c) => c.kind !== 'savings' && c.archived).length);
   loading = $state(false);
   error = $state<string | null>(null);
 
@@ -185,9 +187,9 @@ export class CategoriesVm {
         await categoriesApi.unsetLimit(id, this.#month);
       }
       await this.load(this.#month);
-      this.selected = id;
-      this.select(id);
-      toasts.push({ message: `Сохранено: ${name}` });
+      // Панель редактора закрывается после сохранения: под ней остаётся список с обновлённой строкой.
+      this.selected = null;
+      toasts.push({ message: `Сохранено: ${name}`, kind: 'success' });
       return true;
     } catch (e) {
       this.fieldError = errorText(e);
@@ -230,7 +232,9 @@ export class CategoriesVm {
       if (archived) this.selected = null;
       toasts.push({ message: archived ? 'Категория в архиве' : 'Категория возвращена' });
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e, () => {
+        void this.setArchived(id, archived);
+      });
     } finally {
       this.#writes--;
     }
@@ -261,7 +265,7 @@ export class CategoriesVm {
       this.#stamp.mark();
     } catch (e) {
       this.items = prev;
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e);
     } finally {
       this.#writes--;
     }

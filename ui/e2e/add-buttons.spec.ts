@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 /** Относительная яркость и контраст по WCAG 2.x для цветов `rgb(r, g, b)`. */
 function contrast(fg: string, bg: string): number {
@@ -21,30 +21,38 @@ async function colors(button: Locator): Promise<{ bg: string; fg: string }> {
   });
 }
 
+/** Цвет `--primary` в текущей теме, как его считает браузер: все основные действия имеют именно его. */
+async function primaryBackground(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.style.backgroundColor = 'var(--primary)';
+    document.body.append(probe);
+    const value = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return value;
+  });
+}
+
 for (const theme of ['light', 'dark'] as const) {
-  test(`кнопка «+ Добавить категорию» зелёная и читаемая (${theme})`, async ({ page }) => {
+  test(`кнопка «+ Добавить категорию» основного цвета и читаемая (${theme})`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: theme });
     await page.goto('/categories?vault=open');
     const add = page.getByRole('button', { name: 'Добавить категорию' });
     await expect(add).toBeVisible();
     await expect(add).toContainText('+');
     const { bg, fg } = await colors(add);
-    const [r = 0, g = 0, b = 0] = (bg.match(/\d+/g) ?? []).map(Number);
-    expect(g).toBeGreaterThan(r);
-    expect(g).toBeGreaterThan(b);
+    expect(bg).toBe(await primaryBackground(page));
     expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5);
   });
 
-  test(`кнопка «+ Новый доход» зелёная и читаемая (${theme})`, async ({ page }) => {
+  test(`кнопка «+ Новый доход» основного цвета и читаемая (${theme})`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: theme });
     await page.goto('/incomes?vault=open');
     const add = page.getByRole('button', { name: /^Новый доход/ }).first();
     await expect(add).toBeVisible();
     await expect(add).toContainText('+');
     const { bg, fg } = await colors(add);
-    const [r = 0, g = 0, b = 0] = (bg.match(/\d+/g) ?? []).map(Number);
-    expect(g).toBeGreaterThan(r);
-    expect(g).toBeGreaterThan(b);
+    expect(bg).toBe(await primaryBackground(page));
     expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5);
   });
 }
@@ -64,7 +72,9 @@ test('«+ Новый доход» открывает форму дохода', a
   await expect(page.getByRole('dialog', { name: 'Новый доход' })).toBeVisible();
 });
 
-test('в пустом месяце «+ Новый доход» в пустом состоянии тоже зелёная', async ({ page }) => {
+test('в пустом месяце «+ Новый доход» в пустом состоянии тоже основного цвета', async ({
+  page
+}) => {
   await page.goto('/incomes?vault=open');
   const switcher = page.getByRole('button', { name: /Предыдущий месяц/ });
   const empty = page.getByText('В этом месяце доходов нет');
@@ -73,9 +83,7 @@ test('в пустом месяце «+ Новый доход» в пустом �
   const add = page.getByRole('main').getByRole('button', { name: /^Новый доход/ });
   await expect(add).toHaveCount(2);
   const { bg, fg } = await colors(add.last());
-  const [r = 0, g = 0, b = 0] = (bg.match(/\d+/g) ?? []).map(Number);
-  expect(g).toBeGreaterThan(r);
-  expect(g).toBeGreaterThan(b);
+  expect(bg).toBe(await primaryBackground(page));
   expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5);
   await expect(add.last()).toContainText('+');
 });

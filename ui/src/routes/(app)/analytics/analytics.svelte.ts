@@ -14,6 +14,7 @@ import type { CardData } from '$lib/charts/card-data';
 import {
   COLUMNS,
   place,
+  reflow,
   sameLayout,
   settle,
   SIZES,
@@ -73,7 +74,7 @@ export class AnalyticsVm {
     } catch (e) {
       // Вкладка и карточки должны оставаться согласованными: иначе правки уйдут не на тот дашборд.
       this.activeId = previous;
-      toasts.push({ message: errorText(e), kind: 'error' });
+      toasts.fail(e);
     }
   }
 
@@ -147,10 +148,11 @@ export class AnalyticsVm {
   }
 
   /** Фиксирует положение: карточки прижимаются вверх и раскладка уходит в базу. */
-  async commit(id: number, to: Partial<Box>): Promise<void> {
+  /** `dense`: после смены размера карточки ряд пересобирается без дыр (`reflow`), а не только поднимается вверх. */
+  async commit(id: number, to: Partial<Box>, dense = false): Promise<void> {
     if (this.activeId === null) return;
     const before = this.cards.map(boxOf);
-    const next = settle(before, id, to);
+    const next = dense ? reflow(place(before, id, to)) : settle(before, id, to);
     this.layout = next;
     if (sameLayout(next, before)) return;
     try {
@@ -160,14 +162,14 @@ export class AnalyticsVm {
       );
       this.cards = this.cards.map((c) => ({ ...c, ...(next.find((b) => b.id === c.id) ?? {}) }));
     } catch (e) {
-      toasts.push({ message: errorText(e), kind: 'error' });
+      toasts.fail(e);
       this.layout = before;
     }
   }
 
   async resize(id: number, size: SizeName): Promise<void> {
     const w = SIZES.find((s) => s.value === size)?.w;
-    if (w !== undefined) await this.commit(id, { w, x: Math.min(this.#x(id), COLUMNS - w) });
+    if (w !== undefined) await this.commit(id, { w, x: Math.min(this.#x(id), COLUMNS - w) }, true);
   }
 
   #x(id: number): number {
@@ -184,7 +186,7 @@ export class AnalyticsVm {
       await dashboardsApi.addChart(this.activeId, spec, card.w, card.h);
       await this.loadCards();
     } catch (e) {
-      toasts.push({ message: errorText(e), kind: 'error' });
+      toasts.fail(e);
     }
   }
 
@@ -197,7 +199,7 @@ export class AnalyticsVm {
     try {
       await dashboardsApi.removeChart(id);
     } catch (e) {
-      toasts.push({ message: errorText(e), kind: 'error' });
+      toasts.fail(e);
       return;
     }
     await this.loadCards();
@@ -238,7 +240,7 @@ export class AnalyticsVm {
       await this.loadCards();
       return true;
     } catch (e) {
-      toasts.push({ message: errorText(e), kind: 'error' });
+      toasts.fail(e);
       return false;
     }
   }
@@ -252,7 +254,7 @@ export class AnalyticsVm {
       await this.refreshData();
       return true;
     } catch (e) {
-      toasts.push({ message: errorText(e), kind: 'error' });
+      toasts.fail(e);
       return false;
     }
   }
@@ -266,7 +268,7 @@ export class AnalyticsVm {
       await this.select(created.id);
       return true;
     } catch (e) {
-      toasts.push({ message: errorText(e), kind: 'error' });
+      toasts.fail(e);
       return false;
     }
   }
@@ -279,7 +281,7 @@ export class AnalyticsVm {
       await this.select(created.id);
       return true;
     } catch (e) {
-      toasts.push({ message: errorText(e), kind: 'error' });
+      toasts.fail(e);
       return false;
     }
   }
@@ -290,7 +292,7 @@ export class AnalyticsVm {
       this.dashboards = this.dashboards.map((d) => (d.id === id ? { ...d, name: name.trim() } : d));
       return true;
     } catch (e) {
-      toasts.push({ message: errorText(e), kind: 'error' });
+      toasts.fail(e);
       return false;
     }
   }
@@ -299,7 +301,7 @@ export class AnalyticsVm {
     try {
       await dashboardsApi.remove(id);
     } catch (e) {
-      toasts.push({ message: errorText(e), kind: 'error' });
+      toasts.fail(e);
       return;
     }
     if (this.activeId === id) this.activeId = null;

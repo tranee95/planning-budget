@@ -13,7 +13,15 @@ import {
 import { LoadStamp, onDataChanged } from '$lib/api/data-events';
 import { debtsApi, planApi, settingsApi, summaryApi } from '$lib/api/data';
 import { cachedCall, dayKey, resultCache } from '$lib/api/result-cache';
-import { formatMoney, formatMonth, formatPercent, formatWeeks, today } from '$lib/format';
+import {
+  formatMoney,
+  formatMonth,
+  formatPercent,
+  formatMonthLower,
+  formatPercentWhole,
+  formatWeeks,
+  today
+} from '$lib/format';
 import { errorText } from '$lib/i18n/errors';
 import { categories } from '$lib/stores/categories.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
@@ -76,19 +84,36 @@ export class OverviewVm {
   /** «Скопировать план из прошлого месяца» предлагается, пока плановых трат нет. */
   canCopyPlan = $derived(this.plan !== null && !this.plan.locked && this.plan.planExpenses === 0);
 
-  /** Подзаголовок экрана — инсайт месяца. */
+  /** Траты, которые уже выше плана (не сбережения): «+4 800 ₽» против плана у категории. */
+  overPlanCount = $derived(
+    this.planLines.filter((l) => l.category.kind !== 'savings' && l.row.deviation > 0).length
+  );
+
+  /** В месяце нет ни плана, ни фактов, ни дохода: говорить про лимиты рано. */
+  emptyMonth = $derived(
+    this.summary !== null &&
+      this.planLines.length === 0 &&
+      this.summary.income === 0 &&
+      this.summary.expenses === 0
+  );
+
+  /** Подзаголовок экрана — инсайт месяца: сначала лимиты, затем план. */
   subtitle = $derived.by(() => {
     const name = formatMonth(this.#month, 'short');
     if (this.summary === null) return name;
+    if (this.emptyMonth) return `План на ${name.toLowerCase()} ещё не составлен`;
+    if (this.overCount > 0)
+      return `${name}: ${plural(this.overCount, ['категория', 'категории', 'категорий'])} на лимите или выше`;
+    if (this.overPlanCount > 0)
+      return `${name}: ${plural(this.overPlanCount, ['категория', 'категории', 'категорий'])} выше плана`;
     if (this.limitLines.length === 0) return `${name}: лимиты не заданы`;
-    if (this.overCount === 0) return `${name}: все категории в лимитах`;
-    return `${name}: ${plural(this.overCount, ['категория', 'категории', 'категорий'])} выше лимита`;
+    return `${name}: все категории в лимитах и плане`;
   });
 
   savingsHint = $derived.by(() => {
     const s = this.summary;
     if (s === null || s.corridor === 'noIncome') return 'нет дохода в месяце';
-    const rate = formatPercent(s.savingsRateBp ?? 0);
+    const rate = formatPercentWhole(s.savingsRateBp ?? 0);
     if (s.corridor === 'below') {
       const min = this.settings === null ? '' : ` ${formatPercent(this.settings.savingsMinBp)}`;
       return `${rate} дохода · до${min} не хватает ${formatMoney(s.topUpToMin)}`;
@@ -110,11 +135,10 @@ export class OverviewVm {
   incomeHint = $derived.by(() => {
     const s = this.summary;
     if (s === null) return '';
+    if (s.income === 0) return 'доходов нет';
     return s.incomeExpected > 0
-      ? `ожидается ${formatMoney(s.incomeExpected)}`
-      : s.income > 0
-        ? 'всё получено'
-        : 'доходов нет';
+      ? `из ${formatMoney(s.income)} · ожидается ${formatMoney(s.incomeExpected)}`
+      : `из ${formatMoney(s.income)} · всё получено`;
   });
 
   async load(month: string): Promise<void> {
@@ -180,7 +204,7 @@ export class OverviewVm {
       await this.load(this.#month);
       return plan;
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e);
       return null;
     } finally {
       this.planBusy = false;
@@ -196,7 +220,9 @@ export class OverviewVm {
       resultCache.clear();
       await this.load(this.#month);
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e, () => {
+        void this.payRepayment(paymentId, paid);
+      });
     } finally {
       this.planBusy = false;
     }
@@ -255,7 +281,7 @@ function plural(n: number, forms: [string, string, string]): string {
  * положительное — доход без назначения, отрицательное — план больше дохода.
  */
 export function planLockedText(month: string, unallocated: number): string {
-  const head = `План на ${formatMonth(month).toLowerCase()} зафиксирован`;
+  const head = `План на ${formatMonthLower(month)} зафиксирован`;
   if (unallocated > 0) return `${head}. Не распределено ${formatMoney(unallocated)}`;
   if (unallocated < 0) return `${head}. План превышает доход на ${formatMoney(-unallocated)}`;
   return head;

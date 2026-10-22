@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { deleteOnKey } from '$lib/components/row-delete';
+  import { rowIn, rowOut } from '$lib/motion';
   import { PLACEHOLDERS } from '$lib/i18n/placeholders';
   import { onMount, untrack } from 'svelte';
   import { goto } from '$app/navigation';
@@ -66,7 +68,7 @@
     </span>
     <FormulaHint label={FORMULAS.incomesTotals.label} lines={FORMULAS.incomesTotals.lines} />
     <Button
-      variant="success"
+      variant="primary"
       onclick={() => {
         vm.openEditor();
       }}><span aria-hidden="true">+</span> Новый доход</Button
@@ -97,7 +99,7 @@
     <EmptyState title="В этом месяце доходов нет" hint="Добавьте зарплату или другое поступление.">
       {#snippet actions()}
         <Button
-          variant="success"
+          variant="primary"
           onclick={() => {
             vm.openEditor();
           }}><span aria-hidden="true">+</span> Новый доход</Button
@@ -110,12 +112,19 @@
       hint={vm.filtered ? 'Измените запрос или уберите лишние чипы.' : undefined}
     />
   {:else}
-    <ul class="list" aria-label="Доходы месяца" style:--day-w={vm.filtered ? '128px' : undefined}>
+    <ul class="list" aria-label="Доходы месяца">
       {#each vm.visible as income (income.id)}
-        <li class="item">
-          <span class="muted day"
-            >{vm.filtered ? formatMonth(income.month) : formatDay(income.date)}</span
-          >
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+        <li
+          class="item"
+          in:rowIn
+          out:rowOut
+          onkeydown={(event) => {
+            deleteOnKey(event, () => {
+              void vm.remove(income.id);
+            });
+          }}
+        >
           <button
             type="button"
             class="body"
@@ -124,7 +133,13 @@
               vm.openEdit(income.id);
             }}
           >
-            <span class="source">{income.sourceName}</span>
+            <span class="source"
+              >{income.sourceName}{#if vm.filtered}<span class="muted when">
+                  · {formatMonth(income.month)}</span
+                >{:else if income.date !== null}<span class="muted when">
+                  · {formatDay(income.date)}</span
+                >{/if}</span
+            >
             <span class="num amount">{formatMoney(income.amount)}</span>
           </button>
           <button
@@ -137,7 +152,7 @@
           >
           <button
             type="button"
-            class="remove"
+            class="remove reveal-action"
             aria-label="Удалить доход «{income.sourceName}»"
             title="Удалить"
             onclick={() => {
@@ -178,6 +193,7 @@
     font-weight: var(--fw-semibold);
   }
   .list {
+    max-width: 880px; /* на широком окне строка не растягивается на весь экран */
     display: flex;
     flex-direction: column;
     margin: 0;
@@ -189,7 +205,7 @@
   }
   .item {
     display: grid;
-    grid-template-columns: var(--day-w, 56px) minmax(0, 1fr) 120px 28px;
+    grid-template-columns: minmax(0, 1fr) 120px 28px;
     align-items: center;
     gap: var(--sp-4);
     min-height: 48px;
@@ -219,8 +235,10 @@
     cursor: pointer;
   }
   .body:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: -2px;
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--bg),
+      0 0 0 4px var(--primary);
     border-radius: var(--r-sm);
   }
   .remove {
@@ -259,7 +277,9 @@
   }
   .status:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    box-shadow:
+      0 0 0 2px var(--bg),
+      0 0 0 4px var(--primary);
   }
   .received {
     background: var(--paid-bg);

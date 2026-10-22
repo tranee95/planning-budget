@@ -1,6 +1,6 @@
 //! Категории, лимиты и план сбережений.
 
-use chrono::{Local, Utc};
+use crate::clock::Now;
 use planning_budget_core::CategoryId;
 use tauri::{AppHandle, State};
 
@@ -38,7 +38,7 @@ pub async fn categories_seed(
     names: Vec<String>,
 ) -> Result<Vec<CategoryDto>, AppError> {
     let (list, added) = state
-        .with_session(move |db| service::seed(db, &names, Utc::now()))
+        .with_session(move |db| service::seed(db, &names, Now::capture().utc))
         .await?;
     if added > 0 {
         data_changed(&app, ChangeScope::Categories, Vec::new());
@@ -55,7 +55,7 @@ pub async fn categories_create(
     input: CategoryInput,
 ) -> Result<CategoryDto, AppError> {
     let dto = state
-        .with_session(move |db| service::create(db, input, Utc::now()))
+        .with_session(move |db| service::create(db, input, Now::capture().utc))
         .await?;
     data_changed(&app, ChangeScope::Categories, Vec::new());
     Ok(dto)
@@ -70,7 +70,7 @@ pub async fn categories_update(
     patch: CategoryPatchDto,
 ) -> Result<CategoryDto, AppError> {
     let dto = state
-        .with_session(move |db| service::update(db, CategoryId(id.0), patch, Utc::now()))
+        .with_session(move |db| service::update(db, CategoryId(id.0), patch, Now::capture().utc))
         .await?;
     data_changed(&app, ChangeScope::Categories, Vec::new());
     Ok(dto)
@@ -85,7 +85,8 @@ pub async fn categories_archive(
 ) -> Result<(), AppError> {
     state
         .with_session(move |db| {
-            service::archive(db, CategoryId(id.0), Local::now().date_naive(), Utc::now())
+            let now = Now::capture();
+            service::archive(db, CategoryId(id.0), now.today, now.utc)
         })
         .await?;
     data_changed(&app, ChangeScope::Categories, Vec::new());
@@ -102,7 +103,7 @@ pub async fn categories_unarchive(
     id: Int53,
 ) -> Result<(), AppError> {
     state
-        .with_session(move |db| service::unarchive(db, CategoryId(id.0), Utc::now()))
+        .with_session(move |db| service::unarchive(db, CategoryId(id.0), Now::capture().utc))
         .await?;
     data_changed(&app, ChangeScope::Categories, Vec::new());
     Ok(())
@@ -131,7 +132,11 @@ pub async fn categories_reorder(
 ) -> Result<Vec<CategoryDto>, AppError> {
     let dtos = state
         .with_session(move |db| {
-            service::reorder(db, ids.into_iter().map(|id| id.0).collect(), Utc::now())
+            service::reorder(
+                db,
+                ids.into_iter().map(|id| id.0).collect(),
+                Now::capture().utc,
+            )
         })
         .await?;
     data_changed(&app, ChangeScope::Categories, Vec::new());

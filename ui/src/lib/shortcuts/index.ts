@@ -78,3 +78,6 @@ export function shortcutLabel(shortcut: Pick<Shortcut, 'code' | 'mod' | 'shift'>
   const parts = [shortcut.mod ? (isMac ? '⌘' : 'Ctrl') : '', shortcut.shift ? '⇧' : '', base];
   return parts.filter(Boolean).join(' ');
 }
+
+/** Подпись отмены в тексте: «Ctrl+Z» на Windows и Linux, «⌘Z» на macOS. */
+export const undoLabel = isMac ? '⌘Z' : 'Ctrl+Z';

@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import { pop, scrimFade } from '$lib/motion';
+  import X from '@lucide/svelte/icons/x';
+  import IconButton from './IconButton.svelte';
   import { trapFocus } from './overlay';
 
   type Props = {
@@ -10,9 +12,11 @@
     children: Snippet;
     /** Кнопки действий: закреплены внизу и видны при любой высоте окна. */
     footer?: Snippet;
+    /** Крестик закрытия в шапке (для форм, где нужен явный выход, кроме Esc и клика по фону). */
+    closable?: boolean;
   };
 
-  let { title, width = 560, onclose, children, footer }: Props = $props();
+  let { title, width = 560, onclose, children, footer, closable = false }: Props = $props();
 
   const titleId = $props.id();
 </script>
@@ -35,7 +39,16 @@
     use:trapFocus={onclose}
     transition:pop
   >
-    <h2 id={titleId}>{title}</h2>
+    {#if closable}
+      <div class="head">
+        <h2 id={titleId}>{title}</h2>
+        <IconButton size="sm" aria-label="Закрыть" onclick={onclose}>
+          <X size={18} aria-hidden="true" />
+        </IconButton>
+      </div>
+    {:else}
+      <h2 id={titleId}>{title}</h2>
+    {/if}
     <div class="content">{@render children()}</div>
     {#if footer}<div class="footer">{@render footer()}</div>{/if}
   </div>
@@ -57,6 +70,8 @@
     inset: 0;
     border: 0;
     background: var(--scrim);
+    /* размытие фона: затемнение в тёмной теме и так почти не видно */
+    backdrop-filter: blur(4px);
     cursor: default;
   }
   .panel {
@@ -85,6 +100,12 @@
     display: flex;
     justify-content: flex-end;
     gap: var(--sp-2);
+  }
+  .head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
   }
   h2 {
     margin: 0;

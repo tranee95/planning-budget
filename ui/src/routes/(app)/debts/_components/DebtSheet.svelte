@@ -109,13 +109,15 @@
                 <StatusDot status={p.status === 'paid' ? 'paid' : 'planned'} />
                 {p.status === 'paid' ? 'Оплачено' : 'План'}
               </span>
-              <Button
-                size="sm"
-                variant="ghost"
-                onclick={() => void vm.setPayment(p.id, p.status !== 'paid', today())}
-              >
-                {p.status === 'paid' ? 'Вернуть в план' : 'Отметить оплаченным'}
-              </Button>
+              <label class="paid-toggle">
+                <input
+                  type="checkbox"
+                  checked={p.status === 'paid'}
+                  aria-label="Оплачено: {formatMonth(p.month)}, {formatMoney(p.amount)}"
+                  onchange={() => void vm.setPayment(p.id, p.status !== 'paid', today())}
+                />
+                Оплачено
+              </label>
             </li>
           {/each}
         </ul>
@@ -123,48 +125,55 @@
     {/if}
 
     {#if vm.scheduleEditable}
-      <section aria-labelledby="debt-new-schedule-title">
-        <h3 id="debt-new-schedule-title">{isNew ? 'График погашения' : 'Изменить график'}</h3>
-        <Segmented
-          label="Способ погашения"
-          options={KINDS}
-          value={vm.draft.kind}
-          onchange={(value: 'equal' | 'single') => {
-            vm.draft.kind = value;
-          }}
-        />
-        {#if vm.draft.kind === 'equal'}
-          <TextField
-            id="debt-months"
-            label="Количество месяцев"
-            placeholder={PLACEHOLDERS.debtMonths}
-            bind:value={vm.draft.months}
-          />
-        {:else}
-          <Select
-            id="debt-single-month"
-            label="Месяц платежа"
-            options={monthOptions}
-            value={vm.draft.singleMonth}
-            onchange={(value: string) => {
-              vm.draft.singleMonth = value;
+      <!-- у существующего долга график свёрнут: показан текущий, превью появляется, только когда его начинают менять -->
+      <svelte:element this={isNew ? 'div' : 'details'} class="schedule-change">
+        {#if !isNew}<summary>Изменить график</summary>{/if}
+        <section
+          aria-labelledby={isNew ? 'debt-new-schedule-title' : undefined}
+          aria-label={isNew ? undefined : 'Изменить график'}
+        >
+          {#if isNew}<h3 id="debt-new-schedule-title">График погашения</h3>{/if}
+          <Segmented
+            label="Способ погашения"
+            options={KINDS}
+            value={vm.draft.kind}
+            onchange={(value: 'equal' | 'single') => {
+              vm.draft.kind = value;
             }}
           />
-        {/if}
-        {#if vm.scheduleError}
-          <p class="error" role="alert">{vm.scheduleError}</p>
-        {:else if vm.schedule.length > 0}
-          <ul class="payments preview">
-            {#each vm.schedule as row (row.month)}
-              <li>
-                <span class="month">{formatMonth(row.month)}</span>
-                <span class="num amount">{formatMoney(row.amount)}</span>
-              </li>
-            {/each}
-          </ul>
-          <p class="total">Сумма графика: <b class="num">{formatMoney(vm.scheduleTotal)}</b></p>
-        {/if}
-      </section>
+          {#if vm.draft.kind === 'equal'}
+            <TextField
+              id="debt-months"
+              label="Количество месяцев"
+              placeholder={PLACEHOLDERS.debtMonths}
+              bind:value={vm.draft.months}
+            />
+          {:else}
+            <Select
+              id="debt-single-month"
+              label="Месяц платежа"
+              options={monthOptions}
+              value={vm.draft.singleMonth}
+              onchange={(value: string) => {
+                vm.draft.singleMonth = value;
+              }}
+            />
+          {/if}
+          {#if vm.scheduleError}
+            <p class="error" role="alert">{vm.scheduleError}</p>
+          {:else if vm.schedule.length > 0}
+            <ul class="payments preview">
+              {#each vm.schedule as row (row.month)}
+                <li>
+                  <span class="month">{formatMonth(row.month)}</span>
+                  <span class="num amount">{formatMoney(row.amount)}</span>
+                </li>
+              {/each}
+            </ul>
+            <p class="total">Сумма графика: <b class="num">{formatMoney(vm.scheduleTotal)}</b></p>
+          {/if}
+        </section>
+      </svelte:element>
     {/if}
 
     {#if vm.fieldError}<p class="error" role="alert">{vm.fieldError}</p>{/if}
@@ -172,12 +181,14 @@
 
   {#snippet footer()}
     {#if debt}
-      <Button
-        variant="danger"
-        onclick={() => {
-          void vm.remove(debt);
-        }}>Удалить</Button
-      >
+      <span class="delete-slot">
+        <Button
+          variant="danger-ghost"
+          onclick={() => {
+            void vm.remove(debt);
+          }}>Удалить</Button
+        >
+      </span>
     {/if}
     <Button
       variant="secondary"
@@ -200,6 +211,10 @@
 </Sheet>
 
 <style>
+  /* «Удалить» прижато влево и отделено от «Отмена / Сохранить» */
+  .delete-slot {
+    margin-inline-end: auto;
+  }
   form {
     display: flex;
     flex-direction: column;
@@ -266,5 +281,19 @@
     margin: 0;
     color: var(--unpl);
     font-size: var(--fs-13);
+  }
+  .paid-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-height: 24px;
+    font-size: var(--fs-13);
+    cursor: pointer;
+  }
+  .schedule-change summary {
+    cursor: pointer;
+    margin-bottom: var(--sp-3);
+    font-size: var(--fs-13);
+    font-weight: var(--fw-semibold);
   }
 </style>

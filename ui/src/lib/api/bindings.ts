@@ -100,10 +100,6 @@ export const commands = {
 	chartsUpdate: (id: Int53, spec: ChartSpecDto) => typedError<ChartCardDto, AppError>(__TAURI_INVOKE("charts_update", { id, spec })),
 	chartsDelete: (id: Int53) => typedError<null, AppError>(__TAURI_INVOKE("charts_delete", { id })),
 	chartsLayoutSet: (dashboardId: Int53, placements: CardPlacementDto[]) => typedError<null, AppError>(__TAURI_INVOKE("charts_layout_set", { dashboardId, placements })),
-	/**  Накопления года: факт, прогноз, итоги и готовые графики. */
-	savingsOverview: (year: number) => typedError<SavingsOverviewDto, AppError>(__TAURI_INVOKE("savings_overview", { year })),
-	/**  Ставка, налог, стартовый баланс и месяц начала накопления. */
-	savingsParamsSet: (categoryId: Int53, params: SavingsParamsDto) => typedError<null, AppError>(__TAURI_INVOKE("savings_params_set", { categoryId, params })),
 	/**  Фиксированный план накопления в месяц с `valid_from` (вместо процента от дохода). */
 	savingsFixedSet: (categoryId: Int53, validFrom: string, amount: Int53) => typedError<null, AppError>(__TAURI_INVOKE("savings_fixed_set", { categoryId, validFrom, amount })),
 	/**  Накопленное за весь период и взносы по месяцам. */
@@ -169,29 +165,6 @@ export const events = {
 };
 
 /* Types */
-/**  Одно накопление: параметры, план, факт и прогноз; графики готовы к показу. */
-export type AccumulationDto = {
-	categoryId: number,
-	params: SavingsParamsDto,
-	planKind: SavingsPlanKindDto,
-	/**  Процент плана от дохода, базисные пункты (при `planKind = percent`). */
-	planRateBp: number,
-	/**  Фиксированная сумма плана в месяц (при `planKind = fixed`). */
-	planFixed: number | null,
-	/**  План взноса в текущем месяце. */
-	plan: number,
-	/**  Баланс на конец декабря года. */
-	balance: number,
-	/**  Ставка после налога на купон, базисные пункты: 1600 при налоге 1300 дают 1392. */
-	effectiveRateBp: number,
-	months: SavingsMonthDto[],
-	scenarios: ForecastScenarioDto[],
-	/**  Линии «Баланс» и «Внесено» по месяцам года. */
-	factChart: ChartDataDto,
-	/**  Линии сценариев A/B/C на 60 месяцев. */
-	forecastChart: ChartDataDto,
-};
-
 export type AppError = { code: "Locked" } | { code: "WrongPassword"; retryAfterMs: number } | 
 /**  Попытка в окне задержки: пароль не проверялся. */
 { code: "TooManyAttempts"; retryAfterMs: number } | { code: "Validation"; messageKey: string; field: string | null } | { code: "NotFound"; entity: string; id: number } | { code: "Conflict"; messageKey: string } | { code: "Import"; messageKey: string; line: number | null } | { code: "Io"; messageKey: string } | { code: "Internal"; correlationId: string };
@@ -509,21 +482,6 @@ export type DefaultCategoryDto = {
 /**  Экран сохранённого фильтра: «Расходы» или «Доходы». */
 export type FilterScreenDto = "expenses" | "incomes";
 
-export type ForecastKindDto = "a" | "b" | "c";
-
-export type ForecastScenarioDto = {
-	scenario: ForecastKindDto,
-	/**  Название сценария для таблиц и легенды: «A · цель нормы». */
-	name: string,
-	contribution: number,
-	y1: number,
-	y3: number,
-	y5: number,
-	coupons60: number,
-	/**  Баланс на конец каждого из 60 месяцев: точки линии прогноза. */
-	balances: number[],
-};
-
 export type IncomeDto = {
 	id: number,
 	month: string,
@@ -706,6 +664,8 @@ export type MonthPlanDto = {
 	saved: number,
 	/**  В месяце есть записи со статусом «План»: мастер плана его не заполнит. */
 	hasPlannedLines: boolean,
+	/**  Фиксированные суммы накоплений, действующие в месяце (подставляются в мастер плана). */
+	savingsFixed: SavingsFixedDto[],
 };
 
 /**  Строка листа «Сводка» за месяц. */
@@ -838,40 +798,11 @@ export type SavedFilterDto = {
 	screen: FilterScreenDto,
 };
 
-/**  Месяц фактического накопления. */
-export type SavingsMonthDto = {
-	month: string,
-	savings: number,
-	coupon: number,
-	balance: number,
-	deposited: number,
-	couponIncome: number,
+/**  Фиксированная ежемесячная сумма накопления. */
+export type SavingsFixedDto = {
+	categoryId: number,
+	fixed: number,
 };
-
-/**  Раздел «Сбережения» за год. */
-export type SavingsOverviewDto = {
-	year: number,
-	/**  Самый ранний год, с которого у накоплений есть данные (нижняя граница переключателя года). */
-	firstYear: number,
-	items: AccumulationDto[],
-	/**  Сумма балансов накоплений на конец декабря. */
-	totalBalance: number,
-	/**  План сбережений на декабрь года просмотра (сумма планов накоплений). */
-	monthPlan: number,
-	totalScenarios: ForecastScenarioDto[],
-	totalForecastChart: ChartDataDto,
-};
-
-/**  Параметры накопления: ставка 0 — простое накопление без купонов. */
-export type SavingsParamsDto = {
-	annualRateBp: number,
-	taxBp: number,
-	initialBalance: number,
-	initialMonth: string,
-};
-
-/**  Как задан план накопления в месяц. */
-export type SavingsPlanKindDto = "percent" | "fixed";
 
 /**  Накопление в графике «Отложено по месяцам»: в том числе закрытая цель. */
 export type SavingsProgressCategoryDto = {

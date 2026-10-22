@@ -121,6 +121,12 @@ pub struct DebtsSummary {
     pub payments_paid: Money,
 }
 
+/// Долг закрыт, когда оплачена вся его сумма: единственное место правила; им
+/// пользуются расчёт остатка и отметка `closed_at` в хранилище.
+pub fn debt_is_closed(amount: Money, paid: Money) -> bool {
+    paid == amount
+}
+
 /// Остаток долга и ближайший платёж по строкам его графика.
 pub fn debt_progress<'a>(
     amount: Money,
@@ -142,7 +148,7 @@ pub fn debt_progress<'a>(
     Ok(DebtState {
         remaining,
         next_payment: next,
-        closed: remaining.is_zero(),
+        closed: debt_is_closed(amount, paid),
     })
 }
 
@@ -187,5 +193,18 @@ impl Ledger<'_> {
             .iter()
             .filter(|p| p.month == month)
             .try_fold(Money::ZERO, |sum, p| Ok(sum.checked_add(p.amount)?))
+    }
+}
+
+#[cfg(test)]
+mod closed_tests {
+    use super::*;
+
+    #[test]
+    fn debt_is_closed_only_when_everything_is_paid() {
+        let rub = |r: i64| Money::from_kopecks(r * 100);
+        assert!(debt_is_closed(rub(900), rub(900)));
+        assert!(!debt_is_closed(rub(900), rub(899)));
+        assert!(!debt_is_closed(rub(900), Money::ZERO));
     }
 }

@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
   import { Button, Chart, EmptyState, Kpi, Modal, Skeleton } from '$lib/components';
-  import { formatMoney, formatMonth } from '$lib/format';
+  import { formatMoney, formatMonth, formatMonthLower } from '$lib/format';
   import { FORMULAS } from '$lib/formulas';
+  import { undoLabel } from '$lib/shortcuts';
   import { month } from '$lib/stores/month.svelte';
   import SavingsList from './_components/SavingsList.svelte';
   import { SavingsVm, setSavingsVm } from './savings.svelte';
@@ -16,6 +17,17 @@
       void vm.load(current);
     });
   });
+
+  /** Линия плана месяца поверх столбцов: сколько нужно отложить (копейки → рубли, как в данных графика). */
+  const chartData = $derived(
+    vm.progress === null
+      ? null
+      : {
+          ...vm.progress.chart,
+          referenceLines:
+            vm.planTotal > 0 ? [{ name: 'План месяца', from: vm.planTotal / 100, to: null }] : []
+        }
+  );
 
   onMount(() => vm.connect());
 </script>
@@ -44,7 +56,7 @@
         <Kpi
           label="Откладываю в месяц"
           amount={vm.planTotal}
-          hint={`план на ${formatMonth(vm.month)}`}
+          hint={`план на ${formatMonthLower(vm.month)}`}
           formula={FORMULAS.savingsPlan}
         />
       </div>
@@ -67,14 +79,17 @@
         </div>
       {/if}
     </div>
-    {#if vm.progress && vm.progress.months.length > 0}
+    {#if vm.progress && chartData && vm.progress.months.length > 0}
       <div class="card chart">
-        <Chart
-          data={vm.progress.chart}
-          type="stacked_bar"
-          title="Отложено по месяцам"
-          categoryColors={vm.chartColors}
-        />
+        <h2 class="chart-title">Отложено по месяцам</h2>
+        <div class="chart-body">
+          <Chart
+            data={chartData}
+            type="stacked_bar"
+            title="Отложено по месяцам"
+            categoryColors={vm.chartColors}
+          />
+        </div>
       </div>
     {/if}
     <SavingsList />
@@ -120,7 +135,7 @@
   >
     <p class="ask">
       Цель «{vm.deleteAsk.name}» и все её суммы ({formatMoney(vm.deleteAsk.total)}) пропадут из
-      списка, итогов и графика. Сразу после удаления можно нажать «Вернуть» или ⌘Z.
+      списка, итогов и графика. Сразу после удаления можно нажать «Вернуть» или {undoLabel}.
     </p>
     {#snippet footer()}
       <Button
@@ -165,6 +180,18 @@
     gap: var(--sp-4);
   }
   .chart {
-    height: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    height: 264px;
+  }
+  .chart-title {
+    margin: 0;
+    font-size: var(--fs-14);
+    font-weight: var(--fw-semibold);
+  }
+  .chart-body {
+    flex: 1;
+    min-height: 0;
   }
 </style>

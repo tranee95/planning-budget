@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { placeList } from './popover';
+import { clampShift, placeList, tipFlipsUp } from './popover';
 
 const base = { viewport: 600, desired: 240 };
 
@@ -33,8 +33,6 @@ describe('placeList', () => {
   });
 });
 
-import { clampShift } from './popover';
-
 describe('clampShift', () => {
   it('в середине окна сдвиг не нужен', () => {
     expect(clampShift({ center: 500, width: 100, viewport: 960 })).toBe(0);
@@ -47,5 +45,19 @@ describe('clampShift', () => {
 
   it('у левого края сдвигает вправо', () => {
     expect(clampShift({ center: 10, width: 100, viewport: 960 })).toBe(48);
+  });
+});
+
+describe('подсказка в области контента', () => {
+  it('не заходит левее границы области: сдвиг считается от неё, а не от края окна', () => {
+    expect(clampShift({ center: 250, width: 200, viewport: 1000, from: 232 })).toBe(90);
+    expect(clampShift({ center: 250, width: 200, viewport: 1000 })).toBe(0);
+  });
+
+  it('открывается вверх, только если снизу тесно, а сверху места больше', () => {
+    const base = { triggerTop: 700, triggerBottom: 720, height: 80, viewport: 760 };
+    expect(tipFlipsUp(base)).toBe(true);
+    expect(tipFlipsUp({ ...base, viewport: 1000 })).toBe(false);
+    expect(tipFlipsUp({ ...base, triggerTop: 20, triggerBottom: 40, viewport: 100 })).toBe(false);
   });
 });

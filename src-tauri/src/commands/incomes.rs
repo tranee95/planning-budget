@@ -1,6 +1,6 @@
 //! Доходы.
 
-use chrono::Utc;
+use crate::clock::Now;
 use planning_budget_core::IncomeId;
 use tauri::{AppHandle, State};
 
@@ -29,7 +29,7 @@ pub async fn incomes_create(
     input: IncomeInput,
 ) -> Result<IncomeDto, AppError> {
     let dto = state
-        .with_session(move |db| service::income_create(db, input, Utc::now()))
+        .with_session(move |db| service::income_create(db, input, Now::capture().utc))
         .await?;
     data_changed(&app, ChangeScope::Incomes, vec![dto.month.clone()]);
     Ok(dto)
@@ -44,7 +44,9 @@ pub async fn incomes_update(
     patch: IncomePatchDto,
 ) -> Result<IncomeUpdateResultDto, AppError> {
     let dto = state
-        .with_session(move |db| service::income_update(db, IncomeId(id.0), patch, Utc::now()))
+        .with_session(move |db| {
+            service::income_update(db, IncomeId(id.0), patch, Now::capture().utc)
+        })
         .await?;
     let months = service::touched_months(&dto.previous.month, &dto.current.month);
     data_changed(&app, ChangeScope::Incomes, months);
@@ -59,7 +61,7 @@ pub async fn incomes_delete(
     id: Int53,
 ) -> Result<IncomeDto, AppError> {
     let dto = state
-        .with_session(move |db| service::income_delete(db, IncomeId(id.0), Utc::now()))
+        .with_session(move |db| service::income_delete(db, IncomeId(id.0), Now::capture().utc))
         .await?;
     data_changed(&app, ChangeScope::Incomes, vec![dto.month.clone()]);
     Ok(dto)
@@ -73,7 +75,7 @@ pub async fn incomes_restore(
     id: Int53,
 ) -> Result<IncomeDto, AppError> {
     let dto = state
-        .with_session(move |db| service::income_restore(db, IncomeId(id.0), Utc::now()))
+        .with_session(move |db| service::income_restore(db, IncomeId(id.0), Now::capture().utc))
         .await?;
     data_changed(&app, ChangeScope::Incomes, vec![dto.month.clone()]);
     Ok(dto)

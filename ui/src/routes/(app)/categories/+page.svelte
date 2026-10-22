@@ -40,7 +40,7 @@
     >
     {#if !noCategories}
       <Button
-        variant="success"
+        variant="primary"
         onclick={() => {
           vm.startCreate();
         }}><span aria-hidden="true">+</span> Добавить категорию</Button
@@ -71,7 +71,7 @@
           >
             {#snippet actions()}
               <Button
-                variant="success"
+                variant="primary"
                 onclick={() => {
                   vm.startCreate();
                 }}><span aria-hidden="true">+</span> Добавить категорию</Button
@@ -82,6 +82,9 @@
       {:else}
         <section class="list" aria-label="Категории">
           <CategoryList />
+          {#if vm.showArchived && vm.archivedCount === 0}
+            <p class="keys">Архив пуст: в него уходят категории по кнопке «В архив».</p>
+          {/if}
           <div class="spacer"></div>
           {#if vm.balance !== null}
             <div class="balance">
@@ -98,7 +101,6 @@
               />
             </div>
           {/if}
-          <p class="keys">Порядок: потяните строку за ручку слева</p>
         </section>
       {/if}
       {#if vm.selected !== null}
@@ -182,7 +184,8 @@
   }
   .balance {
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
+    align-items: center;
     gap: var(--sp-2);
     padding: var(--sp-3) var(--sp-4) var(--sp-1);
     border-top: 1px solid var(--line);
@@ -202,14 +205,5 @@
     padding: 0 var(--sp-4);
     color: var(--muted);
     font-size: var(--fs-12);
-  }
-  @media (max-width: 1100px) {
-    .body {
-      flex-direction: column;
-      align-items: stretch;
-    }
-    .body :global(.editor) {
-      width: auto;
-    }
   }
 </style>

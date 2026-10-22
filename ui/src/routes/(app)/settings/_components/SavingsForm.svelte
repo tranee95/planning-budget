@@ -1,7 +1,7 @@
 <script lang="ts">
   import { PLACEHOLDERS } from '$lib/i18n/placeholders';
   import { onMount } from 'svelte';
-  import { Button, TextField } from '$lib/components';
+  import { TextField } from '$lib/components';
   import { SavingsVm } from '../savings.svelte';
 
   const vm = new SavingsVm();
@@ -13,41 +13,48 @@
 
 <form
   onsubmit={(e) => {
+    // Enter в поле уже сохранил значение событием change: форма только не должна перезагружать страницу
     e.preventDefault();
-    void vm.save();
   }}
 >
   <p class="muted">
     Доля дохода, которую вы хотите откладывать. Сбережения ниже нижней границы помечаются как «не
-    хватает».
+    хватает». Изменения сохраняются сразу, когда поле теряет фокус.
   </p>
   <div class="row">
     <TextField
       id="sv-min"
-      label="Нижняя граница, %"
+      label="Нижняя граница"
+      suffix="%"
       placeholder={PLACEHOLDERS.percent}
       bind:value={vm.min}
       disabled={!vm.loaded}
+      onchange={() => void vm.save()}
     />
     <TextField
       id="sv-norm"
-      label="Норма, %"
+      label="Норма"
+      suffix="%"
       placeholder={PLACEHOLDERS.percent}
       bind:value={vm.norm}
       disabled={!vm.loaded}
+      onchange={() => void vm.save()}
     />
     <TextField
       id="sv-max"
-      label="Верхняя граница, %"
+      label="Верхняя граница"
+      suffix="%"
       placeholder={PLACEHOLDERS.percent}
       bind:value={vm.max}
       disabled={!vm.loaded}
+      onchange={() => void vm.save()}
     />
   </div>
+  <p class="rule" class:broken={vm.error !== null}>
+    Нижняя граница ≤ норма ≤ верхняя граница
+    {#if vm.preview}· коридор {vm.preview}{/if}
+  </p>
   {#if vm.error}<p class="error" role="alert">{vm.error}</p>{/if}
-  <Button type="submit" variant="primary" loading={vm.saving} disabled={!vm.loaded}
-    >Сохранить</Button
-  >
 </form>
 
 <style>
@@ -66,12 +73,17 @@
     color: var(--muted);
     font-size: var(--fs-13);
   }
+  .rule {
+    margin: 0;
+    color: var(--muted);
+    font-size: var(--fs-12);
+  }
+  .rule.broken {
+    color: var(--danger);
+  }
   .error {
     margin: 0;
     color: var(--unpl);
     font-size: var(--fs-13);
-  }
-  form :global(button) {
-    align-self: flex-start;
   }
 </style>

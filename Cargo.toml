@@ -5,13 +5,12 @@ members = [
     "crates/vault",
     "crates/storage",
     "crates/import",
-    "crates/export",
     "crates/broker",
     "src-tauri",
 ]
 
 [workspace.package]
-version = "0.6.18"
+version = "0.6.19"
 edition = "2024"
 rust-version = "1.90"
 license = "MIT"
@@ -22,7 +21,6 @@ planning-budget-core = { path = "crates/core" }
 planning-budget-vault = { path = "crates/vault" }
 planning-budget-storage = { path = "crates/storage" }
 planning-budget-import = { path = "crates/import" }
-planning-budget-export = { path = "crates/export" }
 planning-budget-broker = { path = "crates/broker" }
 
 [workspace.lints.rust]
@@ -54,4 +52,5 @@ large_enum_variant = "warn"
 lto = "thin"
 codegen-units = 1
 strip = true
-panic = "abort"
+# unwind, а не abort: with_session ловит панику команды
+panic = "unwind"

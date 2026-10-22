@@ -326,3 +326,110 @@ fn top_up(savings: Money, income: Money, target: BasisPoints) -> Result<Money, M
         .checked_sub(savings)?
         .max(Money::ZERO))
 }
+
+/// Период ряда месяцев для графика «Обзора».
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum SeriesRange {
+    /// Двенадцать месяцев года выбранного месяца.
+    Year,
+    /// Двенадцать месяцев, заканчивая выбранным.
+    Last12,
+    /// Все месяцы с данными, не дальше [`MAX_YEARS_BACK`] лет назад.
+    All,
+}
+
+/// Сколько лет назад заглядывает период «Всё»: хватает на любую личную историю.
+pub const MAX_YEARS_BACK: u16 = 10;
+
+/// Последний месяц, который нужно загрузить для «Обзора» месяца `month` при текущем месяце
+/// `current`: для отклонения расходов от среднего за год читаются и месяцы до `current` того же
+/// года (годовое среднее считается по месяцам не позже текущего).
+///
+/// # Errors
+/// Месяц вне диапазона `YearMonth`.
+pub fn overview_last_month(month: YearMonth, current: YearMonth) -> Result<YearMonth, CoreError> {
+    Ok(if current.year() > month.year() {
+        YearMonth::new(month.year(), 12)?
+    } else if current.year() == month.year() && current > month {
+        current
+    } else {
+        month
+    })
+}
+
+/// Границы ряда месяцев (первый и последний) для выбранного месяца.
+///
+/// # Errors
+/// Границы вне диапазона `YearMonth`.
+pub fn series_bounds(
+    month: YearMonth,
+    range: SeriesRange,
+) -> Result<(YearMonth, YearMonth), CoreError> {
+    let year = month.year();
+    Ok(match range {
+        SeriesRange::Year => (YearMonth::first_of_year(year)?, YearMonth::new(year, 12)?),
+        SeriesRange::Last12 => ((0..11).fold(month, |m, _| m.pred().unwrap_or(m)), month),
+        SeriesRange::All => (
+            YearMonth::first_of_year(year.saturating_sub(MAX_YEARS_BACK).max(1970))?,
+            YearMonth::new(year, 12)?,
+        ),
+    })
+}
+
+/// Входит ли месяц в ряд: в периоде «Всё» месяцы без дохода и расходов пропускаются.
+#[must_use]
+pub fn series_keeps(range: SeriesRange, summary: &MonthSummary) -> bool {
+    range != SeriesRange::All || !(summary.income.is_zero() && summary.expenses.is_zero())
+}
+
+#[cfg(test)]
+mod series_tests {
+    use super::*;
+
+    fn ym(s: &str) -> YearMonth {
+        YearMonth::parse(s).unwrap()
+    }
+
+    #[test]
+    fn overview_reads_up_to_the_current_month_of_the_same_year() {
+        // Прошлый год читается до декабря, текущий — до сегодняшнего месяца, будущий — до себя.
+        assert_eq!(
+            overview_last_month(ym("2025-03"), ym("2026-10")),
+            Ok(ym("2025-12"))
+        );
+        assert_eq!(
+            overview_last_month(ym("2026-03"), ym("2026-10")),
+            Ok(ym("2026-10"))
+        );
+        assert_eq!(
+            overview_last_month(ym("2026-11"), ym("2026-10")),
+            Ok(ym("2026-11"))
+        );
+        assert_eq!(
+            overview_last_month(ym("2027-01"), ym("2026-10")),
+            Ok(ym("2027-01"))
+        );
+    }
+
+    #[test]
+    fn series_bounds_follow_the_range() {
+        let m = ym("2026-10");
+        assert_eq!(
+            series_bounds(m, SeriesRange::Year),
+            Ok((ym("2026-01"), ym("2026-12")))
+        );
+        assert_eq!(
+            series_bounds(m, SeriesRange::Last12),
+            Ok((ym("2025-11"), m))
+        );
+        assert_eq!(
+            series_bounds(m, SeriesRange::All),
+            Ok((ym("2016-01"), ym("2026-12")))
+        );
+        // Не раньше 1970.
+        assert_eq!(
+            series_bounds(ym("1972-05"), SeriesRange::All),
+            Ok((ym("1970-01"), ym("1972-12")))
+        );
+    }
+}

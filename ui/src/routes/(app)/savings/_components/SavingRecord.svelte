@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { deleteOnKey } from '$lib/components/row-delete';
   import { untrack } from 'svelte';
   import type { TransactionDto } from '$lib/api/bindings';
   import { leftRow } from '$lib/components/amount-rows/row-focus';
@@ -69,7 +70,15 @@
     />
   </div>
 {:else}
-  <div class="row view">
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="row view"
+    onkeydown={(event) => {
+      deleteOnKey(event, () => {
+        void vm.remove(row.id);
+      });
+    }}
+  >
     <button
       type="button"
       class="cell title"
@@ -87,7 +96,7 @@
     >
     <button
       type="button"
-      class="remove"
+      class="remove reveal-action"
       aria-label="Удалить запись: {row.title}, {formatMoneyTrim(row.amount)}"
       title="Удалить"
       onclick={() => {

@@ -1,7 +1,6 @@
 import type { UpdateStatusDto } from '$lib/api/bindings';
 import { events } from '$lib/api/bindings';
 import { updatesApi } from '$lib/api/updates';
-import { errorText } from '$lib/i18n/errors';
 import { toasts } from './toasts.svelte';
 
 /** Состояние проверки обновлений: итог, ход установки и «Позже» для окна. */
@@ -41,7 +40,7 @@ class UpdatesStore {
       this.status = await updatesApi.check(true);
       this.dismissed = false;
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e);
     } finally {
       this.checking = false;
     }
@@ -67,7 +66,7 @@ class UpdatesStore {
     try {
       await updatesApi.install();
     } catch (e) {
-      toasts.push({ kind: 'error', message: errorText(e) });
+      toasts.fail(e);
     } finally {
       off?.();
       this.installing = false;

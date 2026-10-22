@@ -41,14 +41,16 @@ test('категории: заголовки колонок, подсказка 
   await expect(page.getByRole('textbox', { name: 'Название' })).toBeVisible();
 });
 
-test('обзор: «План готов» показывает тост с «Разблокировать»', async ({ page }) => {
+test('обзор: «Зафиксировать план» показывает тост с «Разблокировать»', async ({ page }) => {
   await page.goto('/?vault=open');
-  await page.getByRole('button', { name: 'План готов' }).click();
+  // в пустом октябре вместо кнопки призыв составить план, поэтому берём сентябрь с данными
+  await page.getByRole('button', { name: 'Предыдущий месяц' }).click();
+  await page.getByRole('button', { name: 'Зафиксировать план' }).click();
   await expect(page.getByText(/План на .+ \d{4} зафиксирован/)).toBeVisible();
   const toast = page.getByRole('button', { name: 'Разблокировать' });
   await expect(toast).toHaveCount(2);
   await toast.last().click();
-  await expect(page.getByRole('button', { name: 'План готов' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Зафиксировать план' })).toBeVisible();
 });
 
 test('справка: порядок блоков, шаг знакомства короче, ключ и сеть описаны верно', async ({
@@ -85,4 +87,16 @@ test('настройки: перевыпуск ключа вынесен в «О
   const dangerBox = await danger.boundingBox();
   const securityBox = await security.boundingBox();
   expect(dangerBox?.y ?? 0).toBeGreaterThan(securityBox?.y ?? Infinity);
+});
+
+test('обзор: пустой месяц — призыв составить план вместо нулей, с «Скопировать план из …»', async ({
+  page
+}) => {
+  await page.goto('/?vault=open');
+  const next = page.getByRole('button', { name: 'Следующий месяц' });
+  const heading = page.getByRole('heading', { name: /Составьте план на/ });
+  for (let i = 0; i < 6 && !(await heading.isVisible()); i++) await next.click();
+  await expect(heading).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Начать с нуля' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Зафиксировать план' })).toHaveCount(0);
 });

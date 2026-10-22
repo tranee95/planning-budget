@@ -1,7 +1,7 @@
 //! Перенос из старой таблицы xlsx. Файл выбирает пользователь в нативном диалоге на стороне
 //! Rust: путь из WebView не принимается.
 
-use chrono::{Local, Utc};
+use crate::clock::Now;
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt as _;
 
@@ -35,7 +35,10 @@ pub async fn legacy_import(
         return Ok(None);
     };
     let report = state
-        .with_session(move |db| service::import(db, &bytes, Utc::now(), Local::now().date_naive()))
+        .with_session(move |db| {
+            let now = Now::capture();
+            service::import(db, &bytes, now.utc, now.today)
+        })
         .await?;
     data_changed(&app, ChangeScope::All, Vec::new());
     Ok(Some(report))

@@ -39,10 +39,19 @@ it('лимиты отсортированы по использованию, с�
   expect(vm.limitLines.every((l) => l.category.kind !== 'savings')).toBe(true);
 });
 
-it('подзаголовок: в мок-данных превышений нет', async () => {
+it('подзаголовок: лимиты не превышены, но «Продукты» выше плана — «все в лимитах» не пишем', async () => {
   const vm = new OverviewVm();
   await vm.load('2026-09');
-  expect(vm.subtitle).toBe('Сентябрь: все категории в лимитах');
+  expect(vm.overCount).toBe(0);
+  expect(vm.overPlanCount).toBe(1);
+  expect(vm.subtitle).toBe('Сентябрь: 1 категория выше плана');
+});
+
+it('подзаголовок пустого месяца говорит, что плана нет, а не что всё в лимитах', async () => {
+  const vm = new OverviewVm();
+  await vm.load('2025-01');
+  expect(vm.emptyMonth).toBe(true);
+  expect(vm.subtitle).toBe('План на январь ещё не составлен');
 });
 
 it('пустой месяц: нет дохода, сравнивать расходы не с чем', async () => {

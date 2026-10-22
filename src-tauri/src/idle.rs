@@ -1,7 +1,9 @@
 //! Автоблокировка по бездействию.
 
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Mutex, PoisonError};
+
+use crate::sync::MutexExt as _;
 use std::time::{Duration, Instant, SystemTime};
 
 use tauri::{AppHandle, Manager as _};
@@ -58,19 +60,13 @@ impl IdleTimer {
 
     /// Сбрасывает отсчёт: вызывается из `activity_ping` и при входе.
     pub fn touch(&self) {
-        *self
-            .last_activity
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner) = Moment::now();
+        *self.last_activity.lock_unpoisoned() = Moment::now();
     }
 
     /// Задаёт отметку активности явно: тесты состарят её, не дожидаясь часов.
     #[cfg(test)]
     pub fn touch_at(&self, at: Moment) {
-        *self
-            .last_activity
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner) = at;
+        *self.last_activity.lock_unpoisoned() = at;
     }
 
     pub fn set_minutes(&self, minutes: u32) {
@@ -83,10 +79,7 @@ impl IdleTimer {
         if minutes == 0 {
             return false;
         }
-        let last = *self
-            .last_activity
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
+        let last = *self.last_activity.lock_unpoisoned();
         now.since(last) >= Duration::from_secs(u64::from(minutes) * 60)
     }
 }
