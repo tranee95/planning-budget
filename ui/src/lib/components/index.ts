@@ -35,3 +35,5 @@ export { default as PaletteChips } from './PaletteChips.svelte';
 export { default as Chart } from './Chart.svelte';
 export { default as ChartTable } from './ChartTable.svelte';
 export { default as SimpleTable } from './SimpleTable.svelte';
+export { default as ContextMenu } from './ContextMenu.svelte';
+export type { MenuItem } from './menu';

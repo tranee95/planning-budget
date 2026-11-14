@@ -22,6 +22,22 @@ fn flag(map: &BTreeMap<String, Value>, key: &str) -> Result<bool, AppError> {
     map.get(key).and_then(Value::as_bool).ok_or_else(missing)
 }
 
+/// Базы, созданные до появления расписания, ключа не содержат: для них копия раз в день.
+const DEFAULT_BACKUP_INTERVAL_DAYS: u8 = 1;
+
+fn interval_days(map: &BTreeMap<String, Value>) -> u8 {
+    map.get("backup.interval_days")
+        .and_then(Value::as_i64)
+        .and_then(|v| u8::try_from(v).ok())
+        .unwrap_or(DEFAULT_BACKUP_INTERVAL_DAYS)
+}
+
+/// Расписание автоматических копий: включены ли и как часто (в днях).
+pub fn backup_schedule(db: &Db) -> Result<(bool, u8), AppError> {
+    let map = db.settings_map()?;
+    Ok((flag(&map, "backup.auto_daily")?, interval_days(&map)))
+}
+
 pub fn get(db: &Db) -> Result<SettingsDto, AppError> {
     let map = db.settings_map()?;
     let to_i32 = |key| i32::try_from(int(&map, key)?).map_err(|_| missing());
@@ -33,7 +49,8 @@ pub fn get(db: &Db) -> Result<SettingsDto, AppError> {
         autolock_minutes: u16::try_from(int(&map, "security.autolock_minutes")?)
             .map_err(|_| missing())?,
         lock_on_minimize: flag(&map, "security.lock_on_minimize")?,
-        backup_auto_daily: flag(&map, "backup.auto_daily")?,
+        backup_auto: flag(&map, "backup.auto_daily")?,
+        backup_interval_days: interval_days(&map),
     })
 }
 
@@ -50,7 +67,7 @@ pub fn apply_security(state: &AppState, autolock_minutes: u16, lock_on_minimize:
 
 /// Записывает только переданные поля и возвращает настройки целиком.
 pub fn set(db: &mut Db, patch: SettingsPatchDto) -> Result<SettingsDto, AppError> {
-    let changes: [(&str, Option<Value>); 7] = [
+    let changes: [(&str, Option<Value>); 8] = [
         (
             "savings.target_min_bp",
             patch.savings_min_bp.map(Value::from),
@@ -72,9 +89,10 @@ pub fn set(db: &mut Db, patch: SettingsPatchDto) -> Result<SettingsDto, AppError
             "security.lock_on_minimize",
             patch.lock_on_minimize.map(Value::from),
         ),
+        ("backup.auto_daily", patch.backup_auto.map(Value::from)),
         (
-            "backup.auto_daily",
-            patch.backup_auto_daily.map(Value::from),
+            "backup.interval_days",
+            patch.backup_interval_days.map(Value::from),
         ),
     ];
     let given: Vec<(&str, Value)> = changes

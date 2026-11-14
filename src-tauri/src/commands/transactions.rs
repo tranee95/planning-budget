@@ -1,12 +1,12 @@
 //! Траты и теги.
 
 use crate::clock::Now;
-use planning_budget_core::TxId;
+use planning_budget_core::{TagId, TxId};
 use tauri::{AppHandle, State};
 
 use crate::AppError;
 use crate::dto::{
-    Int53, TagDto, TransactionDto, TransactionInput, TransactionPatchDto, TxStatusDto,
+    Int53, TagDto, TagUsageDto, TransactionDto, TransactionInput, TransactionPatchDto, TxStatusDto,
     TxUpdateResultDto,
 };
 use crate::events::{ChangeScope, data_changed};
@@ -129,6 +129,12 @@ pub async fn tags_list(state: State<'_, AppState>) -> Result<Vec<TagDto>, AppErr
 
 #[tauri::command]
 #[specta::specta]
+pub async fn tags_usage(state: State<'_, AppState>) -> Result<Vec<TagUsageDto>, AppError> {
+    state.with_session(|db| service::tags_usage(db)).await
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn tags_create(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -139,4 +145,36 @@ pub async fn tags_create(
         .await?;
     data_changed(&app, ChangeScope::Tags, Vec::new());
     Ok(dto)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn tags_rename(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: Int53,
+    name: String,
+) -> Result<TagDto, AppError> {
+    let dto = state
+        .with_session(move |db| service::tag_rename(db, TagId(id.0), &name))
+        .await?;
+    data_changed(&app, ChangeScope::Tags, Vec::new());
+    Ok(dto)
+}
+
+/// Удаляет тег; возвращает, у скольких трат он стоял. Траты меняются (теги и поиск), поэтому
+/// событие идёт и по тегам, и по тратам, без списка месяцев (затронуты любые).
+#[tauri::command]
+#[specta::specta]
+pub async fn tags_delete(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: Int53,
+) -> Result<u32, AppError> {
+    let uses = state
+        .with_session(move |db| service::tag_delete(db, TagId(id.0)))
+        .await?;
+    data_changed(&app, ChangeScope::Tags, Vec::new());
+    data_changed(&app, ChangeScope::Transactions, Vec::new());
+    Ok(uses)
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clampShift, placeList, tipFlipsUp } from './popover';
+import { clampShift, placeList, placeMenu, tipFlipsUp } from './popover';
 
 const base = { viewport: 600, desired: 240 };
 
@@ -59,5 +59,21 @@ describe('подсказка в области контента', () => {
     expect(tipFlipsUp(base)).toBe(true);
     expect(tipFlipsUp({ ...base, viewport: 1000 })).toBe(false);
     expect(tipFlipsUp({ ...base, triggerTop: 20, triggerBottom: 40, viewport: 100 })).toBe(false);
+  });
+});
+
+describe('placeMenu', () => {
+  const base = { width: 200, height: 160, viewportWidth: 1000, viewportHeight: 700 };
+  it('в свободном месте меню открывается в точке клика', () => {
+    expect(placeMenu({ ...base, x: 100, y: 120 })).toEqual({ left: 100, top: 120 });
+  });
+  it('у правого и нижнего края прижимается внутрь окна', () => {
+    expect(placeMenu({ ...base, x: 950, y: 690 })).toEqual({ left: 792, top: 532 });
+  });
+  it('не выходит за левый и верхний край, если окно меньше меню', () => {
+    expect(placeMenu({ ...base, x: 0, y: 0, viewportWidth: 150, viewportHeight: 100 })).toEqual({
+      left: 8,
+      top: 8
+    });
   });
 });

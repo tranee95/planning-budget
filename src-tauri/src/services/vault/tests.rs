@@ -344,3 +344,24 @@ fn migration_without_legacy_dir_does_nothing() {
     assert!(!state.migration_failed());
     assert!(!status(&state, t0()).unwrap().migration_failed);
 }
+
+#[test]
+fn a_new_vault_gets_the_introduction_and_a_vault_with_categories_never_does() {
+    let (_dir, state, _code) = created();
+    let prefs_path = state.paths().prefs();
+    let done = |value| crate::dto::PrefsPatch {
+        intro_done: Some(value),
+        ..Default::default()
+    };
+    crate::prefs::update(&prefs_path, done(true)).unwrap();
+
+    // Пустое хранилище: категорий нет, значит знакомство нужно ему, а не основному.
+    crate::services::vaults::add(&state, "Новое").unwrap();
+    create(&state, &pw(PASSWORD), t0(), Some(FAST)).unwrap();
+    assert!(!crate::prefs::load(&prefs_path).intro_done);
+
+    // Основное хранилище с категориями не показывает знакомство из-за чужого флага.
+    crate::services::vaults::switch(&state, crate::workspace::MAIN_ID).unwrap();
+    unlock(&state, &pw(PASSWORD), t0()).unwrap();
+    assert!(crate::prefs::load(&prefs_path).intro_done);
+}

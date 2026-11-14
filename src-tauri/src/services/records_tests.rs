@@ -169,6 +169,55 @@ fn tags_are_created_listed_and_attached_to_a_transaction() {
 }
 
 #[test]
+fn tags_are_renamed_counted_and_deleted() {
+    let (_dir, mut db) = seeded();
+    let food = db.category_id_by_name("Продукты").unwrap().unwrap();
+    let tx = records::tx_create(
+        &mut db,
+        TransactionInput {
+            month: "2026-09".into(),
+            date: None,
+            category_id: food.0,
+            title: "Рынок".into(),
+            amount: 100_000,
+            status: TxStatusDto::Paid,
+            comment: None,
+        },
+        now(),
+    )
+    .unwrap();
+    let tag = records::tag_create(&mut db, "дача").unwrap();
+    let other = records::tag_create(&mut db, "отпуск").unwrap();
+    records::tx_tags_set(&mut db, TxId(tx.id), vec![tag.id]).unwrap();
+
+    let listed = records::tags_usage(&db).unwrap();
+    assert_eq!(
+        listed
+            .iter()
+            .map(|t| (t.name.as_str(), t.uses, t.refs))
+            .collect::<Vec<_>>(),
+        [("дача", 1, 0), ("отпуск", 0, 0)]
+    );
+
+    let renamed =
+        records::tag_rename(&mut db, planning_budget_core::TagId(tag.id), "  Дом  ").unwrap();
+    assert_eq!(renamed.name, "Дом");
+    let err =
+        records::tag_rename(&mut db, planning_budget_core::TagId(tag.id), "ОТПУСК").unwrap_err();
+    assert!(matches!(err, AppError::Conflict { .. }));
+    let err = records::tag_rename(&mut db, planning_budget_core::TagId(999_999), "x").unwrap_err();
+    assert!(matches!(err, AppError::NotFound { .. }));
+
+    let uses = records::tag_delete(&mut db, planning_budget_core::TagId(tag.id)).unwrap();
+    assert_eq!(uses, 1);
+    assert!(db.transaction(TxId(tx.id)).unwrap().tags.is_empty());
+    assert_eq!(records::tags_list(&db).unwrap().len(), 1);
+    assert_eq!(records::tags_list(&db).unwrap()[0].id, other.id);
+    let err = records::tag_delete(&mut db, planning_budget_core::TagId(tag.id)).unwrap_err();
+    assert!(matches!(err, AppError::NotFound { .. }));
+}
+
+#[test]
 fn touched_months_lists_both_months_only_when_they_differ() {
     assert_eq!(records::touched_months("2026-09", "2026-09"), ["2026-09"]);
     assert_eq!(

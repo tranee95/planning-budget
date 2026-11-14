@@ -8,6 +8,7 @@ use tauri_plugin_dialog::DialogExt as _;
 use crate::AppError;
 use crate::dto::{RecoveryCodeDto, SavedDto, Secret, VaultStatusDto};
 use crate::events::{self, LockReason};
+use crate::services::backup;
 use crate::services::vault as service;
 use crate::state::{AppState, blocking};
 
@@ -45,7 +46,10 @@ pub async fn vault_unlock(
     password: Secret,
 ) -> Result<Option<RecoveryCodeDto>, AppError> {
     blocking(&app, move |state| {
-        service::unlock(state, password.secret(), Now::capture().utc).map(issued_code)
+        let now = Now::capture().utc;
+        let code = service::unlock(state, password.secret(), now)?;
+        backup::run_auto(state, now);
+        Ok(issued_code(code))
     })
     .await
 }
@@ -58,13 +62,10 @@ pub async fn vault_unlock_recovery(
     new_password: Secret,
 ) -> Result<Option<RecoveryCodeDto>, AppError> {
     blocking(&app, move |state| {
-        service::unlock_recovery(
-            state,
-            code.secret(),
-            new_password.secret(),
-            Now::capture().utc,
-        )
-        .map(issued_code)
+        let now = Now::capture().utc;
+        let issued = service::unlock_recovery(state, code.secret(), new_password.secret(), now)?;
+        backup::run_auto(state, now);
+        Ok(issued_code(issued))
     })
     .await
 }

@@ -29,6 +29,24 @@ export const commands = {
 	vaultSaveRecoveryCode: (code: Secret) => typedError<SavedDto, AppError>(__TAURI_INVOKE("vault_save_recovery_code", { code })),
 	/**  Сброс таймера автоблокировки. Фронтенд шлёт на `pointerdown` и `keydown` не чаще раза в 30 с. */
 	activityPing: () => typedError<null, AppError>(__TAURI_INVOKE("activity_ping")),
+	vaultsList: () => typedError<VaultItemDto[], AppError>(__TAURI_INVOKE("vaults_list")),
+	/**  Создаёт пустое хранилище и делает его активным: пароль задают на экране входа. */
+	vaultsAdd: (label: string) => typedError<null, AppError>(__TAURI_INVOKE("vaults_add", { label })),
+	/**  Переключает активное хранилище; текущая сессия закрывается. */
+	vaultsSwitch: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("vaults_switch", { id })),
+	vaultsRename: (id: string, label: string) => typedError<null, AppError>(__TAURI_INVOKE("vaults_rename", { id, label })),
+	/**  Убирает из списка хранилище, которое так и не создали. */
+	vaultsRemove: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("vaults_remove", { id })),
+	backupStatus: () => typedError<BackupStatusDto, AppError>(__TAURI_INVOKE("backup_status")),
+	/**  Создаёт копию активного хранилища. Нужна открытая сессия (проверяет сервис). */
+	backupCreate: () => typedError<BackupItemDto, AppError>(__TAURI_INVOKE("backup_create")),
+	/**  Открывает диалог выбора каталога копий. `false`, если пользователь закрыл диалог. */
+	backupPickDir: () => typedError<boolean, AppError>(__TAURI_INVOKE("backup_pick_dir")),
+	backupResetDir: () => typedError<null, AppError>(__TAURI_INVOKE("backup_reset_dir")),
+	/**  Открывает копию из каталога как новое хранилище; пароль — от хранилища на момент копирования. */
+	backupImportNamed: (fileName: string, password: Secret, label: string) => typedError<null, AppError>(__TAURI_INVOKE("backup_import_named", { fileName, password, label })),
+	/**  То же для файла `.budgetbak`, выбранного в диалоге. `false`, если диалог закрыт. */
+	backupImportPick: (password: Secret, label: string) => typedError<boolean, AppError>(__TAURI_INVOKE("backup_import_pick", { password, label })),
 	prefsGet: () => typedError<Prefs, AppError>(__TAURI_INVOKE("prefs_get")),
 	/**
 	 *  Тёмная ли тема у окна. В режиме «системная» это тема ОС; изменения приходят событием
@@ -71,7 +89,14 @@ export const commands = {
 	txRestore: (id: Int53) => typedError<TransactionDto, AppError>(__TAURI_INVOKE("tx_restore", { id })),
 	txTagsSet: (id: Int53, tagIds: Int53[]) => typedError<TransactionDto, AppError>(__TAURI_INVOKE("tx_tags_set", { id, tagIds })),
 	tagsList: () => typedError<TagDto[], AppError>(__TAURI_INVOKE("tags_list")),
+	tagsUsage: () => typedError<TagUsageDto[], AppError>(__TAURI_INVOKE("tags_usage")),
 	tagsCreate: (name: string) => typedError<TagDto, AppError>(__TAURI_INVOKE("tags_create", { name })),
+	tagsRename: (id: Int53, name: string) => typedError<TagDto, AppError>(__TAURI_INVOKE("tags_rename", { id, name })),
+	/**
+	 *  Удаляет тег; возвращает, у скольких трат он стоял. Траты меняются (теги и поиск), поэтому
+	 *  событие идёт и по тегам, и по тратам, без списка месяцев (затронуты любые).
+	 */
+	tagsDelete: (id: Int53) => typedError<number, AppError>(__TAURI_INVOKE("tags_delete", { id })),
 	incomesList: (month: string) => typedError<IncomeDto[], AppError>(__TAURI_INVOKE("incomes_list", { month })),
 	incomesCreate: (input: IncomeInput) => typedError<IncomeDto, AppError>(__TAURI_INVOKE("incomes_create", { input })),
 	incomesUpdate: (id: Int53, patch: IncomePatchDto_Deserialize) => typedError<IncomeUpdateResultDto, AppError>(__TAURI_INVOKE("incomes_update", { id, patch })),
@@ -168,6 +193,21 @@ export const events = {
 export type AppError = { code: "Locked" } | { code: "WrongPassword"; retryAfterMs: number } | 
 /**  Попытка в окне задержки: пароль не проверялся. */
 { code: "TooManyAttempts"; retryAfterMs: number } | { code: "Validation"; messageKey: string; field: string | null } | { code: "NotFound"; entity: string; id: number } | { code: "Conflict"; messageKey: string } | { code: "Import"; messageKey: string; line: number | null } | { code: "Io"; messageKey: string } | { code: "Internal"; correlationId: string };
+
+export type BackupItemDto = {
+	fileName: string,
+	/**  Время создания по UTC, RFC 3339. */
+	createdAt: string,
+	sizeBytes: number,
+};
+
+/**  Каталог и копии активного хранилища, новые первыми. */
+export type BackupStatusDto = {
+	dir: string,
+	/**  Каталог не выбран пользователем: используется `backups/` в каталоге данных. */
+	dirIsDefault: boolean,
+	items: BackupItemDto[],
+};
 
 /**  Блок категории, у которого «Итого» в таблице не равно сумме позиций. */
 export type BlockMismatchDto = {
@@ -875,7 +915,10 @@ export type SettingsDto = {
 	weeksPerMonth: number,
 	autolockMinutes: number,
 	lockOnMinimize: boolean,
-	backupAutoDaily: boolean,
+	/**  Автокопии включены (ключ `backup.auto_daily`: имя осталось с тех пор, когда расписание было одно). */
+	backupAuto: boolean,
+	/**  Не чаще чем раз в столько календарных дней, 1–90. */
+	backupIntervalDays: number,
 };
 
 export type SettingsPatchDto = {
@@ -885,7 +928,8 @@ export type SettingsPatchDto = {
 	weeksPerMonth?: number | null,
 	autolockMinutes?: number | null,
 	lockOnMinimize?: boolean | null,
-	backupAutoDaily?: boolean | null,
+	backupAuto?: boolean | null,
+	backupIntervalDays?: number | null,
 };
 
 export type StatusAmountsDto = {
@@ -918,6 +962,16 @@ export type SystemThemeChanged = {
 export type TagDto = {
 	id: number,
 	name: string,
+};
+
+/**  Тег с числом трат и ссылками из сохранённых запросов (раздел «Теги» в настройках). */
+export type TagUsageDto = {
+	id: number,
+	name: string,
+	/**  Сколько трат с этим тегом (удалённые не считаются). */
+	uses: number,
+	/**  Сколько сохранённых фильтров и карточек графиков называют тег в запросе (`#имя`). */
+	refs: number,
 };
 
 export type Theme = "system" | "light" | "dark";
@@ -1052,6 +1106,16 @@ export type UpdateStatusDto = {
 	version: string | null,
 	/**  Заметки релиза из манифеста: обычный текст, не больше 2 000 символов. */
 	notes: string | null,
+};
+
+/**  Хранилище из списка в «Настройках» и на экране входа. */
+export type VaultItemDto = {
+	id: string,
+	label: string,
+	/**  С этим хранилищем приложение работает сейчас. */
+	active: boolean,
+	/**  Файл ключей есть. У только что добавленного хранилища его нет: пароль задают при первом входе. */
+	exists: boolean,
 };
 
 /**  Хранилище заблокировано: фронтенд очищает stores с данными и уходит на `/lock`. */

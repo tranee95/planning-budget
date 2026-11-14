@@ -65,3 +65,22 @@ export function tipFlipsUp(o: {
   const below = o.viewport - o.triggerBottom;
   return below < o.height + 8 && o.triggerTop > below;
 }
+
+/**
+ * Левый верхний угол контекстного меню шириной `width` и высотой `height`, открытого в точке
+ * `x`, `y`: меню прижимается к краям окна, если иначе вышло бы за него.
+ */
+export function placeMenu(o: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  viewportWidth: number;
+  viewportHeight: number;
+  margin?: number;
+}): { left: number; top: number } {
+  const margin = o.margin ?? 8;
+  const left = Math.min(o.x, o.viewportWidth - o.width - margin);
+  const top = Math.min(o.y, o.viewportHeight - o.height - margin);
+  return { left: Math.max(left, margin), top: Math.max(top, margin) };
+}

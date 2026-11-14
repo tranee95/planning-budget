@@ -38,7 +38,9 @@ pub fn status(state: &AppState, now: DateTime<Utc>) -> Result<VaultStatusDto, Ap
         exists: status.exists,
         locked: !state.is_unlocked(),
         retry_after_ms: secs_to_ms(status.retry_after_secs),
-        migration_failed: state.migration_failed(),
+        // Перенос данных из папки прежнего идентификатора касается только основного хранилища.
+        migration_failed: state.migration_failed()
+            && state.paths().active_dir() == state.paths().data_dir(),
     })
 }
 
@@ -110,6 +112,7 @@ pub fn create(
     match opened {
         Ok(db) => {
             finish_unlock(state, db)?;
+            require_intro(state);
             state.allow_recovery_save(true);
             // Новый сейф есть: переносить в эту папку больше нечего.
             state.set_migration_failed(false);
@@ -202,13 +205,7 @@ pub fn reset(
         tracing::warn!(?err, "autolock mirror not cleared");
     }
     // Новое хранилище начинается без категорий: знакомство снова предложит их выбрать.
-    let intro_again = crate::dto::PrefsPatch {
-        intro_done: Some(false),
-        ..Default::default()
-    };
-    if let Err(err) = crate::prefs::update(&state.paths().prefs(), intro_again) {
-        tracing::warn!(?err, "intro flag not reset");
-    }
+    require_intro(state);
     Ok(())
 }
 
@@ -226,8 +223,38 @@ fn finish_unlock(state: &AppState, db: Db) -> Result<(), AppError> {
         u16::try_from(minutes).unwrap_or(u16::MAX),
         lock_on_minimize,
     );
+    sync_intro_flag(state, &db)?;
     state.open_session(db);
     Ok(())
+}
+
+/// Флаг знакомства лежит в общем `ui-prefs.json`, а категории — в каждом хранилище свои.
+/// Хранилище с категориями знакомство уже прошло, что бы ни осталось от другого хранилища:
+/// сбрасывается только `false` → `true`, пропуск знакомства пользователем не отменяется.
+fn sync_intro_flag(state: &AppState, db: &Db) -> Result<(), AppError> {
+    let path = state.paths().prefs();
+    if crate::prefs::load(&path).intro_done || db.categories(true)?.is_empty() {
+        return Ok(());
+    }
+    let done = crate::dto::PrefsPatch {
+        intro_done: Some(true),
+        ..Default::default()
+    };
+    if let Err(err) = crate::prefs::update(&path, done) {
+        tracing::warn!(?err, "intro flag not synced");
+    }
+    Ok(())
+}
+
+/// Новое пустое хранилище начинается со знакомства (выбор категорий), как после сброса.
+fn require_intro(state: &AppState) {
+    let again = crate::dto::PrefsPatch {
+        intro_done: Some(false),
+        ..Default::default()
+    };
+    if let Err(err) = crate::prefs::update(&state.paths().prefs(), again) {
+        tracing::warn!(?err, "intro flag not reset");
+    }
 }
 
 fn remove_all_files(state: &AppState, store: &VaultStore) {
@@ -251,7 +278,7 @@ fn secs_to_ms(secs: u64) -> u32 {
 }
 
 /// Ошибки сейфа → `AppError`. После неверного пароля берём актуальную задержку из `vault.json`.
-fn vault_err(store: &VaultStore, now: DateTime<Utc>, err: VaultError) -> AppError {
+pub(crate) fn vault_err(store: &VaultStore, now: DateTime<Utc>, err: VaultError) -> AppError {
     let validation = |key: &str, field: &str| AppError::Validation {
         message_key: key.to_owned(),
         field: Some(field.to_owned()),

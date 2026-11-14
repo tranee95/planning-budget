@@ -17,10 +17,24 @@
     onsave: (patch: { title: string; amount: number }) => void;
     oncancel: () => void;
     ondelete: (id: number) => void;
+    onmenu: (id: number, point: { x: number; y: number }) => void;
+    /** Для строки открыто контекстное меню. */
+    menuTarget?: boolean;
   };
 
   const uid = $props.id();
-  let { row, editing, focus, onedit, oncycle, onsave, oncancel, ondelete }: Props = $props();
+  let {
+    row,
+    editing,
+    focus,
+    onedit,
+    oncycle,
+    onsave,
+    oncancel,
+    ondelete,
+    onmenu,
+    menuTarget = false
+  }: Props = $props();
 
   /** Клик по сумме ставит курсор в сумму, по названию — в название; Enter на кнопке (без клика) — в сумму. */
   function openEdit(event: MouseEvent): void {
@@ -32,9 +46,21 @@
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <li
   class="row {row.status}"
+  class:menu-target={menuTarget}
   in:rowIn
   out:rowOut
+  oncontextmenu={(event) => {
+    if (editing) return;
+    event.preventDefault();
+    onmenu(row.id, { x: event.clientX, y: event.clientY });
+  }}
   onkeydown={(event) => {
+    if (!editing && (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey))) {
+      event.preventDefault();
+      const box = event.currentTarget.getBoundingClientRect();
+      onmenu(row.id, { x: box.left + 24, y: box.bottom });
+      return;
+    }
     deleteOnKey(event, () => {
       ondelete(row.id);
     });
@@ -91,6 +117,9 @@
     padding-inline: var(--sp-2);
     border-radius: var(--r-md);
     font-size: var(--fs-13);
+  }
+  .menu-target {
+    box-shadow: inset 0 0 0 1px var(--primary);
   }
   .paid {
     background: var(--paid-bg);

@@ -43,8 +43,12 @@ test('категории: заголовки колонок, подсказка 
 
 test('обзор: «Зафиксировать план» показывает тост с «Разблокировать»', async ({ page }) => {
   await page.goto('/?vault=open');
-  // в пустом октябре вместо кнопки призыв составить план, поэтому берём сентябрь с данными
-  await page.getByRole('button', { name: 'Предыдущий месяц' }).click();
+  // В пустом месяце вместо кнопки призыв составить план, поэтому идём назад до сентября 2026
+  // (в моках данные только там); приложение открывается на текущем месяце, он со временем уходит.
+  const back = page.getByRole('button', { name: 'Предыдущий месяц' });
+  for (let i = 0; i < 24 && !(await page.getByText('Сентябрь 2026').first().isVisible()); i++) {
+    await back.click();
+  }
   await page.getByRole('button', { name: 'Зафиксировать план' }).click();
   await expect(page.getByText(/План на .+ \d{4} зафиксирован/)).toBeVisible();
   const toast = page.getByRole('button', { name: 'Разблокировать' });

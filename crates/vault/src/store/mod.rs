@@ -138,6 +138,15 @@ impl VaultStore {
         self.dir.save(&file)
     }
 
+    /// Обнуляет счётчик неверных паролей и задержку. Нужен при открытии резервной копии: в её
+    /// `vault.json` остались попытки того хранилища, а копия ни разу не использовалась.
+    pub fn clear_failed_attempts(&self) -> Result<(), VaultError> {
+        let mut file = self.dir.load_for_update()?;
+        file.failed_attempts = 0;
+        file.last_failed_at = None;
+        self.dir.save(&file)
+    }
+
     /// Удаляет `vault.json`: после этого данные не открыть ни паролем, ни recovery-кодом.
     /// Вызывающий отвечает за подтверждение пользователя (`vault_reset`).
     pub fn destroy(&self) -> Result<(), VaultError> {
@@ -207,8 +216,9 @@ fn check_new_password(password: &SecretString) -> Result<(), VaultError> {
     Ok(())
 }
 
-/// UUID v4 из случайных байтов: отдельная зависимость ради одного поля не нужна.
-fn new_vault_id() -> Result<String, VaultError> {
+/// UUID v4 из случайных байтов: отдельная зависимость ради одного поля не нужна. Тем же
+/// идентификатором называют папки дополнительных хранилищ.
+pub fn new_vault_id() -> Result<String, VaultError> {
     let mut bytes = random_array::<16>()?;
     for (idx, mask, tag) in [(6, 0x0f, 0x40), (8, 0x3f, 0x80)] {
         if let Some(b) = bytes.get_mut(idx) {

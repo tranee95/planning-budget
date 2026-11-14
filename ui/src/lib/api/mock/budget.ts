@@ -568,7 +568,8 @@ let settings: SettingsDto = {
   weeksPerMonth: 4,
   autolockMinutes: 15,
   lockOnMinimize: false,
-  backupAutoDaily: false
+  backupAuto: true,
+  backupIntervalDays: 1
 };
 
 function yearSummary(year: number): YearSummaryDto {
@@ -987,10 +988,48 @@ export const budgetHandlers = {
     mockIncomeList(args.query, args.requestId, { transactions, incomes, categories, tags }),
 
   tags_list: () => tags,
+  tags_usage: () =>
+    tags.map((t) => ({
+      ...t,
+      uses: transactions.filter((x) => x.tagIds.includes(t.id)).length,
+      refs: savedFilters.filter((f) => f.query.toLowerCase().includes(`#${t.name.toLowerCase()}`))
+        .length
+    })),
   tags_create: (args: { name: string }) => {
     const row: TagDto = { id: nextId++, name: args.name.trim() };
     tags = [...tags, row];
     return row;
+  },
+  tags_rename: (args: { id: number; name: string }) => {
+    const name = args.name.trim();
+    if (name === '') return invalid('errors.tag.name_empty');
+    const norm = (v: string): string => v.toLowerCase().replaceAll('ё', 'е');
+    if (tags.some((t) => t.id !== args.id && norm(t.name) === norm(name))) {
+      return conflict('errors.tag.name_taken');
+    }
+    const found = tags.find((t) => t.id === args.id);
+    if (!found) return notFound('tag', args.id);
+    const renamed: TagDto = { ...found, name };
+    tags = tags.map((t) => (t.id === args.id ? renamed : t));
+    const old = `#${found.name.toLowerCase()}`;
+    savedFilters = savedFilters.map((f) => ({
+      ...f,
+      query: f.query
+        .split(' ')
+        .map((tok) => (tok.toLowerCase() === old ? `#${name}` : tok))
+        .join(' ')
+    }));
+    return renamed;
+  },
+  tags_delete: (args: { id: number }) => {
+    if (!tags.some((t) => t.id === args.id)) return notFound('tag', args.id);
+    const uses = transactions.filter((t) => t.tagIds.includes(args.id)).length;
+    tags = tags.filter((t) => t.id !== args.id);
+    transactions = transactions.map((t) => ({
+      ...t,
+      tagIds: t.tagIds.filter((id) => id !== args.id)
+    }));
+    return uses;
   },
   tx_tags_set: (args: { id: number; tagIds: number[] }) => {
     if (!transactions.some((t) => t.id === args.id)) return notFound('transaction', args.id);

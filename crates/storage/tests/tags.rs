@@ -7,7 +7,7 @@
 
 use chrono::{DateTime, TimeZone, Utc};
 use planning_budget_core::{Money, TagId, TxStatus, YearMonth};
-use planning_budget_storage::{Db, NewTransaction, RecordSource, StorageError};
+use planning_budget_storage::{Db, FilterScreen, NewTransaction, RecordSource, StorageError};
 use tempfile::TempDir;
 
 const KEY: [u8; 32] = [6; 32];
@@ -139,4 +139,94 @@ fn tx_tag_names_cover_the_period_and_skip_deleted_transactions() {
 
     assert_eq!(names.len(), 1);
     assert_eq!(names[&in_range], ["море", "Работа"]);
+}
+
+#[test]
+fn usage_counts_live_transactions_and_stored_queries_per_tag() {
+    let (_dir, mut db) = seeded();
+    let trip = db.tag_create("поездка").unwrap();
+    let gift = db.tag_create("подарок").unwrap();
+    let unused = db.tag_create("пусто").unwrap();
+    let a = spend(&mut db, "2026-09", "билеты");
+    let b = spend(&mut db, "2026-10", "отель");
+    let c = spend(&mut db, "2026-10", "сувенир");
+    db.transaction_tags_set(a, &[trip.id]).unwrap();
+    db.transaction_tags_set(b, &[trip.id, gift.id]).unwrap();
+    db.transaction_tags_set(c, &[gift.id]).unwrap();
+    db.transaction_delete(c, now()).unwrap();
+    db.saved_filter_save("отпуск", "#поездка кат:еда", FilterScreen::Expenses, now())
+        .unwrap();
+
+    let usage = db.tags_usage().unwrap();
+    let by_name = |n: &str| usage.iter().find(|u| u.tag.name == n).unwrap();
+
+    assert_eq!((by_name("поездка").uses, by_name("поездка").refs), (2, 1));
+    assert_eq!(
+        (by_name("подарок").uses, by_name("подарок").refs),
+        (1, 0),
+        "a deleted transaction is not counted"
+    );
+    assert_eq!(by_name("пусто").tag.id, unused.id);
+    assert_eq!((by_name("пусто").uses, by_name("пусто").refs), (0, 0));
+}
+
+#[test]
+fn rename_rewrites_saved_filters_and_chart_filters() {
+    let (_dir, mut db) = seeded();
+    let tag = db.tag_create("поездка").unwrap();
+    db.saved_filter_save(
+        "отпуск",
+        "кат:еда  -#Поездка #поездка",
+        FilterScreen::Expenses,
+        now(),
+    )
+    .unwrap();
+    db.saved_filter_save("прочее", "кат:еда", FilterScreen::Expenses, now())
+        .unwrap();
+    let dashboard = db.dashboards().unwrap().first().unwrap().id;
+    let mut spec = planning_budget_core::analytics::standard_dashboard()
+        .first()
+        .unwrap()
+        .spec
+        .clone();
+    spec.filter = "#поездка".to_owned();
+    let card = db.chart_create(dashboard, &spec, 6, 4, now()).unwrap();
+
+    db.tag_rename(tag.id, "Дача и сад").unwrap();
+
+    let filters = db.saved_filters().unwrap();
+    let queries: Vec<&str> = filters.iter().map(|f| f.query.as_str()).collect();
+    assert!(queries.contains(&"кат:еда  -#\"Дача и сад\" #\"Дача и сад\""));
+    assert!(
+        queries.contains(&"кат:еда"),
+        "unrelated filters are untouched"
+    );
+    let card_after = db
+        .charts(dashboard)
+        .unwrap()
+        .into_iter()
+        .find(|c| c.id == card.id)
+        .unwrap();
+    assert_eq!(card_after.spec.filter, "#\"Дача и сад\"");
+    assert_eq!(db.tags_usage().unwrap().first().unwrap().refs, 2);
+}
+
+#[test]
+fn rename_to_a_taken_name_changes_nothing() {
+    let (_dir, mut db) = seeded();
+    let a = db.tag_create("поездка").unwrap();
+    db.tag_create("дача").unwrap();
+    db.saved_filter_save("отпуск", "#поездка", FilterScreen::Expenses, now())
+        .unwrap();
+
+    assert!(matches!(
+        db.tag_rename(a.id, "ДАЧА"),
+        Err(StorageError::Conflict(_))
+    ));
+
+    assert_eq!(
+        db.saved_filters().unwrap().first().unwrap().query,
+        "#поездка"
+    );
+    assert_eq!(db.tags().unwrap().first().unwrap().name, "дача");
 }

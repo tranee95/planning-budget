@@ -13,7 +13,10 @@ pub struct SettingsDto {
     pub weeks_per_month: u8,
     pub autolock_minutes: u16,
     pub lock_on_minimize: bool,
-    pub backup_auto_daily: bool,
+    /// Автокопии включены (ключ `backup.auto_daily`: имя осталось с тех пор, когда расписание было одно).
+    pub backup_auto: bool,
+    /// Не чаще чем раз в столько календарных дней, 1–90.
+    pub backup_interval_days: u8,
 }
 
 #[derive(Debug, Default, Deserialize, Type)]
@@ -25,5 +28,6 @@ pub struct SettingsPatchDto {
     pub weeks_per_month: Option<u8>,
     pub autolock_minutes: Option<u16>,
     pub lock_on_minimize: Option<bool>,
-    pub backup_auto_daily: Option<bool>,
+    pub backup_auto: Option<bool>,
+    pub backup_interval_days: Option<u8>,
 }

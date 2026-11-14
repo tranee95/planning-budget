@@ -63,7 +63,12 @@ export const transactionsApi = {
 
 export const tagsApi = {
   list: () => call(commands.tagsList()),
-  create: (name: string) => call(commands.tagsCreate(name))
+  /** Теги с числом трат и ссылками из сохранённых запросов (раздел «Теги» в настройках). */
+  usage: () => call(commands.tagsUsage()),
+  create: (name: string) => call(commands.tagsCreate(name)),
+  rename: (id: number, name: string) => call(commands.tagsRename(id, name)),
+  /** Удаляет тег; возвращает, у скольких трат он стоял. */
+  remove: (id: number) => call(commands.tagsDelete(id))
 };
 
 export const incomesApi = {

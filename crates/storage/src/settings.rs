@@ -18,7 +18,7 @@ enum Shape {
 }
 
 /// Все известные ключи: незнакомый ключ записать нельзя.
-const KEYS: [(&str, Shape); 9] = [
+const KEYS: [(&str, Shape); 10] = [
     ("savings.target_min_bp", Shape::BasisPoints),
     ("savings.target_norm_bp", Shape::BasisPoints),
     ("savings.target_max_bp", Shape::BasisPoints),
@@ -29,6 +29,7 @@ const KEYS: [(&str, Shape); 9] = [
     ),
     ("security.lock_on_minimize", Shape::Bool),
     ("backup.auto_daily", Shape::Bool),
+    ("backup.interval_days", Shape::Int { min: 1, max: 90 }),
     ("currency", Shape::Text),
     ("locale", Shape::Text),
 ];

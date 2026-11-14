@@ -573,3 +573,19 @@ fn finishing_with_a_fresh_code_makes_the_new_code_work_and_the_old_one_not() {
     let dek = store.unlock(&pw(PASSWORD), t0()).unwrap();
     assert_eq!(dek.as_bytes(), plan.new_dek.as_bytes());
 }
+
+#[test]
+fn clearing_attempts_lifts_the_backoff_without_a_password() {
+    let (_dir, store, created) = new_vault();
+    for _ in 0..4 {
+        let _ = store.unlock(&pw("wrong password!"), t0());
+    }
+    assert!(matches!(
+        store.unlock(&pw(PASSWORD), t0()),
+        Err(VaultError::Backoff { .. })
+    ));
+    store.clear_failed_attempts().unwrap();
+    assert_eq!(store.status(t0()).unwrap().retry_after_secs, 0);
+    let dek = store.unlock(&pw(PASSWORD), t0()).unwrap();
+    assert_eq!(dek.as_bytes(), created.dek.as_bytes());
+}

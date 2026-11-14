@@ -36,12 +36,39 @@ where
 #[derive(Debug, Clone)]
 pub struct AppPaths {
     data_dir: PathBuf,
+    /// Папка активного хранилища (`vault.json`, `budget.db`): основное лежит в `data_dir`,
+    /// остальные в `data_dir/vaults/<id>`.
+    active_dir: Arc<RwLock<PathBuf>>,
 }
 
 impl AppPaths {
     #[must_use]
     pub fn new(data_dir: PathBuf) -> Self {
-        Self { data_dir }
+        Self {
+            active_dir: Arc::new(RwLock::new(data_dir.clone())),
+            data_dir,
+        }
+    }
+
+    #[must_use]
+    pub fn active_dir(&self) -> PathBuf {
+        self.active_dir.read_unpoisoned().clone()
+    }
+
+    fn set_active_dir(&self, dir: PathBuf) {
+        *self.active_dir.write_unpoisoned() = dir;
+    }
+
+    /// Реестр хранилищ и каталог резервных копий (`workspace.json`).
+    #[must_use]
+    pub fn workspace(&self) -> PathBuf {
+        self.data_dir.join("workspace.json")
+    }
+
+    /// Каталог резервных копий по умолчанию.
+    #[must_use]
+    pub fn default_backup_dir(&self) -> PathBuf {
+        self.data_dir.join("backups")
     }
 
     #[must_use]
@@ -51,13 +78,14 @@ impl AppPaths {
 
     #[must_use]
     pub fn db(&self) -> PathBuf {
-        self.data_dir.join("budget.db")
+        self.active_dir().join("budget.db")
     }
 
-    /// `budget.db`, WAL и shared-memory файл: удаляются вместе (`vault_reset`).
+    /// `budget.db`, WAL и shared-memory файл активного хранилища: удаляются вместе (`vault_reset`).
     #[must_use]
     pub fn db_files(&self) -> [PathBuf; 3] {
-        ["budget.db", "budget.db-wal", "budget.db-shm"].map(|name| self.data_dir.join(name))
+        let dir = self.active_dir();
+        ["budget.db", "budget.db-wal", "budget.db-shm"].map(|name| dir.join(name))
     }
 
     /// Настройки оболочки, нужные до разблокировки.
@@ -129,6 +157,20 @@ impl AppState {
             recovery_save_allowed: AtomicBool::new(false),
             legacy_dir: Mutex::new(None),
             migration_failed: AtomicBool::new(false),
+        }
+    }
+
+    /// Переключает активное хранилище: закрывает сессию, меняет папку и сейф. Сообщить окну
+    /// о блокировке должен вызывающий (`events::notify_locked`).
+    pub fn activate(&self, dir: PathBuf) {
+        let mut vault = self.vault.lock_unpoisoned();
+        self.lock();
+        self.paths.set_active_dir(dir.clone());
+        *vault = VaultStore::new(dir);
+        // Копия порога автоблокировки принадлежит прежнему хранилищу: экран входа не должен
+        // показывать чужую настройку. Новая запишется при входе (`apply_security`).
+        if let Err(err) = crate::prefs::set_autolock_minutes(&self.paths.prefs(), None) {
+            tracing::warn!(?err, "autolock mirror not cleared");
         }
     }
 

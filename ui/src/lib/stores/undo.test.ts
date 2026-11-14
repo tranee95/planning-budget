@@ -71,3 +71,22 @@ it('undo(запись), которой нет в стеке, ничего не �
   await undoStack.undo(a);
   expect(a.undo).not.toHaveBeenCalled();
 });
+
+it('forgetTag убирает записи, ссылающиеся на удалённый тег, и из отмены, и из повтора', async () => {
+  const withTag = { ...entry('теги'), tags: [1, 2] };
+  const other = { ...entry('другой тег'), tags: [3] };
+  const plain = entry('без тегов');
+  undoStack.record(plain);
+  undoStack.record(other);
+  undoStack.record(withTag);
+  await undoStack.undo(withTag);
+  expect(undoStack.canRedo).toBe(true);
+
+  undoStack.forgetTag(2);
+
+  expect(undoStack.canRedo).toBe(false);
+  expect(undoStack.depth).toBe(2);
+  await undoStack.undo();
+  expect(other.undo).toHaveBeenCalledOnce();
+  expect(withTag.undo).toHaveBeenCalledOnce();
+});

@@ -1,6 +1,7 @@
 //! Категории, лимиты, проценты плана сбережений, теги. Деньги — копейки в `number` (< 2^53).
 
 use planning_budget_core::{Category, CategoryKind, Tag};
+use planning_budget_storage::TagUsage;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -106,6 +107,30 @@ impl From<&Tag> for TagDto {
         Self {
             id: t.id.0,
             name: t.name.clone(),
+        }
+    }
+}
+
+/// Тег с числом трат и ссылками из сохранённых запросов (раздел «Теги» в настройках).
+#[derive(Debug, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct TagUsageDto {
+    #[specta(type = specta_typescript::Number)]
+    pub id: i64,
+    pub name: String,
+    /// Сколько трат с этим тегом (удалённые не считаются).
+    pub uses: u32,
+    /// Сколько сохранённых фильтров и карточек графиков называют тег в запросе (`#имя`).
+    pub refs: u32,
+}
+
+impl From<&TagUsage> for TagUsageDto {
+    fn from(u: &TagUsage) -> Self {
+        Self {
+            id: u.tag.id.0,
+            name: u.tag.name.clone(),
+            uses: u.uses,
+            refs: u.refs,
         }
     }
 }

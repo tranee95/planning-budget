@@ -80,6 +80,10 @@
         ondelete={(id: number) => {
           void vm.deleteOne(id);
         }}
+        menuTarget={vm.menu?.id === row.id}
+        onmenu={(id: number, point: { x: number; y: number }) => {
+          vm.openMenu(id, point.x, point.y);
+        }}
       />
     {/each}
     {#if vm.addingTo === block.category.id}

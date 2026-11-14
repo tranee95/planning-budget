@@ -6,6 +6,8 @@ export interface UndoEntry {
   label: string;
   undo: () => Promise<void> | void;
   redo: () => Promise<void> | void;
+  /** Теги, на которые ссылается запись: удалённый тег вычёркивает её из стека. */
+  tags?: readonly number[];
 }
 
 const MAX_DEPTH = 50;
@@ -44,6 +46,13 @@ class UndoStack {
     this.#undone = this.#undone.slice(0, -1);
     this.#done = [...this.#done, entry];
     toasts.push({ message: `Повторено: ${entry.label}` });
+  }
+
+  /** Убирает записи, которые ссылаются на удалённый тег: их отмена и повтор упали бы на несуществующем теге. */
+  forgetTag(id: number): void {
+    const keep = (e: UndoEntry): boolean => !e.tags?.includes(id);
+    this.#done = this.#done.filter(keep);
+    this.#undone = this.#undone.filter(keep);
   }
 
   clear(): void {

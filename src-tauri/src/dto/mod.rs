@@ -2,6 +2,7 @@
 //! Модуль на предметную область; снаружи всё доступно как `crate::dto::<Тип>`.
 
 mod analytics;
+mod backup;
 mod categories;
 mod client_log;
 mod common;
@@ -18,6 +19,7 @@ mod updates;
 mod vault;
 
 pub use analytics::*;
+pub use backup::*;
 pub use categories::*;
 pub use client_log::*;
 pub use common::*;

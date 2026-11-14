@@ -15,6 +15,7 @@ mod services;
 mod state;
 mod sync;
 mod window;
+mod workspace;
 
 use tauri::Manager as _;
 
@@ -83,6 +84,7 @@ pub fn run() -> tauri::Result<()> {
                 data_migration::LEGACY_IDENTIFIER
                     .and_then(|id| data_migration::legacy_dir(state.paths().data_dir(), id)),
             );
+            services::vaults::activate_saved(&state);
             services::vault::run_migration(&state);
             idle::spawn_watcher(app.handle().clone())?;
             window::init(app.handle());

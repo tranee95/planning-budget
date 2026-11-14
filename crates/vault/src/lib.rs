@@ -9,4 +9,6 @@ mod store;
 pub use crypto::{Dek, KdfParams, calibrate};
 pub use error::VaultError;
 pub use recovery::RecoveryCode;
-pub use store::{Created, MIN_PASSWORD_CHARS, RekeyPlan, VaultStatus, VaultStore, backoff_secs};
+pub use store::{
+    Created, MIN_PASSWORD_CHARS, RekeyPlan, VaultStatus, VaultStore, backoff_secs, new_vault_id,
+};

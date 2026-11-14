@@ -9,8 +9,8 @@ use planning_budget_storage::{
 use super::{parse_date, parse_month};
 use crate::AppError;
 use crate::dto::{
-    IncomeDto, IncomeInput, IncomePatchDto, IncomeUpdateResultDto, TagDto, TransactionDto,
-    TransactionInput, TransactionPatchDto, TxStatusDto, TxUpdateResultDto,
+    IncomeDto, IncomeInput, IncomePatchDto, IncomeUpdateResultDto, TagDto, TagUsageDto,
+    TransactionDto, TransactionInput, TransactionPatchDto, TxStatusDto, TxUpdateResultDto,
 };
 
 fn tx_error(id: TxId) -> impl Fn(StorageError) -> AppError {
@@ -210,9 +210,34 @@ pub fn tags_list(db: &Db) -> Result<Vec<TagDto>, AppError> {
     Ok(db.tags()?.iter().map(TagDto::from).collect())
 }
 
+/// Теги с числом трат и ссылками из сохранённых запросов: только для раздела «Теги» в настройках.
+pub fn tags_usage(db: &Db) -> Result<Vec<TagUsageDto>, AppError> {
+    Ok(db.tags_usage()?.iter().map(TagUsageDto::from).collect())
+}
+
 pub fn tag_create(db: &mut Db, name: &str) -> Result<TagDto, AppError> {
     let tag = db.tag_create(name)?;
     Ok((&tag).into())
+}
+
+/// Переименовывает тег и переписывает `#имя` в сохранённых фильтрах и графиках.
+pub fn tag_rename(db: &mut Db, id: TagId, name: &str) -> Result<TagDto, AppError> {
+    let tag = db
+        .tag_rename(id, name)
+        .map_err(|e| AppError::from_storage(e, "tag", id.0))?;
+    Ok((&tag).into())
+}
+
+/// Удаляет тег и снимает его со всех трат; возвращает, у скольких трат он стоял.
+pub fn tag_delete(db: &mut Db, id: TagId) -> Result<u32, AppError> {
+    let uses = db
+        .tags_usage()?
+        .iter()
+        .find(|u| u.tag.id == id)
+        .map_or(0, |u| u.uses);
+    db.tag_delete(id)
+        .map_err(|e| AppError::from_storage(e, "tag", id.0))?;
+    Ok(uses)
 }
 
 /// Месяцы, затронутые правкой: до и после (если запись перенесли в другой месяц).

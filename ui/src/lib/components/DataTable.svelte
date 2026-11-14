@@ -15,6 +15,10 @@
     selected?: ReadonlySet<number | string>;
     onselect?: (key: number | string) => void;
     onopen?: (row: Row) => void;
+    /** Правый клик по строке (не по полю ввода): меню строки открывает вызывающий. */
+    oncontext?: (row: Row, point: { x: number; y: number }) => void;
+    /** Ключ строки, для которой открыто меню: строка обводится. */
+    marked?: number | string | null;
     empty?: Snippet;
   };
 
@@ -30,6 +34,8 @@
     selected,
     onselect,
     onopen,
+    oncontext,
+    marked = null,
     empty
   }: Props = $props();
 
@@ -86,6 +92,14 @@
     }
     const row = rows[activeIndex];
     if (!row) return;
+    if (oncontext && (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey))) {
+      event.preventDefault();
+      const box = document
+        .getElementById(`${uid}-row-${String(activeIndex)}`)
+        ?.getBoundingClientRect();
+      if (box) oncontext(row, { x: box.left + 24, y: box.bottom });
+      return;
+    }
     if (event.key === ' ' && onselect) {
       event.preventDefault();
       onselect(rowKey(row));
@@ -157,6 +171,7 @@
         {#each slice as row, i (rowKey(row))}
           {@const index = range.start + i}
           {@const key = rowKey(row)}
+          <!-- svelte-ignore a11y_interactive_supports_focus -->
           <div
             id="{uid}-row-{index}"
             class="row"
@@ -165,9 +180,19 @@
             aria-selected={selected ? selected.has(key) : undefined}
             class:active={index === activeIndex}
             class:selected={selected?.has(key)}
+            class:marked={marked !== null && marked === key}
             style:grid-template-columns={template}
             style:height="{rowHeight}px"
             style:transform="translateY({index * rowHeight}px)"
+            oncontextmenu={(event) => {
+              if (
+                !oncontext ||
+                (event.target instanceof Element && event.target.closest('input, textarea'))
+              )
+                return;
+              event.preventDefault();
+              oncontext(row, { x: event.clientX, y: event.clientY });
+            }}
           >
             {#each columns as column (column.id)}
               <div class="td" role="gridcell" class:end={column.align === 'end'}>
@@ -240,6 +265,9 @@
     inset-inline: 0;
     border-bottom: 1px solid var(--line-2);
     font-size: var(--fs-14);
+  }
+  .row.marked {
+    box-shadow: inset 0 0 0 1px var(--primary);
   }
   .row.selected {
     background: var(--accent-soft);

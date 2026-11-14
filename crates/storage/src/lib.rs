@@ -35,6 +35,7 @@ pub use search::{CategoryHit, Group, IncomeHit, MonthHit, SearchResult, Transact
 pub use search_list::{IncomeList, LIST_LIMIT, TransactionList};
 pub use seed::{DefaultCategory, default_categories};
 pub use suggest::TitleSuggestion;
+pub use tags::TagUsage;
 pub use transactions::{NewTransaction, TransactionPatch, TransactionRecord, TransactionUpdate};
 
 use std::path::Path;
@@ -203,6 +204,43 @@ impl Db {
         // Возврат в WAL — удобство, а не условие успеха: следующее открытие включит его само.
         let _ = self.conn.pragma_update(None, "journal_mode", "WAL");
         Ok(())
+    }
+
+    /// Переносит весь WAL в файл базы: после этого `budget.db` можно копировать как есть
+    ///. Вызывающий держит соединение, пока копирует.
+    ///
+    /// # Errors
+    /// `Invalid("backup.wal_busy")`, если часть кадров осталась в WAL; ошибка SQLite.
+    pub fn checkpoint(&self) -> Result<(), StorageError> {
+        // Как в `rekey`: во второй раз за сессию TRUNCATE может ответить «table is locked».
+        if self
+            .conn
+            .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_| Ok(()))
+            .is_err()
+        {
+            let busy: i64 = self
+                .conn
+                .query_row("PRAGMA wal_checkpoint(PASSIVE)", [], |r| r.get(0))?;
+            if busy != 0 {
+                return Err(StorageError::Invalid("backup.wal_busy"));
+            }
+        }
+        Ok(())
+    }
+
+    /// `PRAGMA integrity_check`: проверка открытой базы, например скопированной из резервной копии.
+    ///
+    /// # Errors
+    /// `Corrupt`, если проверка нашла повреждения; ошибка SQLite.
+    pub fn integrity_check(&self) -> Result<(), StorageError> {
+        let verdict: String = self
+            .conn
+            .query_row("PRAGMA integrity_check", [], |r| r.get(0))?;
+        if verdict == "ok" {
+            Ok(())
+        } else {
+            Err(StorageError::Corrupt)
+        }
     }
 
     /// JSON-значение настройки или `None`, если ключа нет.

@@ -237,6 +237,63 @@ fn push_text(q: &mut ParsedQuery, tok: &[char], range: Range<usize>) {
     });
 }
 
+/// Токены запроса вида `#имя` и `-#имя`, где имя — тег `name` целиком (без учёта регистра и `ё`):
+/// диапазон токена в символах и признак отрицания. Начало имени (`#под`) сюда не входит.
+fn tag_tokens(chars: &[char], name: &str) -> Vec<(Range<usize>, bool)> {
+    let wanted = normalize(name);
+    tokenize(chars)
+        .into_iter()
+        .filter_map(|range| {
+            let tok = chars.get(range.clone())?;
+            let (negated, body) = match tok {
+                ['-', rest @ ..] if !rest.is_empty() => (true, rest),
+                _ => (false, tok),
+            };
+            let ['#', raw @ ..] = body else { return None };
+            (normalize(&unquote(raw)) == wanted).then_some((range, negated))
+        })
+        .collect()
+}
+
+/// Есть ли в строке запроса условие по тегу `name` (`#имя` или `-#имя`).
+#[must_use]
+pub fn mentions_tag(query: &str, name: &str) -> bool {
+    let chars: Vec<char> = query.chars().collect();
+    !tag_tokens(&chars, name).is_empty()
+}
+
+/// Строка запроса после переименования тега `from` в `to`; `None`, если запрос тег не упоминает
+/// или новое имя нельзя записать токеном (содержит кавычку). Остальные токены не меняются.
+#[must_use]
+pub fn rename_tag_in_query(query: &str, from: &str, to: &str) -> Option<String> {
+    if to.contains('"') {
+        return None;
+    }
+    let chars: Vec<char> = query.chars().collect();
+    let found = tag_tokens(&chars, from);
+    if found.is_empty() {
+        return None;
+    }
+    let quoted = if to.chars().any(char::is_whitespace) {
+        format!("\"{to}\"")
+    } else {
+        to.to_owned()
+    };
+    let mut out = String::new();
+    let mut at = 0;
+    for (range, negated) in found {
+        out.extend(chars.get(at..range.start)?);
+        if negated {
+            out.push('-');
+        }
+        out.push('#');
+        out.push_str(&quoted);
+        at = range.end;
+    }
+    out.extend(chars.get(at..)?);
+    Some(out)
+}
+
 /// Токены разделены пробелами вне кавычек.
 fn tokenize(chars: &[char]) -> Vec<Range<usize>> {
     let mut out = Vec::new();
@@ -648,6 +705,39 @@ mod tests {
     fn yo_equals_ye() {
         let a = p("кат:ёлка тип:займы");
         assert_eq!(a.filter.categories, [CategoryRef("елка".into())]);
+    }
+
+    #[test]
+    fn mentions_tag_matches_whole_names_only() {
+        assert!(mentions_tag("кат:еда #Подарки", "подарки"));
+        assert!(mentions_tag("-#ёлка", "Елка"));
+        assert!(mentions_tag("#\"две слова\"", "Две  слова"));
+        assert!(
+            !mentions_tag("#подар", "подарки"),
+            "a prefix is not the tag"
+        );
+        assert!(
+            !mentions_tag("подарки", "подарки"),
+            "plain text is not a tag token"
+        );
+        assert!(!mentions_tag("кат:#подарки", "подарки"));
+    }
+
+    #[test]
+    fn rename_tag_rewrites_only_matching_tokens() {
+        assert_eq!(
+            rename_tag_in_query("кат:еда  #Подарки -#работа", "подарки", "Праздники").as_deref(),
+            Some("кат:еда  #Праздники -#работа")
+        );
+        assert_eq!(
+            rename_tag_in_query("-#подарки #подарки", "Подарки", "в отпуск").as_deref(),
+            Some("-#\"в отпуск\" #\"в отпуск\"")
+        );
+        assert_eq!(rename_tag_in_query("кат:еда", "подарки", "x"), None);
+        assert_eq!(rename_tag_in_query("#подарки", "подарки", "a\"b"), None);
+        // Переписанный запрос читается как тот же фильтр с новым именем.
+        let q = p(&rename_tag_in_query("#подарки", "подарки", "в отпуск").unwrap());
+        assert_eq!(q.filter.tags, ["в отпуск"]);
     }
 
     #[test]

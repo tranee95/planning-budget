@@ -6,6 +6,7 @@
   import { page } from '$app/state';
   import {
     Button,
+    ContextMenu,
     EmptyState,
     FilterBar,
     FormulaHint,
@@ -21,10 +22,16 @@
   import CategoryCard from './_components/CategoryCard.svelte';
   import QuickAdd from './_components/QuickAdd.svelte';
   import ExpensesTable from './_components/ExpensesTable.svelte';
+  import TagPicker from './_components/TagPicker.svelte';
   import { ExpensesVm, setExpensesVm } from './expenses.svelte';
 
   const vm = new ExpensesVm();
   setExpensesVm(vm);
+  // Строка под меню исчезла (обновление данных, другой месяц или фильтр): меню закрывается.
+  $effect(() => {
+    if (vm.menu && vm.menuItems.length === 0) vm.closeMenu();
+  });
+  const tagEditRow = $derived(vm.transactions.find((t) => t.id === vm.tagEditId));
 
   const MODES = [
     { value: 'blocks', label: 'Блоки' },
@@ -185,6 +192,33 @@
 
 {#if vm.editorOpen}
   <QuickAdd />
+{/if}
+
+{#if vm.menu}
+  <ContextMenu
+    label="Действия с тратой"
+    items={vm.menuItems}
+    x={vm.menu.x}
+    y={vm.menu.y}
+    onselect={(id: string) => {
+      vm.runMenu(id);
+    }}
+    onclose={() => {
+      vm.closeMenu();
+    }}
+  />
+{/if}
+
+{#if tagEditRow}
+  <TagPicker
+    row={tagEditRow}
+    onsave={(ids: number[]) => {
+      void vm.setTags(tagEditRow.id, ids);
+    }}
+    onclose={() => {
+      vm.tagEditId = null;
+    }}
+  />
 {/if}
 
 <style>

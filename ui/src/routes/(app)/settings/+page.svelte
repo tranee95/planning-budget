@@ -5,7 +5,10 @@
   import AppearanceForm from './_components/AppearanceForm.svelte';
   import SavingsForm from './_components/SavingsForm.svelte';
   import RekeyForm from './_components/RekeyForm.svelte';
+  import VaultsForm from './_components/VaultsForm.svelte';
+  import BackupForm from './_components/BackupForm.svelte';
   import LockForm from './_components/LockForm.svelte';
+  import TagsForm from './_components/TagsForm.svelte';
   import { SettingsVm } from './settings.svelte';
 
   const vm = new SettingsVm();
@@ -13,7 +16,10 @@
   const SECTIONS = [
     { id: 'appearance-title', label: 'Вид' },
     { id: 'savings-title', label: 'Сбережения' },
+    { id: 'tags-title', label: 'Теги' },
     { id: 'security-title', label: 'Безопасность' },
+    { id: 'vaults-title', label: 'Хранилища' },
+    { id: 'backup-title', label: 'Резервные копии' },
     { id: 'danger-title', label: 'Опасные действия' }
   ] as const;
 
@@ -80,6 +86,11 @@
       <SavingsForm />
     </section>
 
+    <section class="card" aria-labelledby="tags-title">
+      <h2 id="tags-title">Теги</h2>
+      <TagsForm />
+    </section>
+
     <section class="card" aria-labelledby="security-title">
       <h2 id="security-title">Безопасность</h2>
       <p class="muted">
@@ -88,6 +99,16 @@
       </p>
       <LockForm />
       <ChangePasswordForm {vm} />
+    </section>
+
+    <section class="card" aria-labelledby="vaults-title">
+      <h2 id="vaults-title">Хранилища</h2>
+      <VaultsForm />
+    </section>
+
+    <section class="card" aria-labelledby="backup-title">
+      <h2 id="backup-title">Резервные копии</h2>
+      <BackupForm />
     </section>
 
     <section class="card danger" aria-labelledby="danger-title">

@@ -11,7 +11,6 @@
   import { tags } from '$lib/stores/tags.svelte';
   import { getExpensesVm, type SortColumn } from '../expenses.svelte';
   import InlineEdit from '$lib/components/amount-rows/InlineEdit.svelte';
-  import TagPicker from './TagPicker.svelte';
 
   const vm = getExpensesVm();
 
@@ -37,7 +36,6 @@
       .map((id) => tags.byId.get(id)?.name ?? '')
       .filter((n) => n !== '')
       .join(', ');
-  const tagEditRow = $derived(vm.transactions.find((t) => t.id === vm.tagEditId));
 
   const categoryNames = $derived(new Map(categories.items.map((c) => [c.id, c.name])));
   const categoryOptions = $derived([
@@ -133,6 +131,10 @@
       onopen={(row: TransactionDto) => {
         vm.startEdit(row.id);
       }}
+      marked={vm.menu?.id ?? null}
+      oncontext={(row: TransactionDto, point: { x: number; y: number }) => {
+        vm.openMenu(row.id, point.x, point.y);
+      }}
     >
       {#snippet cell(row: TransactionDto, column: Column)}
         {#if column.id === 'check'}
@@ -217,18 +219,6 @@
     </DataTable>
   </div>
 </div>
-
-{#if tagEditRow}
-  <TagPicker
-    row={tagEditRow}
-    onsave={(ids: number[]) => {
-      void vm.setTags(tagEditRow.id, ids);
-    }}
-    onclose={() => {
-      vm.tagEditId = null;
-    }}
-  />
-{/if}
 
 <style>
   .wrap {

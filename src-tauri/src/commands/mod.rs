@@ -5,6 +5,7 @@
 
 pub mod analytics;
 pub mod app;
+pub mod backup;
 pub mod categories;
 pub mod client_log;
 pub mod debts;
@@ -21,3 +22,4 @@ pub mod summary;
 pub mod transactions;
 pub mod updates;
 pub mod vault;
+pub mod vaults;

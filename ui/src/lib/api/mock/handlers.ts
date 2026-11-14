@@ -86,6 +86,41 @@ function checkPassword(password: string): Promise<null> {
   return Promise.resolve(null);
 }
 
+// Хранилища и резервные копии: простое состояние в памяти (Rust-логика проверена его тестами).
+const mockVaults: { id: string; label: string; exists: boolean }[] = [
+  { id: 'main', label: 'Основное', exists: true }
+];
+let mockActiveVault = 'main';
+let mockBackupDir: string | null = null;
+const mockBackups: { fileName: string; createdAt: string; sizeBytes: number }[] = [
+  {
+    fileName: 'main-20261112-093000.budgetbak',
+    createdAt: '2026-11-12T09:30:00Z',
+    sizeBytes: 983_040
+  },
+  {
+    fileName: 'main-20261111-081500.budgetbak',
+    createdAt: '2026-11-11T08:15:00Z',
+    sizeBytes: 978_944
+  }
+];
+
+function importMockBackup(password: string, label: string): Promise<null> {
+  if (password === MOCK_PASSWORD_REJECTED) {
+    return reject({ code: 'WrongPassword', retryAfterMs: 0 });
+  }
+  const name = label.trim();
+  if (name === '') {
+    return reject({ code: 'Validation', messageKey: 'errors.label_invalid', field: 'label' });
+  }
+  const id = `v${String(mockVaults.length)}`;
+  mockVaults.push({ id, label: name, exists: true });
+  mockActiveVault = id;
+  vault.locked = true;
+  vault.exists = true;
+  return Promise.resolve(null);
+}
+
 export const handlers = {
   ...budgetHandlers,
   ...dashboardHandlers,
@@ -160,6 +195,70 @@ export const handlers = {
     return null;
   },
   vault_save_recovery_code: () => ({ saved: true }),
+  vaults_list: () => mockVaults.map((v) => ({ ...v, active: v.id === mockActiveVault })),
+  vaults_add: (args: { label: string }) => {
+    const label = args.label.trim();
+    if (label === '')
+      return reject({ code: 'Validation', messageKey: 'errors.label_invalid', field: 'label' });
+    mockVaults.push({ id: `v${String(mockVaults.length)}`, label, exists: false });
+    mockActiveVault = `v${String(mockVaults.length - 1)}`;
+    vault.locked = true;
+    vault.exists = false;
+    return null;
+  },
+  vaults_switch: (args: { id: string }) => {
+    const target = mockVaults.find((v) => v.id === args.id);
+    if (target === undefined) return reject({ code: 'NotFound', entity: 'vault', id: 0 });
+    mockActiveVault = target.id;
+    vault.locked = true;
+    vault.exists = target.exists;
+    return null;
+  },
+  vaults_rename: (args: { id: string; label: string }) => {
+    const target = mockVaults.find((v) => v.id === args.id && v.id !== 'main');
+    if (target === undefined) return reject({ code: 'NotFound', entity: 'vault', id: 0 });
+    target.label = args.label.trim();
+    return null;
+  },
+  vaults_remove: (args: { id: string }) => {
+    const at = mockVaults.findIndex((v) => v.id === args.id);
+    const target = mockVaults[at];
+    if (target === undefined || target.exists || target.id === mockActiveVault) {
+      return reject({ code: 'Conflict', messageKey: 'errors.vault.remove_denied' });
+    }
+    mockVaults.splice(at, 1);
+    return null;
+  },
+  backup_status: () => ({
+    dir: mockBackupDir ?? 'planning-budget/backups',
+    dirIsDefault: mockBackupDir === null,
+    items: mockBackups.filter((b) => b.fileName.startsWith(`${mockActiveVault}-`))
+  }),
+  backup_create: () => {
+    const now = new Date();
+    const stamp = now.toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
+    const item = {
+      fileName: `${mockActiveVault}-${stamp}.budgetbak`,
+      createdAt: now.toISOString().slice(0, 19) + 'Z',
+      sizeBytes: 1_048_576
+    };
+    mockBackups.unshift(item);
+    mockBackups.splice(7);
+    return item;
+  },
+  backup_pick_dir: () => {
+    mockBackupDir = 'D:/Backups/Budget';
+    return true;
+  },
+  backup_reset_dir: () => {
+    mockBackupDir = null;
+    return null;
+  },
+  backup_import_named: (args: { fileName: string; password: string; label: string }) =>
+    importMockBackup(args.password, args.label),
+  backup_import_pick: (args: { password: string; label: string }) => {
+    return importMockBackup(args.password, args.label).then(() => true);
+  },
   activity_ping: () => null,
   client_error_log: () => null,
 

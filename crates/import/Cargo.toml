@@ -10,6 +10,6 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-calamine = { version = "0.36.1", default-features = false }
+calamine = { version = "0.38.0", default-features = false }
 planning-budget-core.workspace = true
 thiserror = "2.0.21"

@@ -19,6 +19,7 @@ import { toasts } from '$lib/stores/toasts.svelte';
 import { undoStack, type UndoEntry } from '$lib/stores/undo.svelte';
 import { shiftMonth } from '$lib/format';
 import { createDebtFromTransaction } from '../debts/open';
+import { rowMenuItems, statusOfItem } from './row-menu';
 import { sortRows, type SortColumn } from './table-sort';
 
 export type { SortColumn };
@@ -58,6 +59,8 @@ export class ExpensesVm {
   filter = new QueryFilter();
   /** Трата, у которой открыт выбор тегов. */
   tagEditId = $state<number | null>(null);
+  /** Контекстное меню строки: id траты и точка вызова в координатах окна. */
+  menu = $state<{ id: number; x: number; y: number } | null>(null);
   /** Пусто — показаны все статусы. */
   statusFilter = new SvelteSet<TxStatusDto>();
   selected = $state<number | null>(null);
@@ -256,6 +259,38 @@ export class ExpensesVm {
     return found.items;
   }
 
+  openMenu(id: number, x: number, y: number): void {
+    this.menu = { id, x, y };
+  }
+
+  closeMenu(): void {
+    this.menu = null;
+  }
+
+  /** Пункты меню открытой строки; пусто, если строки уже нет в списке. */
+  get menuItems(): ReturnType<typeof rowMenuItems> {
+    const row = this.transactions.find((t) => t.id === this.menu?.id);
+    return row ? rowMenuItems(row, this.checked.has(row.id), this.mode === 'table') : [];
+  }
+
+  /** Выполняет выбранный пункт меню строки. */
+  runMenu(itemId: string): void {
+    const id = this.menu?.id;
+    if (id === undefined) return;
+    const status = statusOfItem(itemId);
+    if (status !== null) {
+      void this.setStatus(id, status);
+    } else if (itemId === 'edit') {
+      this.startEdit(id);
+    } else if (itemId === 'tags') {
+      this.tagEditId = id;
+    } else if (itemId === 'check') {
+      this.toggleChecked(id);
+    } else if (itemId === 'delete') {
+      void this.deleteOne(id);
+    }
+  }
+
   /** Заменяет теги траты и перечитывает строки: колонка «Теги» показывает ответ Rust. */
   async setTags(id: number, tagIds: number[]): Promise<void> {
     const before = this.transactions.find((t) => t.id === id)?.tagIds;
@@ -271,6 +306,7 @@ export class ExpensesVm {
     if (before !== undefined && !sameIds(before, tagIds)) {
       undoStack.record({
         label: 'смена тегов',
+        tags: [...before, ...tagIds],
         undo: () => this.#applyTags(id, before),
         redo: () => this.#applyTags(id, tagIds)
       });

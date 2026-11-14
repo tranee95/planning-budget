@@ -1,6 +1,7 @@
 //! Сервисы: логика команд без Tauri-типов, чтобы тестироваться напрямую.
 
 pub mod analytics;
+pub mod backup;
 pub mod categories;
 #[cfg(test)]
 mod checklist;
@@ -30,6 +31,7 @@ mod summary_tests;
 mod test_support;
 pub mod updates;
 pub mod vault;
+pub mod vaults;
 
 use chrono::{Datelike as _, NaiveDate};
 use planning_budget_core::YearMonth;
